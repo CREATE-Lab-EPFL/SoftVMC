@@ -4,4 +4,4 @@ The kinematics is described according to the Piecewise Constant Curvature (PCC) 
 The goal is to give to the robot suggestions rather than control commands to achieve specified tasks, employing its inherent compliance.
 
 # Notes:
-- Be careful of which ROS2 version is being used
+- Be careful of which ROS2 version is being used for communication with the Dynamixels (humble or jazzy)
