@@ -121,7 +121,7 @@ class DeadzoneLimitSpring:
 # ============================================================================
 
 class LinearDamper:
-    """Linear damper force: F = -D * (v_current - v_target)"""
+    """Linear damper force: F = -D * v_current"""
     
     def __init__(self, damping):
         """
@@ -138,7 +138,7 @@ class LinearDamper:
         Returns:
             F: [Fx, Fy, Fz] damping force (N)
         """
-        return -self.damping * velocity_current
+        return - self.damping * velocity_current
 
 
 class TanhDamper:
