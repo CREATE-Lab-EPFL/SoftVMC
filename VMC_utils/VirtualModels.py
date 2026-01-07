@@ -162,3 +162,179 @@ class TanhDamper:
             F: [Fx, Fy, Fz] damping force (N)
         """
         return -self.max_force * np.tanh(self.damping * velocity_current / self.max_force)
+
+
+# ============================================================================
+# CONSTRAINED SPRINGS (springs on tracks/planes)
+# ============================================================================
+
+class ConstrainedLinearSpring:
+    """
+    Directional linear spring acting only along specified free direction(s).
+
+    You specify which coordinates are considered, and the spring only
+    generates force along that coordinates.
+    """
+
+    def __init__(self, stiffness, cooordinates=[1, 1, 1]):
+        """
+        Args:
+            stiffness: K spring stiffness (N/m)
+            coordinates: list of 3 elements (1 or 0) indicating which
+                         coordinates are active (1) or constrained (0).
+                         E.g. [1, 1, 0] means spring acts only in x,y plane.
+        """
+        self.stiffness = stiffness
+        self.coordinates = np.array(cooordinates)
+
+    def compute_force(self, pos_current, pos_target):
+        """
+        Compute spring force only along specified directions.
+
+        Args:
+            pos_current: [x, y, z] current position (m)
+            pos_target: [x, y, z] target position (m)
+
+        Returns:
+            F: [Fx, Fy, Fz] force vector (N)
+                - Active directions: F_i = k * (target_i - current_i)
+                - Constrained directions: F_i = 0
+        """
+
+        # Compute error in all directions
+        error = pos_target - pos_current
+
+        # Apply coordinate mask
+        error_active = error * self.coordinates
+
+        # Spring force only along active directions
+        force = self.stiffness * error_active
+        return force
+
+
+class ConstrainedTanhSpring:
+    """
+    Directional tanh spring acting only along specified free direction(s).
+
+    You specify which coordinates are considered, and the spring only
+    generates force along those coordinates.
+    """
+
+    def __init__(self, stiffness, max_force, coordinates=[1, 1, 1]):
+        """
+        Args:
+            stiffness: K spring stiffness (N/m)
+            max_force: F_max maximum force magnitude per component (N)
+            coordinates: list of 3 elements (1 or 0) indicating which
+                         coordinates are active (1) or constrained (0).
+                         E.g. [1, 1, 0] means spring acts only in x,y plane.
+        """
+        self.stiffness = stiffness
+        self.max_force = max_force
+        self.coordinates = np.array(coordinates)
+
+    def compute_force(self, pos_current, pos_target):
+        """
+        Compute spring force only along specified directions.
+
+        Args:
+            pos_current: [x, y, z] current position (m)
+            pos_target: [x, y, z] target position (m)
+
+        Returns:
+            F: [Fx, Fy, Fz] force vector (N)
+                - Active directions: F_i = tanh(k * (target_i - current_i))
+                - Constrained directions: F_i = 0
+        """
+
+        # Compute error in all directions
+        error = pos_target - pos_current
+
+        # Apply coordinate mask
+        error_active = error * self.coordinates
+
+        # Spring force only along active directions
+        force = self.max_force * np.tanh(self.stiffness * error_active / self.max_force)
+        return force
+
+
+class ConstrainedLinearDamper:
+    """
+    Directional linear damper acting only along specified free direction(s).
+
+    You specify which coordinates are considered, and the damper only
+    generates force along those coordinates.
+    """
+
+    def __init__(self, damping, coordinates=[1, 1, 1]):
+        """
+        Args:
+            damping: D damping coefficient (N·s/m)
+            coordinates: list of 3 elements (1 or 0) indicating which
+                         coordinates are active (1) or constrained (0).
+                         E.g. [1, 1, 0] means damper acts only in x,y plane.
+        """
+        self.damping = damping
+        self.coordinates = np.array(coordinates)
+
+    def compute_force(self, velocity_current):
+        """
+        Compute damping force only along specified directions.
+
+        Args:
+            velocity_current: [vx, vy, vz] current velocity (m/s)
+
+        Returns:
+            F: [Fx, Fy, Fz] damping force (N)
+                - Active directions: F_i = -D * v_i
+                - Constrained directions: F_i = 0
+        """
+
+        # Apply coordinate mask
+        velocity_active = velocity_current * self.coordinates
+
+        # Damping force only along active directions
+        force = -self.damping * velocity_active
+        return force
+
+
+class ConstrainedTanhDamper:
+    """
+    Directional tanh damper acting only along specified free direction(s).
+
+    You specify which coordinates are considered, and the damper only
+    generates force along those coordinates.
+    """
+
+    def __init__(self, damping, max_force, coordinates=[1, 1, 1]):
+        """
+        Args:
+            damping: D damping coefficient (N·s/m)
+            max_force: F_max maximum damping force per component (N)
+            coordinates: list of 3 elements (1 or 0) indicating which
+                         coordinates are active (1) or constrained (0).
+                         E.g. [1, 1, 0] means damper acts only in x,y plane.
+        """
+        self.damping = damping
+        self.max_force = max_force
+        self.coordinates = np.array(coordinates)
+
+    def compute_force(self, velocity_current):
+        """
+        Compute damping force only along specified directions.
+
+        Args:
+            velocity_current: [vx, vy, vz] current velocity (m/s)
+
+        Returns:
+            F: [Fx, Fy, Fz] damping force (N)
+                - Active directions: F_i = -tanh(D * v_i)
+                - Constrained directions: F_i = 0
+        """
+
+        # Apply coordinate mask
+        velocity_active = velocity_current * self.coordinates
+
+        # Damping force only along active directions
+        force = -self.max_force * np.tanh(self.damping * velocity_active / self.max_force)
+        return force
