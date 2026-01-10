@@ -6,6 +6,7 @@ import numpy as np
 # - VELOCITIES: [m/s]
 # - DAMPING: [N·s/m]
 # - STIFFNESS: [N/m]
+# Speed:                   sudo echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
 
 # ============================================================================
 # SPRINGS (position-based forces)
