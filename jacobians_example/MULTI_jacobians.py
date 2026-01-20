@@ -10,7 +10,7 @@ from sympy import symbols, sqrt, atan2, cos, sin, Matrix, lambdify, simplify, as
 # (assuming it to be rotated properly) the SINGLE_jacobians.py library can be used.
 
 # q2tendon(): from q to DELTAL
-def q2tendon(COUPLING=False):
+def q2tendon():
     """
     Jacobians of tendons ([Dx1 Dy1 Dl1 Dx2 Dy2 Dl2 Dx3 Dy3 Dl3] to [DELTAL1 DELTAL2 DELTAL3]).
     """
