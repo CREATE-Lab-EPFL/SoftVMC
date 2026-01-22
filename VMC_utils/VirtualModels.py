@@ -146,7 +146,7 @@ class ConstrainedTanhSpring:
 
 class GaussianSpring:
     """Gaussian repulsive spring for obstacle avoidance"""
-    
+
     def __init__(self, strength, sigma):
         """
         Args:
@@ -155,13 +155,13 @@ class GaussianSpring:
         """
         self.strength = strength
         self.sigma = sigma
-    
+
     def compute_force(self, pos_current, pos_obstacle):
         """
         Args:
             pos_current: [x, y, z] current position (m)
             pos_obstacle: [x, y, z] obstacle position (m)
-        
+
         Returns:
             F: [Fx, Fy, Fz] repulsive force vector (N)
         """
@@ -176,7 +176,7 @@ class ConstrainedGaussianSpring:
     Directional Gaussian repulsive spring acting only along specified free direction(s).
 
     You specify which coordinates are considered, and the spring only
-    generates force along those coordinates.    
+    generates force along those coordinates.
     """
 
     def __init__(self, strength, sigma, coordinates=[1, 1, 1]):
@@ -239,7 +239,7 @@ class DeadzoneLimitSpring:
         
 
 class SigmoidSpring:
-    """Sigmoid-based spring for smooth stiffness transition."""
+    """Sigmoid-based spring for smooth stiffness transition (per-component)."""
 
     def __init__(self, stiffness1, stiffness2, threshold, alpha=10.0):
         """
@@ -256,19 +256,22 @@ class SigmoidSpring:
 
     def get_stiffness(self, distance):
         """
-        Return the scalar stiffness K(distance).
+        Return the stiffness K(distance) for scalar or vector input.
 
         Args:
-            distance: scalar displacement from target (m)
+            distance: scalar or array of displacements from target (m)
 
         Returns:
-            K: scalar stiffness (N/m)
+            K: scalar or array of stiffness values (N/m)
         """
-        sigmoid = 1.0 / (1.0 + np.exp(-self.alpha * (distance - self.threshold)))
+        distance = np.asarray(distance)
+        sigmoid = 1.0 / (1.0 + np.exp(-self.alpha * (np.abs(distance) - self.threshold)))
         return self.k1 + (self.k2 - self.k1) * sigmoid
 
     def compute_force(self, pos_current, pos_target):
         """
+        Compute force with per-component stiffness.
+
         Args:
             pos_current: [x, y, z] current position (m)
             pos_target: [x, y, z] target position (m)
@@ -277,12 +280,12 @@ class SigmoidSpring:
             F: [Fx, Fy, Fz] force vector (N)
         """
         error = pos_target - pos_current
-        distance = np.linalg.norm(error)
-        return self.get_stiffness(distance) * error
+        stiffness = self.get_stiffness(error)
+        return stiffness * error
     
     
 class PolynomialSpring:
-    """Polynomial stiffness spring for non-linear force response."""
+    """Polynomial stiffness spring for non-linear force response (per-component)."""
 
     def __init__(self, stiffness, order):
         """
@@ -293,8 +296,23 @@ class PolynomialSpring:
         self.stiffness = stiffness
         self.order = order
 
+    def get_stiffness(self, distance):
+        """
+        Return the stiffness K(distance) for scalar or vector input.
+
+        Args:
+            distance: scalar or array of displacements from target (m)
+
+        Returns:
+            K: scalar or array of stiffness values (N/m)
+        """
+        distance = np.asarray(distance)
+        return self.stiffness * (1.0 + np.abs(distance))**self.order
+
     def compute_force(self, pos_current, pos_target):
         """
+        Compute force with per-component stiffness.
+
         Args:
             pos_current: [x, y, z] current position (m)
             pos_target: [x, y, z] target position (m)
@@ -303,9 +321,8 @@ class PolynomialSpring:
             F: [Fx, Fy, Fz] force vector (N)
         """
         error = pos_target - pos_current
-        distance = np.linalg.norm(error)
-        k = self.stiffness * (1.0 + distance)**self.order
-        return k * error
+        stiffness = self.get_stiffness(error)
+        return stiffness * error
 
 
 # ============================================================================
