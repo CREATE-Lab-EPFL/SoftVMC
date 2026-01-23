@@ -225,6 +225,27 @@ class SigmoidSpring:
         self.threshold = threshold
         self.alpha = alpha
         self.element_wise = element_wise
+        self._last_stiffness = None
+
+    def get_stiffness(self, pos_current, pos_target):
+        """
+        Compute the current stiffness based on distance to target.
+
+        Args:
+            pos_current: [x, y, z] current position (m)
+            pos_target: [x, y, z] target position (m)
+
+        Returns:
+            k: stiffness value(s) - scalar or array depending on element_wise
+        """
+        error = pos_target - pos_current
+        if self.element_wise:
+            distance = np.abs(error)
+        else:
+            distance = np.linalg.norm(error)
+        k = self.kmin + (self.kmax - self.kmin) / (1 + np.exp(-self.alpha * (distance - self.threshold)))
+        self._last_stiffness = k
+        return k
 
     def compute_force(self, pos_current, pos_target):
         """
@@ -236,11 +257,7 @@ class SigmoidSpring:
             F: [Fx, Fy, Fz] force vector (N)
         """
         error = pos_target - pos_current
-        if self.element_wise:
-            distance = np.abs(error)
-        else:
-            distance = np.linalg.norm(error)
-        k = self.kmin + (self.kmax - self.kmin) / (1 + np.exp(-self.alpha * (distance - self.threshold)))
+        k = self.get_stiffness(pos_current, pos_target)
         return k * error
     
 
@@ -258,6 +275,27 @@ class PolynomialSpring:
         self.order = order
         self.element_wise = element_wise
         self.dist_norm = dist_norm
+        self._last_stiffness = None
+
+    def get_stiffness(self, pos_current, pos_target):
+        """
+        Compute the current stiffness based on distance to target.
+
+        Args:
+            pos_current: [x, y, z] current position (m)
+            pos_target: [x, y, z] target position (m)
+
+        Returns:
+            k: stiffness value(s) - scalar or array depending on element_wise
+        """
+        error = pos_target - pos_current
+        if self.element_wise:
+            distance = np.abs(error)
+        else:
+            distance = np.linalg.norm(error)
+        k = self.stiffness * (distance / self.dist_norm) ** self.order
+        self._last_stiffness = k
+        return k
 
     def compute_force(self, pos_current, pos_target):
         """
@@ -269,12 +307,7 @@ class PolynomialSpring:
             F: [Fx, Fy, Fz] force vector (N)
         """
         error = pos_target - pos_current
-        if self.element_wise:
-            distance = np.abs(error)
-            k = self.stiffness * (distance / self.dist_norm) ** self.order
-        else:
-            distance = np.linalg.norm(error)
-            k = self.stiffness * (distance / self.dist_norm) ** self.order
+        k = self.get_stiffness(pos_current, pos_target)
         return k * error
 
 
