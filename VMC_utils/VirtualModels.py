@@ -211,16 +211,18 @@ class ConstrainedGaussianSpring:
 class SigmoidSpring:
     """Sigmoid spring varying stiffness with distance to target."""
 
-    def __init__(self, kmin, kmax, alpha, element_wise=True):
+    def __init__(self, kmin, kmax, threshold, alpha, element_wise=True):
         """
         Args:
-            kmin: minimum stiffness (N/m)
-            kmax: maximum stiffness (N/m)
-            alpha: rate of change
+            kmin: minimum stiffness (below threshold)
+            kmax: maximum stiffness (above threshold)
+            threshold: distance at which transition occurs
+            alpha: rate of change (steepness of transition)
             element_wise: if True, compute stiffness per element; if False, use norm of error
         """
         self.kmin = kmin
         self.kmax = kmax
+        self.threshold = threshold
         self.alpha = alpha
         self.element_wise = element_wise
 
@@ -238,7 +240,7 @@ class SigmoidSpring:
             distance = np.abs(error)
         else:
             distance = np.linalg.norm(error)
-        k = self.kmin + (self.kmax - self.kmin) / (1 + np.exp(-self.alpha * (distance - 0.5)))
+        k = self.kmin + (self.kmax - self.kmin) / (1 + np.exp(-self.alpha * (distance - self.threshold)))
         return k * error
     
 
