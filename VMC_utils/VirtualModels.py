@@ -208,6 +208,74 @@ class ConstrainedGaussianSpring:
         return self.strength * decay * delta_active
     
 
+class SigmoidSpring:
+    """Sigmoid spring varying stiffness with distance to target."""
+
+    def __init__(self, kmin, kmax, alpha, element_wise=True):
+        """
+        Args:
+            kmin: minimum stiffness (N/m)
+            kmax: maximum stiffness (N/m)
+            alpha: rate of change
+            element_wise: if True, compute stiffness per element; if False, use norm of error
+        """
+        self.kmin = kmin
+        self.kmax = kmax
+        self.alpha = alpha
+        self.element_wise = element_wise
+
+    def compute_force(self, pos_current, pos_target):
+        """
+        Args:
+            pos_current: [x, y, z] current position (m)
+            pos_target: [x, y, z] target position (m)
+
+        Returns:
+            F: [Fx, Fy, Fz] force vector (N)
+        """
+        error = pos_target - pos_current
+        if self.element_wise:
+            distance = np.abs(error)
+        else:
+            distance = np.linalg.norm(error)
+        k = self.kmin + (self.kmax - self.kmin) / (1 + np.exp(-self.alpha * (distance - 0.5)))
+        return k * error
+    
+
+class PolynomialSpring:
+    """Polynomial spring varying stiffness with distance to target."""
+
+    def __init__(self, stiffness, order, dist_norm, element_wise=True):
+        """
+        Args:
+            stiffness: base stiffness (N/m)
+            order: polynomial order
+            element_wise: if True, compute stiffness per element; if False, use norm of error
+        """
+        self.stiffness = stiffness
+        self.order = order
+        self.element_wise = element_wise
+        self.dist_norm = dist_norm
+
+    def compute_force(self, pos_current, pos_target):
+        """
+        Args:
+            pos_current: [x, y, z] current position (m)
+            pos_target: [x, y, z] target position (m)
+
+        Returns:
+            F: [Fx, Fy, Fz] force vector (N)
+        """
+        error = pos_target - pos_current
+        if self.element_wise:
+            distance = np.abs(error)
+            k = self.stiffness * (distance / self.dist_norm) ** self.order
+        else:
+            distance = np.linalg.norm(error)
+            k = self.stiffness * (distance / self.dist_norm) ** self.order
+        return k * error
+
+
 class DeadzoneLimitSpring:
     """Deadzone spring for joint limits (ReLU-like behavior)."""
     
@@ -236,93 +304,6 @@ class DeadzoneLimitSpring:
             return self.stiffness * (self.angle_upper - angle_current)
         else:
             return 0.0
-        
-
-class SigmoidSpring:
-    """Sigmoid-based spring for smooth stiffness transition (per-component)."""
-
-    def __init__(self, stiffness1, stiffness2, threshold, alpha=10.0):
-        """
-        Args:
-            stiffness1: Base stiffness (small displacements) (N/m)
-            stiffness2: Ultimate stiffness (large displacements) (N/m)
-            threshold: Displacement threshold for transition (m)
-            alpha: Sharpness of transition
-        """
-        self.k1 = stiffness1
-        self.k2 = stiffness2
-        self.threshold = threshold
-        self.alpha = alpha
-
-    def get_stiffness(self, distance):
-        """
-        Return the stiffness K(distance) for scalar or vector input.
-
-        Args:
-            distance: scalar or array of displacements from target (m)
-
-        Returns:
-            K: scalar or array of stiffness values (N/m)
-        """
-        distance = np.asarray(distance)
-        sigmoid = 1.0 / (1.0 + np.exp(-self.alpha * (np.abs(distance) - self.threshold)))
-        return self.k1 + (self.k2 - self.k1) * sigmoid
-
-    def compute_force(self, pos_current, pos_target):
-        """
-        Compute force with per-component stiffness.
-
-        Args:
-            pos_current: [x, y, z] current position (m)
-            pos_target: [x, y, z] target position (m)
-
-        Returns:
-            F: [Fx, Fy, Fz] force vector (N)
-        """
-        error = pos_target - pos_current
-        stiffness = self.get_stiffness(error)
-        return stiffness * error
-    
-    
-class PolynomialSpring:
-    """Polynomial stiffness spring for non-linear force response (per-component)."""
-
-    def __init__(self, stiffness, order):
-        """
-        Args:
-            stiffness: K base stiffness (N/m^order)
-            order: n polynomial order (>= 0)
-        """
-        self.stiffness = stiffness
-        self.order = order
-
-    def get_stiffness(self, distance):
-        """
-        Return the stiffness K(distance) for scalar or vector input.
-
-        Args:
-            distance: scalar or array of displacements from target (m)
-
-        Returns:
-            K: scalar or array of stiffness values (N/m)
-        """
-        distance = np.asarray(distance)
-        return self.stiffness * (1.0 + np.abs(distance))**self.order
-
-    def compute_force(self, pos_current, pos_target):
-        """
-        Compute force with per-component stiffness.
-
-        Args:
-            pos_current: [x, y, z] current position (m)
-            pos_target: [x, y, z] target position (m)
-
-        Returns:
-            F: [Fx, Fy, Fz] force vector (N)
-        """
-        error = pos_target - pos_current
-        stiffness = self.get_stiffness(error)
-        return stiffness * error
 
 
 # ============================================================================
