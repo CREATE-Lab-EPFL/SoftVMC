@@ -110,20 +110,22 @@ class ConstrainedLinearSpring:
     """
     Directional linear spring acting only along specified free direction(s).
 
-    Implements a cart constraint where the spring operates entirely within
-    the free subspace: F = P @ K @ P @ e, where P is the projection matrix.
+    Implements a cart constraint where the spring force is projected along n,
+    the direction orthogonal to the cart plane: F = P @ K @ P @ e,
+    where P = n @ n.T.
     """
 
-    def __init__(self, stiffness, coordinates=[1, 1, 1]):
+    def __init__(self, stiffness, n=np.array([[0], [0], [1]])):
         """
         Args:
             stiffness: K spring stiffness - scalar, vector, or matrix
-            coordinates: list of elements (1 or 0) indicating which
-                         coordinates are active (1) or constrained (0).
-                         E.g. [1, 1, 0] means spring acts only in x,y plane.
+            n: vector orthogonal to the cart plane (must be normalized).
+               E.g. n = [1, 0, 0] means spring force acts along x only.
         """
         self.stiffness = stiffness
-        self.P = np.diag(np.asarray(coordinates, dtype=float))
+        n = np.asarray(n).reshape(-1, 1)
+        n = n / np.linalg.norm(n)
+        self.P = n @ n.T
 
     def _to_matrix(self, gain, dim):
         """
@@ -132,7 +134,7 @@ class ConstrainedLinearSpring:
         Args:
             gain: scalar, 1D array (diagonal), or 2D array (matrix)
             dim: dimension of the space
-        
+
         Returns:
             2D numpy array (matrix)
         """
@@ -147,9 +149,9 @@ class ConstrainedLinearSpring:
     def compute_force(self, pos_current, pos_target):
         """
         Compute spring force projected into the free subspace.
-        
+
         F = P @ K @ P @ e
-        
+
         Args:
             pos_current: current position
             pos_target: target position
@@ -157,31 +159,33 @@ class ConstrainedLinearSpring:
         Returns:
             F: force vector (constrained directions are zeroed)
         """
-        error = np.asarray(pos_target) - np.asarray(pos_current)
+        error = np.asarray(pos_target).flatten() - np.asarray(pos_current).flatten()
         K = self._to_matrix(self.stiffness, len(error))
         return self.P @ K @ self.P @ error
-    
+
 
 class ConstrainedTanhSpring:
     """
     Directional tanh spring acting only along specified free direction(s).
 
-    Implements a cart constraint where the spring operates entirely within
-    the free subspace: F = P @ F_max * tanh(P @ K @ P @ e / F_max)
+    Implements a cart constraint where the spring force is projected along n,
+    the direction orthogonal to the cart plane:
+    F = P @ F_max * tanh(P @ K @ P @ e / F_max), where P = n @ n.T.
     """
 
-    def __init__(self, stiffness, max_force, coordinates=[1, 1, 1]):
+    def __init__(self, stiffness, max_force, n=np.array([[0], [0], [1]])):
         """
         Args:
             stiffness: K spring stiffness - scalar, vector, or matrix (N/m)
             max_force: F_max maximum force magnitude per component (N)
-            coordinates: list of elements (1 or 0) indicating which
-                         coordinates are active (1) or constrained (0).
-                         E.g. [1, 1, 0] means spring acts only in x,y plane.
+            n: vector orthogonal to the cart plane (must be normalized).
+               E.g. n = [1, 0, 0] means spring force acts along x only.
         """
         self.stiffness = stiffness
         self.max_force = max_force
-        self.P = np.diag(np.asarray(coordinates, dtype=float))
+        n = np.asarray(n).reshape(-1, 1)
+        n = n / np.linalg.norm(n)
+        self.P = n @ n.T
 
     def _to_matrix(self, gain, dim):
         """
@@ -251,26 +255,27 @@ class ConstrainedGaussianSpring:
     """
     Directional Gaussian repulsive spring acting only along specified free direction(s).
 
-    Implements a cart constraint where the spring operates entirely within
-    the free subspace using the projection matrix P.
+    Implements a cart constraint where the spring force is projected along n,
+    the direction orthogonal to the cart plane, using P = n @ n.T.
     """
 
-    def __init__(self, strength, sigma, coordinates=[1, 1, 1]):
+    def __init__(self, strength, sigma, n=np.array([[0], [0], [1]])):
         """
         Args:
             strength: A force amplitude (N)
             sigma: spread of Gaussian (m)
-            coordinates: list of elements (1 or 0) indicating which
-                         coordinates are active (1) or constrained (0).
-                         E.g. [1, 1, 0] means spring acts only in x,y plane.
+            n: vector orthogonal to the cart plane (must be normalized).
+               E.g. n = [1, 0, 0] means spring force acts along x only.
         """
         self.strength = strength
         self.sigma = sigma
-        self.P = np.diag(np.asarray(coordinates, dtype=float))
+        n = np.asarray(n).reshape(-1, 1)
+        n = n / np.linalg.norm(n)
+        self.P = n @ n.T
 
     def compute_force(self, pos_current, pos_obstacle):
         """
-        Compute Gaussian repulsive force projected into the free subspace.
+        Compute Gaussian repulsive force projected along n.
 
         F = P @ (A * exp(-||P @ delta||^2 / (2*sigma^2)) * P @ delta)
 
@@ -279,9 +284,9 @@ class ConstrainedGaussianSpring:
             pos_obstacle: obstacle position (m)
 
         Returns:
-            F: repulsive force vector (N), constrained directions are zeroed
+            F: repulsive force vector (N), force is along n direction only
         """
-        delta = np.asarray(pos_current) - np.asarray(pos_obstacle)
+        delta = np.asarray(pos_current).flatten() - np.asarray(pos_obstacle).flatten()
         delta_proj = self.P @ delta
         distance_sq = np.dot(delta_proj, delta_proj)
         decay = np.exp(-distance_sq / (2 * self.sigma**2))
@@ -514,20 +519,22 @@ class ConstrainedLinearDamper:
     """
     Directional linear damper acting only along specified free direction(s).
 
-    Implements a cart constraint where the damper operates entirely within
-    the free subspace: F = -P @ D @ P @ v
+    Implements a cart constraint where the damping force is projected along n,
+    the direction orthogonal to the cart plane: F = -P @ D @ P @ v,
+    where P = n @ n.T.
     """
 
-    def __init__(self, damping, coordinates=[1, 1, 1]):
+    def __init__(self, damping, n=np.array([[0], [0], [1]])):
         """
         Args:
             damping: D damping coefficient - scalar, vector, or matrix (N·s/m)
-            coordinates: list of elements (1 or 0) indicating which
-                         coordinates are active (1) or constrained (0).
-                         E.g. [1, 1, 0] means damper acts only in x,y plane.
+            n: vector orthogonal to the cart plane (must be normalized).
+               E.g. n = [1, 0, 0] means damping force acts along x only.
         """
         self.damping = damping
-        self.P = np.diag(np.asarray(coordinates, dtype=float))
+        n = np.asarray(n).reshape(-1, 1)
+        n = n / np.linalg.norm(n)
+        self.P = n @ n.T
 
     def _to_matrix(self, gain, dim):
         """
@@ -536,7 +543,7 @@ class ConstrainedLinearDamper:
         Args:
             gain: scalar, 1D array (diagonal), or 2D array (matrix)
             dim: dimension of the space
-        
+
         Returns:
             2D numpy array (matrix)
         """
@@ -560,7 +567,7 @@ class ConstrainedLinearDamper:
         Returns:
             F: damping force vector (N), constrained directions are zeroed
         """
-        velocity = np.asarray(velocity_current)
+        velocity = np.asarray(velocity_current).flatten()
         D = self._to_matrix(self.damping, len(velocity))
         return -self.P @ D @ self.P @ velocity
 
@@ -569,22 +576,24 @@ class ConstrainedTanhDamper:
     """
     Directional tanh damper acting only along specified free direction(s).
 
-    Implements a cart constraint where the damper operates entirely within
-    the free subspace: F = -P @ F_max * tanh(P @ D @ P @ v / F_max)
+    Implements a cart constraint where the damping force is projected along n,
+    the direction orthogonal to the cart plane:
+    F = -P @ F_max * tanh(P @ D @ P @ v / F_max), where P = n @ n.T.
     """
 
-    def __init__(self, damping, max_force, coordinates=[1, 1, 1]):
+    def __init__(self, damping, max_force, n=np.array([[0], [0], [1]])):
         """
         Args:
             damping: D damping coefficient - scalar, vector, or matrix (N·s/m)
             max_force: F_max maximum damping force per component (N)
-            coordinates: list of elements (1 or 0) indicating which
-                         coordinates are active (1) or constrained (0).
-                         E.g. [1, 1, 0] means damper acts only in x,y plane.
+            n: vector orthogonal to the cart plane (must be normalized).
+               E.g. n = [1, 0, 0] means damping force acts along x only.
         """
         self.damping = damping
         self.max_force = max_force
-        self.P = np.diag(np.asarray(coordinates, dtype=float))
+        n = np.asarray(n).reshape(-1, 1)
+        n = n / np.linalg.norm(n)
+        self.P = n @ n.T
 
     def _to_matrix(self, gain, dim):
         """
@@ -593,7 +602,7 @@ class ConstrainedTanhDamper:
         Args:
             gain: scalar, 1D array (diagonal), or 2D array (matrix)
             dim: dimension of the space
-        
+
         Returns:
             2D numpy array (matrix)
         """
@@ -617,6 +626,6 @@ class ConstrainedTanhDamper:
         Returns:
             F: damping force vector (N), constrained directions are zeroed
         """
-        velocity = np.asarray(velocity_current)
+        velocity = np.asarray(velocity_current).flatten()
         D = self._to_matrix(self.damping, len(velocity))
         return -self.P @ (self.max_force * np.tanh(self.P @ D @ self.P @ velocity / self.max_force))
