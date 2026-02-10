@@ -1,0 +1,25 @@
+[0.011s] Invoking command in '/home/vigno0405/github/ros2_dynamixel/build/dynamixel_interface': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble CONDA_PROMPT_MODIFIER=(finger) /usr/bin/cmake --build /home/vigno0405/github/ros2_dynamixel/build/dynamixel_interface -- -j16 -l16
+[0.101s] [ 50%] [32mBuilding CXX object CMakeFiles/dynamixel_node.dir/src/dynamixel_node.cpp.o[0m
+[4.829s] [100%] [32m[1mLinking CXX executable dynamixel_node[0m
+[5.051s] [100%] Built target dynamixel_node
+[5.063s] Invoked command in '/home/vigno0405/github/ros2_dynamixel/build/dynamixel_interface' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble CONDA_PROMPT_MODIFIER=(finger) /usr/bin/cmake --build /home/vigno0405/github/ros2_dynamixel/build/dynamixel_interface -- -j16 -l16
+[5.071s] Invoking command in '/home/vigno0405/github/ros2_dynamixel/build/dynamixel_interface': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble CONDA_PROMPT_MODIFIER=(finger) /usr/bin/cmake --install /home/vigno0405/github/ros2_dynamixel/build/dynamixel_interface
+[5.080s] -- Install configuration: ""
+[5.081s] -- Installing: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/lib/dynamixel_interface/dynamixel_node
+[5.083s] -- Set runtime path of "/home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/lib/dynamixel_interface/dynamixel_node" to ""
+[5.083s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/ament_index/resource_index/package_run_dependencies/dynamixel_interface
+[5.083s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/ament_index/resource_index/parent_prefix_path/dynamixel_interface
+[5.083s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/dynamixel_interface/environment/ament_prefix_path.sh
+[5.083s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/dynamixel_interface/environment/ament_prefix_path.dsv
+[5.084s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/dynamixel_interface/environment/path.sh
+[5.084s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/dynamixel_interface/environment/path.dsv
+[5.084s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/dynamixel_interface/local_setup.bash
+[5.084s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/dynamixel_interface/local_setup.sh
+[5.084s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/dynamixel_interface/local_setup.zsh
+[5.084s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/dynamixel_interface/local_setup.dsv
+[5.084s] -- Installing: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/dynamixel_interface/package.dsv
+[5.084s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/ament_index/resource_index/packages/dynamixel_interface
+[5.084s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/dynamixel_interface/cmake/dynamixel_interfaceConfig.cmake
+[5.084s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/dynamixel_interface/cmake/dynamixel_interfaceConfig-version.cmake
+[5.084s] -- Up-to-date: /home/vigno0405/github/ros2_dynamixel/install/dynamixel_interface/share/dynamixel_interface/package.xml
+[5.086s] Invoked command in '/home/vigno0405/github/ros2_dynamixel/build/dynamixel_interface' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble CONDA_PROMPT_MODIFIER=(finger) /usr/bin/cmake --install /home/vigno0405/github/ros2_dynamixel/build/dynamixel_interface
