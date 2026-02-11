@@ -5,3 +5,4 @@ The goal is to give to the robot suggestions rather than control commands to ach
 
 # Notes:
 - Be careful of which ROS2 version is being used for communication with the Dynamixels (humble or jazzy)
+- Be careful of which kT for the motors as it depends on the series, I updated it according to the motors used right now
