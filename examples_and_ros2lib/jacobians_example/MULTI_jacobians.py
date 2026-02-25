@@ -1,14 +1,18 @@
 import numpy as np
-from sympy import symbols, sqrt, atan2, cos, sin, Matrix, lambdify, asin # type: ignore
+from sympy import symbols, sqrt, atan2, cos, sin, Matrix, lambdify, asin, pi # type: ignore
 
 # Units: LENGTHS [mm], ANGLES [rad]
 # For a single section use SINGLE_jacobians.py instead.
 
 # Default tendon angular positions per section [rad]
 # Each section has 3 tendons at [base, base+120°, base-120°]
-_DELTA1 = [np.radians(0),   np.radians(120),  np.radians(-120)]
-_DELTA2 = [np.radians(60),  np.radians(180),  np.radians(-60)]
-_DELTA3 = [np.radians(150), np.radians(270),  np.radians(30)]
+# _DELTA1 = [np.radians(0),   np.radians(120),  np.radians(-120)]
+# _DELTA2 = [np.radians(60),  np.radians(180),  np.radians(-60)]
+# _DELTA3 = [np.radians(150), np.radians(270),  np.radians(30)]
+# SymPy angles NO numpy (new)
+_DELTA1 = Matrix([0,          2*pi/3,      -2*pi/3])          # 0°, +120°, -120°
+_DELTA2 = Matrix([pi/3,       pi,          -pi/3])            # 60°, 180°, -60°
+_DELTA3 = Matrix([5*pi/6,     3*pi/2,      pi/6])             # 150°, 270°, 30°
 
 
 def q2tendon(delta1=None, delta2=None, delta3=None):
@@ -24,9 +28,13 @@ def q2tendon(delta1=None, delta2=None, delta3=None):
     Dx1, Dy1, Dl1, Dx2, Dy2, Dl2, Dx3, Dy3, Dl3 = symbols(
         "Dx1 Dy1 Dl1 Dx2 Dy2 Dl2 Dx3 Dy3 Dl3")
 
-    DELTAL1 = Matrix([Dl1 - Dx1*np.cos(d) - Dy1*np.sin(d) for d in delta1])
-    DELTAL2 = Matrix([Dl2 - Dx2*np.cos(d) - Dy2*np.sin(d) for d in delta2])
-    DELTAL3 = Matrix([Dl3 - Dx3*np.cos(d) - Dy3*np.sin(d) for d in delta3])
+    # DELTAL1 = Matrix([Dl1 - Dx1*np.cos(d) - Dy1*np.sin(d) for d in delta1])
+    # DELTAL2 = Matrix([Dl2 - Dx2*np.cos(d) - Dy2*np.sin(d) for d in delta2])
+    # DELTAL3 = Matrix([Dl3 - Dx3*np.cos(d) - Dy3*np.sin(d) for d in delta3])
+    # No numpy in sympy expressions, use cos/sin from sympy (new)
+    DELTAL1 = Matrix([Dl1 - Dx1*cos(di) - Dy1*sin(di) for di in delta1])
+    DELTAL2 = Matrix([Dl2 - Dx2*cos(di) - Dy2*sin(di) for di in delta2])
+    DELTAL3 = Matrix([Dl3 - Dx3*cos(di) - Dy3*sin(di) for di in delta3])
     DELTAL  = Matrix.vstack(DELTAL1, DELTAL2, DELTAL3)
 
     q_vec = Matrix([Dx1, Dy1, Dl1, Dx2, Dy2, Dl2, Dx3, Dy3, Dl3])

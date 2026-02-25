@@ -1,5 +1,5 @@
 import numpy as np
-from sympy import symbols, sqrt, atan2, cos, sin, Matrix, lambdify, asin # type: ignore
+from sympy import symbols, sqrt, atan2, cos, sin, Matrix, lambdify, asin, pi# type: ignore
 
 # Units: LENGTHS [mm], ANGLES [rad]
 
@@ -9,10 +9,12 @@ def q2tendon(delta=None):
     delta: tendon angular positions [rad], default [0, 2pi/3, -2pi/3].
     """
     if delta is None:
-        delta = [0, np.radians(120), np.radians(-120)]
+        # delta = [0, np.radians(120), np.radians(-120)]
+        delta = Matrix([0, 2*pi/3, -2*pi/3])
 
     Dx, Dy, Dl = symbols("Dx Dy Dl")
-    DELTAL = Matrix([Dl - Dx*np.cos(d) - Dy*np.sin(d) for d in delta])
+    # DELTAL = Matrix([Dl - Dx*np.cos(d) - Dy*np.sin(d) for d in delta])
+    DELTAL = Matrix([Dl - Dx*cos(di) - Dy*sin(di) for di in delta])
 
     J = DELTAL.jacobian(Matrix([Dx, Dy, Dl]))
     return lambdify((Dx, Dy, Dl), J, modules=['numpy'])
