@@ -3,6 +3,22 @@ from sympy import symbols, sqrt, atan2, cos, sin, Matrix, lambdify, asin, pi# ty
 
 # Units: LENGTHS [mm], ANGLES [rad]
 
+def tendon2q(delta=None): # ittirath added this 
+    """
+    Inverse Jacobian d(q)/d(DELTAL), shape (3,3).
+    q = [Dx, Dy, Dl], DELTAL = [D1, D2, D3].
+    """
+    if delta is None:
+        delta = Matrix([0, 2*pi/3, -2*pi/3])
+
+    D1, D2, D3 = symbols("D1 D2 D3") # DELTAL = tendon elongations
+
+    # q = A_inv @ tendon  where A[i] = [-cos(delta[i]), -sin(delta[i]), 1]
+    J = Matrix([[-cos(di), -sin(di), 1] for di in delta])  # 3x3
+
+    Jinv = J.inv()  # d(q)/d(DELTAL)
+    return lambdify((D1, D2, D3), Jinv, modules=["numpy"])  # callable with no args
+
 def q2tendon(delta=None):
     """
     Jacobian d(DELTAL)/d(q), shape (3,3). q = [Dx, Dy, Dl], DELTAL = [dL1, dL2, dL3].
@@ -24,8 +40,8 @@ def q2coordinates():
     """Jacobian d(pose)/d(q), shape (6,3). pose = [x, y, z, yaw, pitch, roll]."""
 
     Dx, Dy, Dl = symbols("Dx Dy Dl")
-    d  = 30    # section radius [mm]  (diameter = 60 mm)
-    L0 = 145   # rest length [mm]
+    d  = 0.030  # section radius [m]  (diameter = 60 mm)
+    L0 = 0.145   # rest length [m]
 
     D = sqrt(Dx**2 + Dy**2 + 1e-12)  # curvature magnitude (regularised)
 
@@ -61,8 +77,8 @@ def tendon2pose(delta=[0, np.radians(120), np.radians(-120)]):
     """
 
     L1, L2, L3 = symbols("L1 L2 L3")
-    d  = 30
-    L0 = 145
+    d  = 0.030  # section radius [m]  (diameter = 60 mm)
+    L0 = 0.145   # rest length [m]
 
     # A[i] = [-cos(delta[i]), -sin(delta[i]), 1]  ->  DELTAL = A @ [Dx, Dy, Dl]
     A_num = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in delta])

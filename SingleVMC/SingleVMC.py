@@ -20,18 +20,19 @@ import rclpy
 from VMCSingle.SingleController import SingleController, CONTROL_FREQUENCY
 from VMCSingle.SingleVMCTaskSpace import VMC
 
+TENDON_RADIUS = 0.05  # [m] radius of the tendon spool
 
 rclpy.init()
 controller   = SingleController()
 vmc          = VMC()          # edit vmc.target_DIP / vmc.spring_DIP.stiffness to tune
 
 def control_loop():
-    # State from ROS2 topics (degrees -> radians)
-    q_motor     = np.radians(controller.get_joint_positions())
-    q_dot_motor = np.radians(controller.get_joint_velocities())
+    # State from ROS2 topics (degrees -> radians -> m via TENDON_RADIUS)
+    DELTAL     = TENDON_RADIUS*np.radians(controller.get_joint_positions())
+    DELTAL_dot = TENDON_RADIUS*np.radians(controller.get_joint_velocities())
 
     # VMC torques (Jacobian transpose of virtual spring/damper forces)
-    tau_vmc  = vmc.single_torques(q_motor, q_dot_motor)
+    tau_vmc  = vmc.single_torques(DELTAL, DELTAL_dot)
     
     controller.publish_torques(tau_vmc)
 

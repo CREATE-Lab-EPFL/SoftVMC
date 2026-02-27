@@ -7,7 +7,7 @@ from std_msgs.msg import Float64MultiArray
 CONTROL_FREQUENCY = 900
 
 class SingleController(Node):
-    """ROS2 node interface for Helyx. Reads joint states, publishes torques."""
+    """ROS2 node interface for single segment. Reads joint states, publishes torques."""
 
     def __init__(self):
         super().__init__('single_controller')

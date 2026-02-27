@@ -7,8 +7,8 @@ import numpy as np
 def FK_tendon2q(DELTAL):
     """
     FK from tendons (DELTAL) to lateral cuvatures+elongation (q)
-    Args: DELTAL = [D1 D2 D3] [mm]
-    Returns: q = [Dx, Dy, Dl] [mm]
+    Args: DELTAL = [D1 D2 D3] [m]
+    Returns: q = [Dx, Dy, Dl] [m]
     """
     delta = np.array([0, 2*np.pi/3, -2*np.pi/3])
     A = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in delta])  # (3, 3)
@@ -19,12 +19,12 @@ def FK_tendon2q(DELTAL):
 def FK_q2pose(q):
     """
     FK from lateral cuvatures+elongation (q) to pose.
-    Args: q = [Dx, Dy, Dl] [mm]
-    Returns: pose = [x, y, z, yaw, pitch, roll] [mm, rad]
+    Args: q = [Dx, Dy, Dl] [m]
+    Returns: pose = [x, y, z, yaw, pitch, roll] [m, rad]
     """
     Dx, Dy, Dl = q
-    d  = 30    # section radius [mm]  (diameter = 60 mm)
-    L0 = 145   # rest length [mm]
+    d  = 0.030  # section radius [m]  (diameter = 60 mm)
+    L0 = 0.145   # rest length [m]
 
     D = np.sqrt(Dx**2 + Dy**2 + 1e-12)  # curvature magnitude (regularised)
 
@@ -56,10 +56,10 @@ def FK_Single(DELTAL):
     Forward kinematics for the single VMC.
 
     Args:
-        DELTAL: [D1, D2, D3] tendon elongations [mm]
+        DELTAL: [D1, D2, D3] tendon elongations [m]
 
     Returns:
-        pose: [x, y, z, yaw, pitch, roll] of the end-effector [mm, rad]
+        pose: [x, y, z, yaw, pitch, roll] of the end-effector [m, rad]
     """
     q = FK_tendon2q(DELTAL)
     pose = FK_q2pose(q)
@@ -70,9 +70,9 @@ def FK_Single(DELTAL):
 if __name__ == "__main__":
     # Motor config: (0 , 2pi/3, -2pi/3) -> At rest (D1, D2, D3) = (0, 0, 0) -> pose = (0, 0, 145, 0, 0, 0)
 
-    # Motor values (tendon elongations in mm)
-    DELTAL = np.array([10.0, 5.0, 5.0])  
+    # Motor values (tendon elongations in m)
+    DELTAL = np.array([0.010, 0.005, 0.005])  
 
     pose = FK_Single(DELTAL)
-    print(f"Input tendon elongations (DELTAL): {DELTAL} [mm]")
-    print(f"End-effector pose: {pose} [mm, rad]")
+    print(f"Input tendon elongations (DELTAL): {DELTAL} [m]")
+    print(f"End-effector pose: {pose} [m, rad]")
