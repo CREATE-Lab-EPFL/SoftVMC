@@ -6,8 +6,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from VMC_utils.VirtualModels import LinearSpring, LinearDamper
-from KinematicsSingle.FK_Single import FK_Single
-from KinematicsSingle.SINGLE_jacobians import tendon2pose
+from FK_Single import FK_Single
+from JacobiansSingle import tendon2pose
 
 class VMC:
     """

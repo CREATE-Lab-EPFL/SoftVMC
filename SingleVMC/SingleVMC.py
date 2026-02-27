@@ -17,8 +17,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 import numpy as np
 import rclpy
 
-from VMCSingle.SingleController import SingleController, CONTROL_FREQUENCY
-from VMCSingle.SingleVMCTaskSpace import VMC
+from SingleController import SingleController, CONTROL_FREQUENCY
+from SingleVMCTaskSpace import VMC
 
 TENDON_RADIUS = 0.003 # [m] radius of the tendon spool
 
