@@ -20,7 +20,7 @@ import rclpy
 from VMCSingle.SingleController import SingleController, CONTROL_FREQUENCY
 from VMCSingle.SingleVMCTaskSpace import VMC
 
-TENDON_RADIUS = 0.05  # [m] radius of the tendon spool
+TENDON_RADIUS = 0.003 # [m] radius of the tendon spool
 
 rclpy.init()
 controller   = SingleController()

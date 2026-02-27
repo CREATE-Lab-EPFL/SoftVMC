@@ -3,22 +3,6 @@ from sympy import symbols, sqrt, atan2, cos, sin, Matrix, lambdify, asin, pi# ty
 
 # Units: LENGTHS [mm], ANGLES [rad]
 
-def tendon2q(delta=None): # ittirath added this 
-    """
-    Inverse Jacobian d(q)/d(DELTAL), shape (3,3).
-    q = [Dx, Dy, Dl], DELTAL = [D1, D2, D3].
-    """
-    if delta is None:
-        delta = Matrix([0, 2*pi/3, -2*pi/3])
-
-    D1, D2, D3 = symbols("D1 D2 D3") # DELTAL = tendon elongations
-
-    # q = A_inv @ tendon  where A[i] = [-cos(delta[i]), -sin(delta[i]), 1]
-    J = Matrix([[-cos(di), -sin(di), 1] for di in delta])  # 3x3
-
-    Jinv = J.inv()  # d(q)/d(DELTAL)
-    return lambdify((D1, D2, D3), Jinv, modules=["numpy"])  # callable with no args
-
 def q2tendon(delta=None):
     """
     Jacobian d(DELTAL)/d(q), shape (3,3). q = [Dx, Dy, Dl], DELTAL = [dL1, dL2, dL3].

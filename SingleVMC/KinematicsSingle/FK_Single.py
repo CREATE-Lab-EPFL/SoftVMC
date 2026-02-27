@@ -4,13 +4,12 @@ import numpy as np
 # - LENGTHS: [m]
 # - ANGLES: [rad]
 
-def FK_tendon2q(DELTAL):
+def FK_tendon2q(DELTAL, delta=np.array([0, 2*np.pi/3, -2*np.pi/3])):
     """
     FK from tendons (DELTAL) to lateral cuvatures+elongation (q)
     Args: DELTAL = [D1 D2 D3] [m]
     Returns: q = [Dx, Dy, Dl] [m]
     """
-    delta = np.array([0, 2*np.pi/3, -2*np.pi/3])
     A = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in delta])  # (3, 3)
     q = np.linalg.inv(A) @ DELTAL
 
