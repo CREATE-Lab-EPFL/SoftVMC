@@ -2,7 +2,6 @@ import numpy as np
 
 import sys, os
 # SoftVMC/ -> VMC_utils
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from VMC_utils.VirtualModels import LinearSpring, LinearDamper

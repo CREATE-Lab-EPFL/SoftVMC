@@ -97,9 +97,9 @@ def q_motor2pose_ee(delta=[0, np.radians(120), np.radians(-120)]):
     roll  = atan2(R[2,1], R[2,2] + 1e-12)
 
     T = Matrix.vstack(t, Matrix([yaw, pitch, roll]))
-    # chain rule: d(pose)/d(q) = d(pose)/d(DELTAL) * d(DELTAL)/d(q) = d(pose)/d(DELTAL) * MOTOR_RADIUS
-    J_DELTAL = T.jacobian(Matrix([q1, q2, q3])*MOTOR_RADIUS)        # d(pose)/d(DELTAL)
-    J = J_DELTAL*MOTOR_RADIUS                                       # d(pose)/d(DELTAL) * MOTOR_RADIUS
+    # T is already a function of q since we substituted pcc = A_inv @ (q * MOTOR_RADIUS) above 
+    # so we can directly differentiate w.r.t q
+    J = T.jacobian(Matrix([q1, q2, q3]))  # d(pose)/d(q_motor)
 
     return lambdify((q1, q2, q3), J, modules=['numpy'], cse=True)
 

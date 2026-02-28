@@ -1,6 +1,5 @@
 import numpy as np
 
-
 # Units: LENGTHS [m], ANGLES [rad]
 MOTOR_RADIUS = 0.003 # [m] radius of the tendon spool
 SECTION_RADIUS = 0.030  # [m] radius of the section (diameter = 60 mm)
