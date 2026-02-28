@@ -104,6 +104,93 @@ def q_motor2pose_ee(delta=[0, np.radians(120), np.radians(-120)]):
     return lambdify((q1, q2, q3), J, modules=['numpy'], cse=True)
 
 
+def pcc2pose(s_param):
+    """
+    Jacobian for any point along the segment 
+    d(pose)/d(pcc), shape (6,3). pose = [x, y, z, yaw, pitch, roll].
+    Args: s_param: s = [0,1] defines position along the segment (0 = base, 1 = tip).
+    """
+
+    Dx, Dy, Dl = symbols("Dx Dy Dl")
+    d  = SECTION_RADIUS  # section radius [m]  (diameter = 60 mm)
+    L0 = REST_LENGTH   # rest length [m]
+    
+    D = sqrt(Dx**2 + Dy**2 + 1e-12)  # curvature magnitude (regularised)
+
+    # PCC rotation matrix (Rodrigues on curvature axis)
+    theta_s = s_param*(D/d)
+    R = Matrix([
+        [1 + Dx**2/D**2*(cos(theta_s)-1),  Dx*Dy/D**2*(cos(theta_s)-1),  Dx/D*sin(theta_s)],
+        [Dx*Dy/D**2*(cos(theta_s)-1),  1 + Dy**2/D**2*(cos(theta_s)-1),  Dy/D*sin(theta_s)],
+        [-Dx/D*sin(theta_s),               -Dy/D*sin(theta_s),            cos(theta_s)]
+    ])
+
+    # PCC tip translation
+    t = Matrix([
+        [(s_param*d*(L0+Dl)/D**2)*Dx*(1-cos(theta_s))],
+        [(s_param*d*(L0+Dl)/D**2)*Dy*(1-cos(theta_s))],
+        [(s_param*d*(L0+Dl)/D**2)*D*sin(theta_s)]
+    ])
+
+    # ZYX Euler angles from R
+    yaw   = atan2(R[1,0], R[0,0] + 1e-12)
+    pitch = asin(-R[2,0])
+    roll  = atan2(R[2,1], R[2,2] + 1e-12)
+
+    T = Matrix.vstack(t, Matrix([yaw, pitch, roll]))
+    J = T.jacobian(Matrix([Dx, Dy, Dl]))
+    return lambdify((Dx, Dy, Dl), J, modules=['numpy'])
+
+
+def q_motor2pose(s_param,delta=[0, np.radians(120), np.radians(-120)]):
+    """
+    Jacobian d(pose)/d(q_motor), shape (6,3). 
+    DELTAL = q_motor * MOTOR_RADIUS (we do the conversion inside this function)
+    Args: s_param: s = [0,1] defines position along the segment (0 = base, 1 = tip).
+          delta: tendon angular positions [rad], default [0, 2pi/3, -2pi/3].
+    """
+
+    q1, q2, q3 = symbols("q1 q2 q3")
+    d  = SECTION_RADIUS  # section radius [m]  (diameter = 60 mm)
+    L0 = REST_LENGTH   # rest length [m]
+
+    # A[i] = [-cos(delta[i]), -sin(delta[i]), 1]  ->  DELTAL = A @ [Dx, Dy, Dl]
+    A_num = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in delta])
+    A_inv = Matrix(np.linalg.inv(A_num).tolist())   # numeric inverse as SymPy matrix
+
+    # pcc = A_inv * DELTAL = A_inv * (q * MOTOR_RADIUS)
+    pcc = A_inv * (Matrix([q1, q2, q3])*MOTOR_RADIUS)   
+    Dx, Dy, Dl = pcc[0], pcc[1], pcc[2]
+
+    D = sqrt(Dx**2 + Dy**2 + 1e-12)
+
+    # PCC rotation matrix (Rodrigues on curvature axis)
+    theta_s = s_param*(D/d)
+    R = Matrix([
+        [1 + Dx**2/D**2*(cos(theta_s)-1),  Dx*Dy/D**2*(cos(theta_s)-1),  Dx/D*sin(theta_s)],
+        [Dx*Dy/D**2*(cos(theta_s)-1),  1 + Dy**2/D**2*(cos(theta_s)-1),  Dy/D*sin(theta_s)],
+        [-Dx/D*sin(theta_s),               -Dy/D*sin(theta_s),            cos(theta_s)]
+    ])
+
+    # PCC tip translation
+    t = Matrix([
+        [(s_param*d*(L0+Dl)/D**2)*Dx*(1-cos(theta_s))],
+        [(s_param*d*(L0+Dl)/D**2)*Dy*(1-cos(theta_s))],
+        [(s_param*d*(L0+Dl)/D**2)*D*sin(theta_s)]
+    ])
+
+    yaw   = atan2(R[1,0], R[0,0] + 1e-12)
+    pitch = asin(-R[2,0])
+    roll  = atan2(R[2,1], R[2,2] + 1e-12)
+
+    T = Matrix.vstack(t, Matrix([yaw, pitch, roll]))
+    # T is already a function of q since we substituted pcc = A_inv @ (q * MOTOR_RADIUS) above 
+    # so we can directly differentiate w.r.t q
+    J = T.jacobian(Matrix([q1, q2, q3]))  # d(pose)/d(q_motor)
+
+    return lambdify((q1, q2, q3), J, modules=['numpy'], cse=True)
+
+
 if __name__ == "__main__":
     import time
 
@@ -120,7 +207,7 @@ if __name__ == "__main__":
     rng = np.random.default_rng(0)
     for i in range(3):
         q = rng.uniform([-10, -10, -5], [10, 10, 5])   # random [Dx, Dy, Dl] in mm
-        L = A @ q                                        # corresponding tendon lengths
+        L = A @ q                                      # corresponding tendon lengths
 
         J_direct = np.array(J_tp(*L))                               # (6,3) from tendon2pose
         J_chain  = np.array(J_qp(*q)) @ np.linalg.inv(np.array(J_qt(*q)))  # (6,3) by chain rule
