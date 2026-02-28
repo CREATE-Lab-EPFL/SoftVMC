@@ -7,7 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from VMC_utils.VirtualModels import LinearSpring, LinearDamper
 from FK_Single import FK_Single
-from JacobiansSingle import tendon2pose
+from JacobiansSingle import q_motor2pose_ee
 
 class VMC:
     """
@@ -19,7 +19,7 @@ class VMC:
 
     def __init__(self):
         # Jacobians (built once)
-        self.J_tp = tendon2pose()
+        self.J_tp = q_motor2pose_ee()
 
         # Virtual springs [N/m] and dampers [N·s/m]
         self.spring = LinearSpring(40.0)
@@ -28,19 +28,19 @@ class VMC:
         # Target Cartesian positions [m]  — tune these
         self.target = np.array([0.100, 0.010, 0.135])   #  rest length (0,0,.145) [m]
 
-    def single_torques(self, DELTAL, DELTAL_dot):
+    def single_torques(self, q_motor, q_motor_dot):
         """
         Args:
-            DELTAL:     [DELTAL1, DELTAL2, DELTAL3] tendon lengths [m]
-            DELTAL_dot: [DELTAL1_dot, DELTAL2_dot, DELTAL3_dot] tendon velocities [m/s]
+            q_motor:     [q1, q2, q3] motor angles [rad]
+            q_motor_dot: [q1_dot, q2_dot, q3_dot] motor velocities [rad/s]
         Returns:
             tau: [tau_1, tau_2, tau_3] motor torques [N·m]
         """
         tau = np.zeros(3)
        
-        J = np.array(self.J_tp(DELTAL[0], DELTAL[1], DELTAL[2]))   # (6, 3)
-        pose = FK_Single(DELTAL) # [x, y, z, yaw, pitch, roll] [m, rad]
-        pose_dot = J @ DELTAL_dot 
+        J = np.array(self.J_tp(q_motor[0], q_motor[1], q_motor[2]))   # (6, 3)
+        pose = FK_Single(q_motor) # [x, y, z, yaw, pitch, roll] [m, rad]
+        pose_dot = J @ q_motor_dot 
 
         # we focus only on the position part of the pose for the VMC, ignoring orientation for simplicity
         pos = pose[:3]
@@ -52,7 +52,7 @@ class VMC:
 # Example usage
 if __name__ == "__main__":
     vmc = VMC()
-    DELTAL = np.array([0.0, 0.0, 0.0])  # tendon lengths [m]
-    DELTAL_dot = np.array([0.0, 0.0, 0.0])  # tendon velocities [m/s]
-    tau = vmc.single_torques(DELTAL, DELTAL_dot)
+    q_motor = np.array([0.0, 0.0, 0.0])  # motor angles [rad]
+    q_motor_dot = np.array([0.0, 0.0, 0.0])  # motor velocities [rad/s]
+    tau = vmc.single_torques(q_motor, q_motor_dot)
     print("Motor torques:", tau)

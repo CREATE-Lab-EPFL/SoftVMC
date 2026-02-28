@@ -1,31 +1,36 @@
 import numpy as np
 from sympy import symbols, sqrt, atan2, cos, sin, Matrix, lambdify, asin, pi# type: ignore
 
-# Units: LENGTHS [mm], ANGLES [rad]
+# Units: LENGTHS [m], ANGLES [rad]
+MOTOR_RADIUS = 0.003 # [m] radius of the tendon spool
+SECTION_RADIUS = 0.030  # [m] radius of the section (diameter = 60 mm)
+REST_LENGTH = 0.145     # [m] rest length of the section
 
-def q2tendon(delta=None):
+# def q2tendon(delta=None):
+def pcc2q_motor(delta=None):
     """
-    Jacobian d(DELTAL)/d(q), shape (3,3). q = [Dx, Dy, Dl], DELTAL = [dL1, dL2, dL3].
-    delta: tendon angular positions [rad], default [0, 2pi/3, -2pi/3].
+    Jacobian d(q_motor)/d(pcc), shape (3,3).
+    pcc = [Dx, Dy, Dl], q_motor = [q1, q2, q3] with q_motor = DELTAL / MOTOR_RADIUS
     """
+
     if delta is None:
-        # delta = [0, np.radians(120), np.radians(-120)]
         delta = Matrix([0, 2*pi/3, -2*pi/3])
 
-    Dx, Dy, Dl = symbols("Dx Dy Dl")
-    # DELTAL = Matrix([Dl - Dx*np.cos(d) - Dy*np.sin(d) for d in delta])
-    DELTAL = Matrix([Dl - Dx*cos(di) - Dy*sin(di) for di in delta])
+    Dx, Dy, Dl = symbols("Dx Dy Dl") # pcc param
+    DELTAL = Matrix([Dl - Dx*cos(di) - Dy*sin(di) for di in delta]) # deltaL = A @ pcc
+    q_motor = DELTAL / MOTOR_RADIUS                                # q_motor = A @ pcc / MOTOR_RADIUS
 
-    J = DELTAL.jacobian(Matrix([Dx, Dy, Dl]))
+    J = q_motor.jacobian(Matrix([Dx, Dy, Dl])) # J = d(q_motor)/d(pcc) = A / MOTOR_RADIUS
     return lambdify((Dx, Dy, Dl), J, modules=['numpy'])
 
 
-def q2coordinates():
-    """Jacobian d(pose)/d(q), shape (6,3). pose = [x, y, z, yaw, pitch, roll]."""
+# def q2coordinates():
+def pcc2pose_ee():
+    """Jacobian d(pose)/d(pcc), shape (6,3). pose = [x, y, z, yaw, pitch, roll]."""
 
     Dx, Dy, Dl = symbols("Dx Dy Dl")
-    d  = 0.030  # section radius [m]  (diameter = 60 mm)
-    L0 = 0.145   # rest length [m]
+    d  = SECTION_RADIUS  # section radius [m]  (diameter = 60 mm)
+    L0 = REST_LENGTH   # rest length [m]
 
     D = sqrt(Dx**2 + Dy**2 + 1e-12)  # curvature magnitude (regularised)
 
@@ -53,23 +58,25 @@ def q2coordinates():
     return lambdify((Dx, Dy, Dl), J, modules=['numpy'])
 
 
-def tendon2pose(delta=[0, np.radians(120), np.radians(-120)]):
+# def tendon2pose(delta=[0, np.radians(120), np.radians(-120)]):
+def q_motor2pose_ee(delta=[0, np.radians(120), np.radians(-120)]):
     """
-    Jacobian d(pose)/d(DELTAL), shape (6,3). Direct end-to-end: tendon lengths -> pose.
-
+    Jacobian d(pose)/d(q_motor), shape (6,3). 
+    DELTAL = q_motor * MOTOR_RADIUS (we do the conversion inside this function) 
     delta: tendon angular positions [rad], default [0, 2pi/3, -2pi/3].
     """
 
-    L1, L2, L3 = symbols("L1 L2 L3")
-    d  = 0.030  # section radius [m]  (diameter = 60 mm)
-    L0 = 0.145   # rest length [m]
+    q1, q2, q3 = symbols("q1 q2 q3")
+    d  = SECTION_RADIUS  # section radius [m]  (diameter = 60 mm)
+    L0 = REST_LENGTH   # rest length [m]
 
     # A[i] = [-cos(delta[i]), -sin(delta[i]), 1]  ->  DELTAL = A @ [Dx, Dy, Dl]
     A_num = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in delta])
     A_inv = Matrix(np.linalg.inv(A_num).tolist())   # numeric inverse as SymPy matrix
 
-    q = A_inv @ Matrix([L1, L2, L3])   # [Dx, Dy, Dl] as linear functions of L1,L2,L3
-    Dx, Dy, Dl = q[0], q[1], q[2]
+    # pcc = A_inv * DELTAL = A_inv * (q * MOTOR_RADIUS)
+    pcc = A_inv @ (Matrix([q1, q2, q3])*MOTOR_RADIUS)   
+    Dx, Dy, Dl = pcc[0], pcc[1], pcc[2]
 
     D = sqrt(Dx**2 + Dy**2 + 1e-12)
 
@@ -90,17 +97,20 @@ def tendon2pose(delta=[0, np.radians(120), np.radians(-120)]):
     roll  = atan2(R[2,1], R[2,2] + 1e-12)
 
     T = Matrix.vstack(t, Matrix([yaw, pitch, roll]))
-    J = T.jacobian(Matrix([L1, L2, L3]))
-    return lambdify((L1, L2, L3), J, modules=['numpy'], cse=True)
+    # chain rule: d(pose)/d(q) = d(pose)/d(DELTAL) * d(DELTAL)/d(q) = d(pose)/d(DELTAL) * MOTOR_RADIUS
+    J_DELTAL = T.jacobian(Matrix([q1, q2, q3])*MOTOR_RADIUS)        # d(pose)/d(DELTAL)
+    J = J_DELTAL*MOTOR_RADIUS                                       # d(pose)/d(DELTAL) * MOTOR_RADIUS
+
+    return lambdify((q1, q2, q3), J, modules=['numpy'], cse=True)
 
 
 if __name__ == "__main__":
     import time
 
     print("Building Jacobians (symbolic differentiation, takes a few seconds)...")
-    t0 = time.time(); J_qt = q2tendon();      print(f"  q2tendon      done  ({time.time()-t0:.1f}s)")
-    t0 = time.time(); J_qp = q2coordinates(); print(f"  q2coordinates done  ({time.time()-t0:.1f}s)")
-    t0 = time.time(); J_tp = tendon2pose();   print(f"  tendon2pose   done  ({time.time()-t0:.1f}s)")
+    t0 = time.time(); J_qt = pcc2q_motor();      print(f"  pcc2q_motor      done  ({time.time()-t0:.1f}s)")
+    t0 = time.time(); J_qp = pcc2pose_ee(); print(f"  pcc2pose_ee done  ({time.time()-t0:.1f}s)")
+    t0 = time.time(); J_tp = q_motor2pose_ee();   print(f"  q_motor2pose_ee   done  ({time.time()-t0:.1f}s)")
 
     delta = [0, np.radians(120), np.radians(-120)]
     A = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in delta])  # tendon map: L = A @ q

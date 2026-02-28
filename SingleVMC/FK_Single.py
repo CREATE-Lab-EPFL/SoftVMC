@@ -1,29 +1,34 @@
 import numpy as np
 
-# Units of measure:
-# - LENGTHS: [m]
-# - ANGLES: [rad]
 
-def FK_tendon2q(DELTAL, delta=np.array([0, 2*np.pi/3, -2*np.pi/3])):
+# Units: LENGTHS [m], ANGLES [rad]
+MOTOR_RADIUS = 0.003 # [m] radius of the tendon spool
+SECTION_RADIUS = 0.030  # [m] radius of the section (diameter = 60 mm)
+REST_LENGTH = 0.145     # [m] rest length of the section
+
+
+# def FK_tendon2q(DELTAL, delta=np.array([0, 2*np.pi/3, -2*np.pi/3])):
+def FK_q_motor2pcc(q_motor, delta):
     """
-    FK from tendons (DELTAL) to lateral cuvatures+elongation (q)
-    Args: DELTAL = [D1 D2 D3] [m]
-    Returns: q = [Dx, Dy, Dl] [m]
+    FK from q_motor = DELTAL / MOTOR_RADIUS to lateral cuvatures+elongation (q)
+    Args: q_motor = [q1 q2 q3] [rad]
+    Returns: pcc = [Dx, Dy, Dl] [m]
     """
+    DELTAL = q_motor * MOTOR_RADIUS  # convert from motor space to tendon elongation space
     A = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in delta])  # (3, 3)
-    q = np.linalg.inv(A) @ DELTAL
+    pcc = np.linalg.inv(A) @ DELTAL
 
-    return q
+    return pcc
 
-def FK_q2pose(q):
+def FK_pcc2pose(pcc):
     """
-    FK from lateral cuvatures+elongation (q) to pose.
-    Args: q = [Dx, Dy, Dl] [m]
+    FK from lateral cuvatures+elongation (pcc) to pose.
+    Args: pcc = [Dx, Dy, Dl] [m]
     Returns: pose = [x, y, z, yaw, pitch, roll] [m, rad]
     """
-    Dx, Dy, Dl = q
-    d  = 0.030  # section radius [m]  (diameter = 60 mm)
-    L0 = 0.145   # rest length [m]
+    Dx, Dy, Dl = pcc
+    d  = SECTION_RADIUS # section radius [m]  (diameter = 60 mm)
+    L0 = REST_LENGTH  # rest length [m]
 
     D = np.sqrt(Dx**2 + Dy**2 + 1e-12)  # curvature magnitude (regularised)
 
@@ -50,28 +55,24 @@ def FK_q2pose(q):
 
     return pose.flatten()
 
-def FK_Single(DELTAL):
+def FK_Single(q_motor, delta=np.array([0, 2*np.pi/3, -2*np.pi/3])):
     """
     Forward kinematics for the single VMC.
-
-    Args:
-        DELTAL: [D1, D2, D3] tendon elongations [m]
-
-    Returns:
-        pose: [x, y, z, yaw, pitch, roll] of the end-effector [m, rad]
+    Args: q_motor: [q1, q2, q3] motor angles [rad]
+    Returns: pose: [x, y, z, yaw, pitch, roll] of the end-effector [m, rad]
     """
-    q = FK_tendon2q(DELTAL)
-    pose = FK_q2pose(q)
+    pcc = FK_q_motor2pcc(q_motor, delta)
+    pose = FK_pcc2pose(pcc)
     return pose
 
 
 # Example usage
 if __name__ == "__main__":
-    # Motor config: (0 , 2pi/3, -2pi/3) -> At rest (D1, D2, D3) = (0, 0, 0) -> pose = (0, 0, 145, 0, 0, 0)
+    # Motor config: (0 , 2pi/3, -2pi/3) -> At rest (q1, q2, q3) = (0, 0, 0) -> pose = (0, 0, 145, 0, 0, 0)
 
-    # Motor values (tendon elongations in m)
-    DELTAL = np.array([0.010, 0.005, 0.005])  
+    # Motor values [rad]
+    q_motor = np.deg2rad(np.array([10, 10, 10]))  
 
-    pose = FK_Single(DELTAL)
-    print(f"Input tendon elongations (DELTAL): {DELTAL} [m]")
+    pose = FK_Single(q_motor)
+    print(f"Input motor angles (q_motor): {q_motor} [rad]")
     print(f"End-effector pose: {pose} [m, rad]")
