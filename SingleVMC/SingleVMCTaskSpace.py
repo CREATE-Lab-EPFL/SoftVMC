@@ -15,17 +15,16 @@ class VMC:
     A Virtual spring and damper are attached at to Cartesian points (end-effector).
     Forces are mapped to motor torques via Jacobian transpose:  tau = J^T @ F_virtual
     """
-
-    def __init__(self):
+    def __init__(self, spring_const, damp_const, target_pos):
         # Jacobians (built once)
         self.J_tp = q_motor2pose_ee()
 
         # Virtual springs [N/m] and dampers [N·s/m]
-        self.spring = LinearSpring(40.0)
-        self.damper = LinearDamper(1.0)
+        self.spring = LinearSpring(spring_const)
+        self.damper = LinearDamper(damp_const)
 
-        # Target Cartesian positions [m]  — tune these
-        self.target = np.array([0.100, 0.010, 0.135])   #  rest length (0,0,.145) [m]
+        # Target Cartesian position [m]
+        self.target = target_pos
 
     def single_torques(self, q_motor, q_motor_dot):
         """

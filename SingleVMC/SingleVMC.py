@@ -22,7 +22,12 @@ from SingleVMCTaskSpace import VMC
 
 rclpy.init()
 controller   = SingleController()
-vmc          = VMC()
+
+vmc          = VMC(
+    spring_const=40.0,
+    damp_const=1.0,
+    target_pos=np.array([0.100, 0.010, 0.135])
+)
 
 def control_loop():
     # State from ROS2 topics (degrees -> radians)
