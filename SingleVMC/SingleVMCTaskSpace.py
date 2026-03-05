@@ -5,7 +5,7 @@ import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from VMC_utils.VirtualModels import LinearSpring, LinearDamper
-from FK_Single import FK_Single
+from FK_Single import FK_Single, FK_Single_ee
 from JacobiansSingle import q_motor2pose_ee
 
 class VMC:
@@ -15,17 +15,14 @@ class VMC:
     A Virtual spring and damper are attached at to Cartesian points (end-effector).
     Forces are mapped to motor torques via Jacobian transpose:  tau = J^T @ F_virtual
     """
-    def __init__(self, spring_const=40.0, damp_const=1.0, target_pos=None):
+    def __init__(self, spring_const=40.0, damp_const=1.0, target_pos=np.array([0.0, 0.0, 0.145])): # default rest pose
         # Jacobians (built once)
         self.J_tp = q_motor2pose_ee()
 
         # Virtual springs [N/m] and dampers [N·s/m]
         self.spring = LinearSpring(spring_const)
         self.damper = LinearDamper(damp_const)
-
-        # Target Cartesian position [m] – default to rest pose
-        if target_pos is None:
-            target_pos = np.array([0.0, 0.0, 0.145])
+ 
         self.target = target_pos
 
     def single_torques(self, q_motor, q_motor_dot):
@@ -39,7 +36,7 @@ class VMC:
         tau = np.zeros(3)
        
         J = np.array(self.J_tp(q_motor[0], q_motor[1], q_motor[2]))   # (6, 3)
-        pose = FK_Single(q_motor) # [x, y, z, yaw, pitch, roll] [m, rad]
+        pose = FK_Single_ee(q_motor) # [x, y, z, yaw, pitch, roll] [m, rad]
         pose_dot = J @ q_motor_dot 
 
         # we focus only on the position part of the pose for the VMC, ignoring orientation for simplicity
