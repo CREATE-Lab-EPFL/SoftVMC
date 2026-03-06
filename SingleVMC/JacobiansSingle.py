@@ -209,7 +209,8 @@ if __name__ == "__main__":
         q = rng.uniform([-0, -0.1, 0.5], [1., -.1, 2.])   # random [Dx, Dy, Dl] in mm
         L = A @ q                                      # corresponding tendon lengths
 
-        J_direct = np.array(J_tp(*L))                               # (6,3) from tendon2pose
+        q_motor = L / MOTOR_RADIUS                                    # q_motor = DELTAL / r
+        J_direct = np.array(J_tp(*q_motor))                            # (6,3) from q_motor2pose_ee
         J_chain  = np.array(J_qp(*q)) @ np.linalg.inv(np.array(J_qt(*q)))  # (6,3) by chain rule
 
         err = np.max(np.abs(J_direct - J_chain))
