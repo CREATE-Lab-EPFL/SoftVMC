@@ -40,12 +40,12 @@ q1_short = np.array([0.01, 0.0001, 0.144]) # q1 shorter (tau1 neg), q2,q3 equaly
 q2_short = np.array([-0.01*np.sin(np.pi/6), 0.01*np.cos(np.pi/6), 0.144]) # q2 shorter (tau2 neg), q1,q3 equally longer (tau1,tau3 pos)
 
 # q1 gets shorter instead of longer. in the trajectory, the x component is positive instead of negative 
-q3_short_BUG = np.array([-0.01*np.sin(-np.pi/6), -0.01*np.cos(np.pi/6), 0.144]) # q3 shorter (tau3 neg), q1,q2 equally longer (tau1,tau2 pos)
+q3_short_BUG = np.array([-0.01*np.sin(np.pi/6), -0.01*np.cos(np.pi/6), 0.144]) # q3 shorter (tau3 neg), q1,q2 equally longer (tau1,tau2 pos)
 
 vmc = VMC(
     spring_const=40.0,
     damp_const=1.0,
-    target_pos=q2_short   # feasible position near rest
+    target_pos=q3_short_BUG   # feasible position near rest
 
     # init pos given by motors at rest: (0, 0, 0) -> pose = (0, 0, 0.145, 0, 0, 0)
 )
