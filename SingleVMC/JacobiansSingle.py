@@ -18,7 +18,7 @@ def pcc2q_motor(delta=None):
 
     Dx, Dy, Dl = symbols("Dx Dy Dl") # pcc param
     DELTAL = Matrix([Dl - Dx*cos(di) - Dy*sin(di) for di in delta]) # deltaL = A @ pcc
-    q_motor = DELTAL / MOTOR_RADIUS                                # q_motor = A @ pcc / MOTOR_RADIUS
+    q_motor = DELTAL / MOTOR_RADIUS                                 # q_motor = A @ pcc / MOTOR_RADIUS
 
     J = q_motor.jacobian(Matrix([Dx, Dy, Dl])) # J = d(q_motor)/d(pcc) = A / MOTOR_RADIUS
     return lambdify((Dx, Dy, Dl), J, modules=['numpy'])
@@ -48,7 +48,7 @@ def pcc2pose_ee():
         [(d*(L0+Dl)/D**2)*D*sin(D/d)]
     ])
 
-    # ZYX Euler angles from R
+    # Euler angles from R using ZYX convention
     yaw   = atan2(R[1,0], R[0,0] + 1e-12)
     pitch = asin(-R[2,0])
     roll  = atan2(R[2,1], R[2,2] + 1e-12)
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     print("\nValidation — max |tendon2pose - J_qp @ inv(J_qt)| at 3 random configurations:")
     rng = np.random.default_rng(0)
     for i in range(3):
-        q = rng.uniform([-10, -10, -5], [10, 10, 5])   # random [Dx, Dy, Dl] in mm
+        q = rng.uniform([-0, -0.1, 0.5], [1., -.1, 2.])   # random [Dx, Dy, Dl] in mm
         L = A @ q                                      # corresponding tendon lengths
 
         J_direct = np.array(J_tp(*L))                               # (6,3) from tendon2pose
@@ -214,3 +214,5 @@ if __name__ == "__main__":
 
         err = np.max(np.abs(J_direct - J_chain))
         print(f"  config {i+1}: q={np.round(q,2)},  max error = {err:.2e}")
+        print(f"    J_direct:\n{np.round(J_direct,3)}")
+        print(f"    J_chain:\n{np.round(J_chain,3)}\n")
