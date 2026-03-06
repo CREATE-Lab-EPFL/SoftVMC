@@ -4,7 +4,7 @@ from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 
 # Control frequency [Hz]
-CONTROL_FREQUENCY = 900
+CONTROL_FREQUENCY = 500
 
 class SingleController(Node):
     """ROS2 node interface for single segment. Reads joint states, publishes torques."""
@@ -17,8 +17,8 @@ class SingleController(Node):
                                                      self._pos_cb, 10)
         self.velocity_sub = self.create_subscription(Float64MultiArray, '/joint_velocities',
                                                      self._vel_cb, 10)
-        self.joint_positions  = np.zeros(2)   # [deg]
-        self.joint_velocities = np.zeros(2)   # [deg/s]
+        self.joint_positions  = np.zeros(3)   # [deg]
+        self.joint_velocities = np.zeros(3)   # [deg/s]
 
     def _pos_cb(self, msg):   self.joint_positions  = np.array(msg.data)
     def _vel_cb(self, msg):   self.joint_velocities = np.array(msg.data)

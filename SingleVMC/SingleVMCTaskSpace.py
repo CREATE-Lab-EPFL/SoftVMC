@@ -15,7 +15,7 @@ class VMC:
     A Virtual spring and damper are attached at to Cartesian points (end-effector).
     Forces are mapped to motor torques via Jacobian transpose:  tau = J^T @ F_virtual
     """
-    def __init__(self, spring_const=40.0, damp_const=1.0, target_pos=np.array([0.0, 0.0, 0.145])): # default rest pose
+    def __init__(self, spring_const=40.0, damp_const=1.0): # default rest pose
         # Jacobians (built once)
         self.J_tp = q_motor2pose_ee()
 
@@ -23,13 +23,12 @@ class VMC:
         self.spring = LinearSpring(spring_const)
         self.damper = LinearDamper(damp_const)
  
-        self.target = target_pos
-
-    def single_torques(self, q_motor, q_motor_dot):
+    def single_torques(self, q_motor, q_motor_dot, target_pos=None):
         """
         Args:
             q_motor:     [q1, q2, q3] motor angles [rad]
             q_motor_dot: [q1_dot, q2_dot, q3_dot] motor velocities [rad/s]
+            target_pos:  [x, y, z] target position [m]
         Returns:
             tau: [tau_1, tau_2, tau_3] motor torques [N·m]
         """
@@ -43,7 +42,7 @@ class VMC:
         pos = pose[:3]
         vel = pose_dot[:3]
         J_xyz = J[:3, :]
-        tau = J_xyz.T @ (self.spring.compute_force(pos, self.target) + self.damper.compute_force(vel))
+        tau = J_xyz.T @ (self.spring.compute_force(pos, target_pos) + self.damper.compute_force(vel))
         return tau
 
 # Example usage
@@ -51,5 +50,6 @@ if __name__ == "__main__":
     vmc = VMC()
     q_motor = np.array([0.0, 0.0, 0.0])  # motor angles [rad]
     q_motor_dot = np.array([0.0, 0.0, 0.0])  # motor velocities [rad/s]
-    tau = vmc.single_torques(q_motor, q_motor_dot)
+    target_pos = np.array([0.0, 0.0, 0.145])  # target position [m]
+    tau = vmc.single_torques(q_motor, q_motor_dot, target_pos)
     print("Motor torques:", tau)

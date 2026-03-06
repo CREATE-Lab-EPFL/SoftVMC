@@ -14,7 +14,7 @@ from FK_Single import FK_Single_ee
 # ---------------------------------------------------------------------------
 # Simulation parameters
 # ---------------------------------------------------------------------------
-CONTROL_FREQUENCY = 900          # [Hz]
+CONTROL_FREQUENCY = 500          # [Hz]
 STEPS             = 3000         # ~3.3 s of simulated time
 dt                = 1.0 / CONTROL_FREQUENCY
 
@@ -38,14 +38,12 @@ test2 = np.array([0.0, 0.0, 0.145])
 # sin(pi/6) = 0.5, cos(pi/6) = 0.866
 q1_short = np.array([0.01, 0.0001, 0.144]) # q1 shorter (tau1 neg), q2,q3 equaly longer (tau2,tau3 pos)
 q2_short = np.array([-0.01*np.sin(np.pi/6), 0.01*np.cos(np.pi/6), 0.144]) # q2 shorter (tau2 neg), q1,q3 equally longer (tau1,tau3 pos)
-
-# q1 gets shorter instead of longer. in the trajectory, the x component is positive instead of negative 
-q3_short_BUG = np.array([-0.01*np.sin(np.pi/6), -0.01*np.cos(np.pi/6), 0.144]) # q3 shorter (tau3 neg), q1,q2 equally longer (tau1,tau2 pos)
+q3_short = np.array([-0.01*np.sin(np.pi/6), -0.01*np.cos(np.pi/6), 0.144]) # q3 shorter (tau3 neg), q1,q2 equally longer (tau1,tau2 pos)
 
 vmc = VMC(
     spring_const=40.0,
     damp_const=1.0,
-    target_pos=q3_short_BUG   # feasible position near rest
+    target_pos=q2_short  # feasible position near rest
 
     # init pos given by motors at rest: (0, 0, 0) -> pose = (0, 0, 0.145, 0, 0, 0)
 )
