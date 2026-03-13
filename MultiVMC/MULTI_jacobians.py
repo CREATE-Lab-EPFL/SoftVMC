@@ -14,7 +14,7 @@ _DELTA1 = Matrix([0,          2*pi/3,      -2*pi/3])          # 0°, +120°, -12
 _DELTA2 = Matrix([pi/3,       pi,          -pi/3])            # 60°, 180°, -60°
 _DELTA3 = Matrix([5*pi/6,     3*pi/2,      pi/6])             # 150°, 270°, 30°
 
-
+# def pcc2q_motor():
 def q2tendon(delta1=None, delta2=None, delta3=None):
     """
     Jacobian d(DELTAL)/d(q), shape (9,9).
@@ -41,7 +41,7 @@ def q2tendon(delta1=None, delta2=None, delta3=None):
     J = DELTAL.jacobian(q_vec)
     return lambdify((Dx1, Dy1, Dl1, Dx2, Dy2, Dl2, Dx3, Dy3, Dl3), J, modules=['numpy'])
 
-
+# def pcc2pose_ee():
 def q2coordinates():
     """
     Jacobian d(pose)/d(q), shape (6,9). pose = [x,y,z,yaw,pitch,roll] of the tip of section 3.
@@ -133,7 +133,7 @@ def q2xyz():
     J = T.jacobian(q_vec)
     return lambdify((Dx1, Dy1, Dl1, Dx2, Dy2, Dl2, Dx3, Dy3, Dl3), J, modules=['numpy'])
 
-
+# def q_motor2pose_ee():
 def tendon2pose(delta1=_DELTA1, delta2=_DELTA2, delta3=_DELTA3):
     """
     Jacobian d(pose)/d(DELTAL), shape (6,9). Direct end-to-end: tendon lengths -> tip pose.
