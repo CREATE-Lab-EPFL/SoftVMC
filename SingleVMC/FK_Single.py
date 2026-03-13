@@ -5,18 +5,24 @@ MOTOR_RADIUS = 0.003 # [m] radius of the tendon spool
 SECTION_RADIUS = 0.030  # [m] radius of the section (diameter = 60 mm)
 REST_LENGTH = 0.145     # [m] rest length of the section
 
+# Motor arrangement angles [rad]
+DELTA = np.array([0.0, 2*np.pi/3, -2*np.pi/3], dtype=float)
+
+# Precompute A and inv(A) once
+_A = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in DELTA], dtype=float)  # (3,3)
+_A_INV = np.linalg.inv(_A)
 
 # def FK_tendon2q(DELTAL, delta=np.array([0, 2*np.pi/3, -2*np.pi/3])):
-def FK_q_motor2pcc(q_motor, delta):
+def FK_q_motor2pcc(q_motor: np.ndarray) -> np.ndarray:
     """
-    FK from q_motor = DELTAL / MOTOR_RADIUS to lateral cuvatures+elongation (q)
-    Args: q_motor = [q1 q2 q3] [rad]
-    Returns: pcc = [Dx, Dy, Dl] [m]
+    FK from q_motor = DELTAL / MOTOR_RADIUS to lateral curvatures+elongation (pcc)
+    Args:
+        q_motor: [q1 q2 q3] [rad]
+    Returns:
+        pcc: [Dx, Dy, Dl] [m]
     """
-    DELTAL = q_motor * MOTOR_RADIUS  # convert from motor space to tendon elongation space
-    A = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in delta])  # (3, 3)
-    pcc = np.linalg.inv(A) @ DELTAL
-
+    deltal = q_motor * MOTOR_RADIUS  # tendon elongations
+    pcc = _A_INV @ deltal
     return pcc
 
 def FK_pcc2pose_ee(pcc):
@@ -91,25 +97,25 @@ def FK_pcc2pose(pcc, s_param):
 
     return pose.flatten()
 
-def FK_Single_ee(q_motor, delta=np.array([0, 2*np.pi/3, -2*np.pi/3])):
+def FK_Single_ee(q_motor):
     """
     Forward kinematics for the single VMC.
     Args: q_motor: [q1, q2, q3] motor angles [rad]
     Returns: pose: [x, y, z, yaw, pitch, roll] of the end-effector [m, rad]
     """
-    pcc = FK_q_motor2pcc(q_motor, delta)
+    pcc = FK_q_motor2pcc(q_motor)
     pose = FK_pcc2pose_ee(pcc)
 
     return pose
 
-def FK_Single(q_motor, s_param, delta=np.array([0, 2*np.pi/3, -2*np.pi/3])):
+def FK_Single(q_motor, s_param):
     """
     Forward kinematics for the single VMC.
     Args: q_motor: [q1, q2, q3] motor angles [rad]
           s_param: s = [0,1] defines position along the segment (0 = base, 1 = tip).
     Returns: pose: [x, y, z, yaw, pitch, roll] of the end-effector [m, rad]
     """
-    pcc = FK_q_motor2pcc(q_motor, delta)
+    pcc = FK_q_motor2pcc(q_motor)
     pose = FK_pcc2pose(pcc, s_param)
 
     return pose

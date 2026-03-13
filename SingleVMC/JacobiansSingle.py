@@ -1,10 +1,6 @@
 import numpy as np
+from FK_Single import MOTOR_RADIUS, SECTION_RADIUS, REST_LENGTH, DELTA, _A_INV, _A
 from sympy import symbols, sqrt, atan2, cos, sin, Matrix, lambdify, asin, pi# type: ignore
-
-# Units: LENGTHS [m], ANGLES [rad]
-MOTOR_RADIUS = 0.003 # [m] radius of the tendon spool
-SECTION_RADIUS = 0.030  # [m] radius of the section (diameter = 60 mm)
-REST_LENGTH = 0.145     # [m] rest length of the section
 
 # def q2tendon(delta=None):
 def pcc2q_motor(delta=None):
@@ -59,20 +55,17 @@ def pcc2pose_ee():
 
 
 # def tendon2pose(delta=[0, np.radians(120), np.radians(-120)]):
-def q_motor2pose_ee(delta=[0, np.radians(120), np.radians(-120)]):
+def q_motor2pose_ee():
     """
     Jacobian d(pose)/d(q_motor), shape (6,3). 
     DELTAL = q_motor * MOTOR_RADIUS (we do the conversion inside this function) 
-    delta: tendon angular positions [rad], default [0, 2pi/3, -2pi/3].
     """
-
     q1, q2, q3 = symbols("q1 q2 q3")
     d  = SECTION_RADIUS  # section radius [m]  (diameter = 60 mm)
     L0 = REST_LENGTH   # rest length [m]
 
     # A[i] = [-cos(delta[i]), -sin(delta[i]), 1]  ->  DELTAL = A @ [Dx, Dy, Dl]
-    A_num = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in delta])
-    A_inv = Matrix(np.linalg.inv(A_num).tolist())   # numeric inverse as SymPy matrix
+    A_inv = Matrix(_A_INV.tolist())   # numeric inverse as SymPy matrix
 
     # pcc = A_inv * DELTAL = A_inv * (q * MOTOR_RADIUS)
     pcc = A_inv @ (Matrix([q1, q2, q3])*MOTOR_RADIUS)   
@@ -142,24 +135,18 @@ def pcc2pose(s_param):
     return lambdify((Dx, Dy, Dl), J, modules=['numpy'])
 
 
-def q_motor2pose(s_param,delta=[0, np.radians(120), np.radians(-120)]):
+def q_motor2pose(s_param):
     """
     Jacobian d(pose)/d(q_motor), shape (6,3). 
     DELTAL = q_motor * MOTOR_RADIUS (we do the conversion inside this function)
     Args: s_param: s = [0,1] defines position along the segment (0 = base, 1 = tip).
-          delta: tendon angular positions [rad], default [0, 2pi/3, -2pi/3].
     """
 
     q1, q2, q3 = symbols("q1 q2 q3")
     d  = SECTION_RADIUS  # section radius [m]  (diameter = 60 mm)
     L0 = REST_LENGTH   # rest length [m]
 
-    # A[i] = [-cos(delta[i]), -sin(delta[i]), 1]  ->  DELTAL = A @ [Dx, Dy, Dl]
-    A_num = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in delta])
-    A_inv = Matrix(np.linalg.inv(A_num).tolist())   # numeric inverse as SymPy matrix
-
-    # pcc = A_inv * DELTAL = A_inv * (q * MOTOR_RADIUS)
-    pcc = A_inv * (Matrix([q1, q2, q3])*MOTOR_RADIUS)   
+    pcc = _A_INV * (Matrix([q1, q2, q3])*MOTOR_RADIUS)   
     Dx, Dy, Dl = pcc[0], pcc[1], pcc[2]
 
     D = sqrt(Dx**2 + Dy**2 + 1e-12)
@@ -199,15 +186,12 @@ if __name__ == "__main__":
     t0 = time.time(); J_qp = pcc2pose_ee(); print(f"  pcc2pose_ee done  ({time.time()-t0:.1f}s)")
     t0 = time.time(); J_tp = q_motor2pose_ee();   print(f"  q_motor2pose_ee   done  ({time.time()-t0:.1f}s)")
 
-    delta = [0, np.radians(120), np.radians(-120)]
-    A = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in delta])  # tendon map: L = A @ q
-
     # Validate: tendon2pose(L) == q2coordinates(q) @ inv(q2tendon(q))  at 3 random configs
     print("\nValidation — max |tendon2pose - J_qp @ inv(J_qt)| at 3 random configurations:")
     rng = np.random.default_rng(0)
     for i in range(3):
         q = rng.uniform([-0, -0.1, 0.5], [1., -.1, 2.])   # random [Dx, Dy, Dl] in mm
-        L = A @ q                                      # corresponding tendon lengths
+        L = _A @ q                                      # corresponding tendon lengths
 
         q_motor = L / MOTOR_RADIUS                                    # q_motor = DELTAL / r
         J_direct = np.array(J_tp(*q_motor))                            # (6,3) from q_motor2pose_ee
