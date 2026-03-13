@@ -1,16 +1,5 @@
 import numpy as np
-
-# Units: LENGTHS [m], ANGLES [rad]
-MOTOR_RADIUS = 0.003 # [m] radius of the tendon spool
-SECTION_RADIUS = 0.030  # [m] radius of the section (diameter = 60 mm)
-REST_LENGTH = 0.145     # [m] rest length of the section
-
-# Motor arrangement angles [rad]
-DELTA = np.array([0.0, 2*np.pi/3, -2*np.pi/3], dtype=float)
-
-# Precompute A and inv(A) once
-_A = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in DELTA], dtype=float)  # (3,3)
-_A_INV = np.linalg.inv(_A)
+from JacobiansSingle import MOTOR_RADIUS, SECTION_RADIUS, REST_LENGTH, A_INV
 
 # def FK_tendon2q(DELTAL, delta=np.array([0, 2*np.pi/3, -2*np.pi/3])):
 def FK_q_motor2pcc(q_motor: np.ndarray) -> np.ndarray:
@@ -22,7 +11,7 @@ def FK_q_motor2pcc(q_motor: np.ndarray) -> np.ndarray:
         pcc: [Dx, Dy, Dl] [m]
     """
     deltal = q_motor * MOTOR_RADIUS  # tendon elongations
-    pcc = _A_INV @ deltal
+    pcc = A_INV @ deltal
     return pcc
 
 def FK_pcc2pose_ee(pcc):

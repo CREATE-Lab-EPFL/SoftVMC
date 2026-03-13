@@ -1,19 +1,30 @@
 import numpy as np
-from FK_Single import MOTOR_RADIUS, SECTION_RADIUS, REST_LENGTH, DELTA, _A_INV, _A
-from sympy import symbols, sqrt, atan2, cos, sin, Matrix, lambdify, asin, pi# type: ignore
+from sympy import symbols, sqrt, atan2, cos, sin, Matrix, lambdify, asin, pi # type: ignore
+
+# Units: LENGTHS [m], ANGLES [rad]
+MOTOR_RADIUS = 0.003 # [m] radius of the tendon spool
+SECTION_RADIUS = 0.030  # [m] radius of the section (diameter = 60 mm)
+REST_LENGTH = 0.145     # [m] rest length of the section
+
+# Motor arrangement angles [rad]
+DELTA = np.array([0.0, 2*np.pi/3, -2*np.pi/3], dtype=float)
+_DELTA = Matrix([0, 2*pi/3, -2*pi/3])  # 0°, +120°, -120°
+
+# Precompute A and inv(A) once
+A = np.array([[-np.cos(di), -np.sin(di), 1.0] for di in DELTA], dtype=float)  # (3,3)
+A_INV = np.linalg.inv(A)
+
 
 # def q2tendon(delta=None):
-def pcc2q_motor(delta=None):
+def pcc2q_motor():
     """
     Jacobian d(q_motor)/d(pcc), shape (3,3).
-    pcc = [Dx, Dy, Dl], q_motor = [q1, q2, q3] with q_motor = DELTAL / MOTOR_RADIUS
+    pcc = [Dx, Dy, Dl], 
+    q_motor = [q1, q2, q3] with q_motor = DELTAL / MOTOR_RADIUS
     """
 
-    if delta is None:
-        delta = Matrix([0, 2*pi/3, -2*pi/3])
-
     Dx, Dy, Dl = symbols("Dx Dy Dl") # pcc param
-    DELTAL = Matrix([Dl - Dx*cos(di) - Dy*sin(di) for di in delta]) # deltaL = A @ pcc
+    DELTAL = Matrix([Dl - Dx*cos(di) - Dy*sin(di) for di in _DELTA]) # deltaL = A @ pcc
     q_motor = DELTAL / MOTOR_RADIUS                                 # q_motor = A @ pcc / MOTOR_RADIUS
 
     J = q_motor.jacobian(Matrix([Dx, Dy, Dl])) # J = d(q_motor)/d(pcc) = A / MOTOR_RADIUS
@@ -65,7 +76,7 @@ def q_motor2pose_ee():
     L0 = REST_LENGTH   # rest length [m]
 
     # A[i] = [-cos(delta[i]), -sin(delta[i]), 1]  ->  DELTAL = A @ [Dx, Dy, Dl]
-    A_inv = Matrix(_A_INV.tolist())   # numeric inverse as SymPy matrix
+    A_inv = Matrix(A_INV.tolist())   # numeric inverse as SymPy matrix
 
     # pcc = A_inv * DELTAL = A_inv * (q * MOTOR_RADIUS)
     pcc = A_inv @ (Matrix([q1, q2, q3])*MOTOR_RADIUS)   
@@ -146,7 +157,7 @@ def q_motor2pose(s_param):
     d  = SECTION_RADIUS  # section radius [m]  (diameter = 60 mm)
     L0 = REST_LENGTH   # rest length [m]
 
-    pcc = _A_INV * (Matrix([q1, q2, q3])*MOTOR_RADIUS)   
+    pcc = A_INV * (Matrix([q1, q2, q3])*MOTOR_RADIUS)   
     Dx, Dy, Dl = pcc[0], pcc[1], pcc[2]
 
     D = sqrt(Dx**2 + Dy**2 + 1e-12)
@@ -191,7 +202,7 @@ if __name__ == "__main__":
     rng = np.random.default_rng(0)
     for i in range(3):
         q = rng.uniform([-0, -0.1, 0.5], [1., -.1, 2.])   # random [Dx, Dy, Dl] in mm
-        L = _A @ q                                      # corresponding tendon lengths
+        L = A @ q                                      # corresponding tendon lengths
 
         q_motor = L / MOTOR_RADIUS                                    # q_motor = DELTAL / r
         J_direct = np.array(J_tp(*q_motor))                            # (6,3) from q_motor2pose_ee
