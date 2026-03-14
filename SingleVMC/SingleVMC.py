@@ -15,7 +15,11 @@ Usage (from SoftVMC root):
     python3 SingleVMC.py
 
     # terminal 3 in SingleVMC folder (run at the end to back to home/rest position accurately)
-    python3 SingleGoHome.py
+    python3 SingleGoHome.py --read  # to read current home position 
+    python3 SingleGoHome.py         # to go to home position
+
+    # To check ports:
+    ls /dev/tty*
 """
 import numpy as np
 import rclpy
@@ -38,8 +42,8 @@ controller = SingleController()
 
 # Positions in Cartesian space [x, y, z] (meters)
 POS_SCALE = 3
-q1_short = np.array([0.01*POS_SCALE, 0.0, 0.144]) # q1 shorter (tau1 neg), q2,q3 equaly longer (tau2,tau3 pos)
-q2_short = np.array([-0.01*POS_SCALE*np.sin(np.pi/6), 0.01*POS_SCALE*np.cos(np.pi/6), 0.144]) # q2 shorter (tau2 neg), q1,q3 equally longer (tau1,tau3 pos)
+q1_short = np.array([0.01*POS_SCALE,                  0.0,                             0.144])  # q1 shorter (tau1 neg), q2,q3 equaly longer (tau2,tau3 pos)
+q2_short = np.array([-0.01*POS_SCALE*np.sin(np.pi/6), 0.01*POS_SCALE*np.cos(np.pi/6),  0.144])  # q2 shorter (tau2 neg), q1,q3 equally longer (tau1,tau3 pos)
 q3_short = np.array([-0.01*POS_SCALE*np.sin(np.pi/6), -0.01*POS_SCALE*np.cos(np.pi/6), 0.144]) # q3 shorter (tau3 neg), q1,q2 equally longer (tau1,tau2 pos)
 rest_pos = np.array([0.0, 0.0, 0.145])
 
@@ -52,12 +56,10 @@ waypoint_index = 0
 # Stability check for switching waypoints (switch when prev_pos = current_pos -> waypoint reached)
 stable_count   = -50             # negative to allow some initial settling time before the first switch
 STABLE_STEPS   = 50              # must be stable for this many steps before switching
+MOTOR_STOPPED_THRESHOLD = 0.1    # [rad/s] if motor velocity below this, consider it stopped
+TAU_LIMIT      = 0.1             # [N·m] Safety limit for torques 
 
-POS_TOLERANCE = 0.015 # [m] tolerance for considering a waypoint reached
-MOTOR_STOPPED_THRESHOLD = 0.1 # [rad/s] if motor velocity below this, consider it stopped
-TAU_LIMIT      = 0.1 # [N·m] Safety limit for torques 
-
-# ------------------- Different Springs and Dampers ------------------ 
+# ------------------- VMC Springs and Dampers ------------------ 
 
 # Springs 
 lin_spring   = LinearSpring(400.0)       # spring const [N/m] 
@@ -69,7 +71,7 @@ lin_damper  = LinearDamper(1.0)      # damping const [N·s/m]
 tahn_damper = TanhDamper(1.0, 1.5)   # damping const [N·s/m], max force [N]
 
 # vmc_ee = VMC_Single_EE(lin_spring, lin_damper) # VMC_EE DEPRICATED USE VMC WITH S PARAM = 1.0 instead 
-vmc = VMC_Single(gauss_spring, lin_damper, s_param=1.0) # spring/damper at middle of the segment
+vmc = VMC_Single(lin_spring, lin_damper, s_param=1.0) 
 
 # -------------------- Logging / Plotting --------------------
 SAVE_PLOT = True 
@@ -138,6 +140,8 @@ def control_loop():
     controller.publish_torques(tau_vmc)
 
 controller.create_timer(1.0 / CONTROL_FREQUENCY, control_loop)
+
+# -------------------- Run + Save Plot on exit  --------------------
 
 try:
     rclpy.spin(controller)
