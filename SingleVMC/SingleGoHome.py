@@ -27,9 +27,9 @@ PROTOCOL    = 2.0
 MOTOR_IDS = [1, 2, 3]
 
 # --- Control table addresses (XL330-M288) -----------------------------------
-ADDR_TORQUE_ENABLE    = 64
-ADDR_OPERATING_MODE   = 11
-ADDR_GOAL_POSITION    = 116
+ADDR_TORQUE_ENABLE    = 64 # enable/disable
+ADDR_OPERATING_MODE   = 11 # current control/extended position control (see below)
+ADDR_GOAL_POSITION    = 116 
 ADDR_GOAL_CURRENT     = 102
 ADDR_PRESENT_POSITION = 132
 ADDR_PROFILE_VELOCITY = 112
@@ -45,11 +45,10 @@ PROFILE_VELOCITY   = 40   # ~9 rpm (slow/safe)
 # --- HOME POSITION (ABSOLUTE ticks) -----------------------------------------
 # Update: put robot in desired home pose, run with --read, copy values here.
 HOME_POSITION = {
-    1: 0,
-    2: 0,
-    3: 0,
+    1: 3901,
+    2: 1199,
+    3: 2158,
 }
-
 
 def init_bus():
     ph = PortHandler(DEVICE_PORT)
@@ -94,8 +93,8 @@ def send_home_abs(ph, pk):
     print("Home (absolute ticks) command sent")
 
 
-def wait_until_home(ph, pk, timeout=15.0):
-    time.sleep(0.3)
+def wait_until_home(ph, pk, timeout=10.0):
+    time.sleep(0.5)
     t0 = time.time()
     while time.time() - t0 < timeout:
         pos = read_positions_abs(ph, pk)
