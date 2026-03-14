@@ -28,13 +28,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from VMC_utils.VirtualModels import LinearDamper, LinearSpring, TanhSpring, TanhDamper, GaussianSpring
 
 from SingleController import SingleController, CONTROL_FREQUENCY
-from SingleVMCTaskSpace import VMC_Single_EE, VMC_Single
-from FK_Single import FK_Single_ee
+from SingleVMCTaskSpace import VMC_Single
+from FK_Single import FK_Single
 
 rclpy.init()
 controller = SingleController()
 
-# ------------------ Define waypoints in Cartesian space and constants ------------------
+# ------------------ Define waypoints in Cartesian space  ------------------
 
 # Positions in Cartesian space [x, y, z] (meters)
 POS_SCALE = 3
@@ -44,18 +44,18 @@ q3_short = np.array([-0.01*POS_SCALE*np.sin(np.pi/6), -0.01*POS_SCALE*np.cos(np.
 rest_pos = np.array([0.0, 0.0, 0.145])
 
 # Waypoints to follow
-waypoints      = [q1_short, q2_short, q3_short] # once waypoints completed we go to rest position 
+waypoints      = [q1_short, q2_short, q3_short, rest_pos] # once waypoints completed we go to rest position 
 waypoint_index = 0
 
+# ------------------ Control Loop constants and behavior control variables ------------------
+
 # Stability check for switching waypoints (switch when prev_pos = current_pos -> waypoint reached)
-q_motor_prev   = np.zeros(3)
 stable_count   = -50             # negative to allow some initial settling time before the first switch
 STABLE_STEPS   = 50              # must be stable for this many steps before switching
-max_iter       = 6
-print_var = 0
 
-# Safety limit for torques (N·m)
-TAU_LIMIT      = 0.1
+POS_TOLERANCE = 0.015 # [m] tolerance for considering a waypoint reached
+MOTOR_STOPPED_THRESHOLD = 0.1 # [rad/s] if motor velocity below this, consider it stopped
+TAU_LIMIT      = 0.1 # [N·m] Safety limit for torques 
 
 # ------------------- Different Springs and Dampers ------------------ 
 
@@ -68,10 +68,11 @@ gauss_spring = GaussianSpring(800, 0.03) # force amplitude [N], sigma [m]
 lin_damper  = LinearDamper(1.0)      # damping const [N·s/m] 
 tahn_damper = TanhDamper(1.0, 1.5)   # damping const [N·s/m], max force [N]
 
-vmc_ee = VMC_Single_EE(lin_spring, lin_damper)
-vmc    = VMC_Single(lin_spring, lin_damper, s_param=0.50) # spring/damper at middle of the segment
+# vmc_ee = VMC_Single_EE(lin_spring, lin_damper) # VMC_EE DEPRICATED USE VMC WITH S PARAM = 1.0 instead 
+vmc = VMC_Single(lin_spring, lin_damper, s_param=0.9) # spring/damper at middle of the segment
 
-# -------------------- Logging buffers --------------------
+# -------------------- Logging / Plotting --------------------
+SAVE_PLOT = True 
 
 t0 = time.perf_counter()
 
@@ -87,47 +88,38 @@ waypoint_event_goal = []
 # -------------------- Control loop ------------------
 
 def control_loop():
-    global waypoint_index, q_motor_prev, stable_count, max_iter
+    global waypoint_index, stable_count
 
     # State from ROS2 topics (degrees -> radians)
     q_motor     = np.radians(controller.get_joint_positions())
     q_motor_dot = np.radians(controller.get_joint_velocities())
 
-    if max_iter <= 0:
-        # print("Max iterations reached. Stopping.")
-        goal = rest_pos
-    else:
-        goal = waypoints[waypoint_index]
-    # VMC torques (Jacobian transpose of virtual spring/damper forces)
-    tau_vmc  = vmc.single_torques(q_motor, q_motor_dot, target_pos=goal)  # we can change the target on the fly for testing
-    
-     # Check if motors have stopped moving
-    if np.linalg.norm(q_motor - q_motor_prev) < 0.01: 
+    goal = waypoints[waypoint_index]
+    tau_vmc  = vmc.single_torques(q_motor, q_motor_dot, target_pos=goal) 
+    pose = FK_Single(q_motor, vmc.s_param) # [x,y,z,yaw,pitch,roll] 
+
+    # Check if motors have stopped moving
+    # print(np.linalg.norm(q_motor_dot))
+    if np.linalg.norm(q_motor_dot) < MOTOR_STOPPED_THRESHOLD: 
         stable_count += 1
     else:
         stable_count = 0   # reset if still moving
     
-    # Only switch after being stable for STABLE_STEPS consecutive steps
-    if stable_count >= STABLE_STEPS:
-        if max_iter > 0:
-            print(f"Reached waypoint {waypoint_index}: "f"{waypoints[waypoint_index]}")
-            print(f"Current q_motor: {q_motor}")
-            print(f"Current position: {FK_Single_ee(q_motor)}\n")
-        if max_iter == 0:
-            print(f"Rest position reached.")
-            print(f"Current q_motor: {q_motor}")
-            print(f"Current position: {FK_Single_ee(q_motor)}")
+    # Only switch waypoints after motors stopped moving 
+    if (stable_count >= STABLE_STEPS):
         stable_count = 0
-        waypoint_index = (waypoint_index + 1) % len(waypoints)
-        max_iter -= 1
+        if waypoint_index == len(waypoints) - 1:
+            print("Last waypoint reached")
+        else:
+            print(f"Reached waypoint {waypoint_index}: "f"{waypoints[waypoint_index]}")
+            print(f"Current position: {pose[:3]}\n")
+            waypoint_index = (waypoint_index + 1) % len(waypoints)
 
         # Record the waypoint switch event (time + next goal)
         t_now = time.perf_counter() - t0
-        next_goal = rest_pos if max_iter <= 0 else waypoints[waypoint_index]
+        next_goal = waypoints[waypoint_index]
         waypoint_event_t.append(t_now)
         waypoint_event_goal.append(next_goal.copy())
-
-    q_motor_prev = q_motor.copy()
 
     # Limit torque to 0.1 N·m for safety
     if np.any(np.abs(tau_vmc) > TAU_LIMIT):
@@ -136,9 +128,7 @@ def control_loop():
 
     # --- Log values for plotting ---
     t_now = time.perf_counter() - t0
-    ee_pose = FK_Single_ee(q_motor)      # [x,y,z,yaw,pitch,roll]
-    xyz = np.asarray(ee_pose[:3], dtype=float)
-
+    xyz = np.asarray(pose[:3], dtype=float)
     t_log.append(t_now)
     xyz_log.append(xyz)
     goal_log.append(goal.copy())
@@ -175,7 +165,7 @@ finally:
     # 3) Save plots
     if len(t_log) < 2:
         print("[WARN] Not enough data logged to plot.")
-    else:
+    elif SAVE_PLOT:
         t_arr    = np.asarray(t_log)
         xyz_arr  = np.asarray(xyz_log)     # (N,3)
         goal_arr = np.asarray(goal_log)    # (N,3)
@@ -224,5 +214,6 @@ finally:
 
         fig.savefig(out_path, dpi=200, bbox_inches="tight")
         plt.close(fig)
-
         print(f"[OK] Saved plot to: {out_path}")
+    else:
+        print("[INFO] Plot saving skipped (SAVE_PLOT=False).")

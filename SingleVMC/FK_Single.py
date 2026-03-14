@@ -97,7 +97,7 @@ def FK_Single_ee(q_motor):
 
     return pose
 
-def FK_Single(q_motor, s_param):
+def FK_Single(q_motor, s_param = 1.0):
     """
     Forward kinematics for the single VMC.
     Args: q_motor: [q1, q2, q3] motor angles [rad]
