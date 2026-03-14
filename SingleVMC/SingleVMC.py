@@ -69,7 +69,7 @@ lin_damper  = LinearDamper(1.0)      # damping const [N·s/m]
 tahn_damper = TanhDamper(1.0, 1.5)   # damping const [N·s/m], max force [N]
 
 # vmc_ee = VMC_Single_EE(lin_spring, lin_damper) # VMC_EE DEPRICATED USE VMC WITH S PARAM = 1.0 instead 
-vmc = VMC_Single(lin_spring, lin_damper, s_param=0.9) # spring/damper at middle of the segment
+vmc = VMC_Single(gauss_spring, lin_damper, s_param=1.0) # spring/damper at middle of the segment
 
 # -------------------- Logging / Plotting --------------------
 SAVE_PLOT = True 
