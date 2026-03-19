@@ -3,7 +3,7 @@ Finger-space VMC example.
 
 Virtual springs and dampers act directly on joint angles [theta_MCP, theta_PIP, theta_DIP].
 Simpler than task-space VMC: no FK required, suitable for posture regulation and stiffness shaping.
-Gravity, friction and joint-limit compensation are added on top.
+Gravity and joint-limit compensation are added on top.
 
 Usage (from SoftVMC root):
     ros2 run dynamixel_interface dynamixel_node          # terminal 1
@@ -21,12 +21,12 @@ import rclpy
 
 from VMCFinger.FingerController import FingerController, CONTROL_FREQUENCY
 from VMCFinger.FingerVMCFingerSpace import VMC
-from VMCFinger.FingerGravFricLim import GravFricLim
+from VMCFinger.FingerGravComp import GravComp
 
 rclpy.init()
 controller   = FingerController()
 vmc          = VMC()          # edit vmc.target / vmc.spring.stiffness to tune
-compensation = GravFricLim()
+compensation = GravComp()
 
 
 def control_loop():
@@ -37,8 +37,8 @@ def control_loop():
     # VMC torques (spring/damper on joint angles, mapped via J^T)
     tau_vmc  = vmc.finger_torques(q_motor, q_dot_motor)
 
-    # Compensation (gravity + joint limits + Stribeck friction)
-    tau_comp = compensation.compute_compensation_torques(q_motor, q_dot_motor, tau_vmc)
+    # Compensation (gravity + joint limits)
+    tau_comp = compensation.compute_compensation_torques(q_motor)
 
     controller.publish_torques(tau_vmc + tau_comp)
 
