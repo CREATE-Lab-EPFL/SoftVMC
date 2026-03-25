@@ -47,6 +47,8 @@ q2_short = np.array([-0.01*POS_SCALE*np.sin(np.pi/6), 0.01*POS_SCALE*np.cos(np.p
 q3_short = np.array([-0.01*POS_SCALE*np.sin(np.pi/6), -0.01*POS_SCALE*np.cos(np.pi/6), 0.144]) # q3 shorter (tau3 neg), q1,q2 equally longer (tau1,tau2 pos)
 rest_pos = np.array([0.0, 0.0, 0.145])
 
+q1_short_opposite = np.array([-0.01*3,                  0.0,                             0.144])  # q1 shorter (tau1 neg), q2,q3 equaly longer (tau2,tau3 pos)
+
 # Waypoints to follow
 waypoints      = [q1_short, q2_short, q3_short, rest_pos] # once waypoints completed we go to rest position 
 waypoint_index = 0
@@ -70,8 +72,8 @@ gauss_spring = GaussianSpring(800, 0.03) # force amplitude [N], sigma [m]
 lin_damper  = LinearDamper(1.0)      # damping const [N·s/m] 
 tahn_damper = TanhDamper(1.0, 1.5)   # damping const [N·s/m], max force [N]
 
-# vmc_ee = VMC_Single_EE(lin_spring, lin_damper) # VMC_EE DEPRICATED USE VMC WITH S PARAM = 1.0 instead 
-vmc = VMC_Single(lin_spring, lin_damper, s_param=1.0) 
+# vmc_ee = VMC_Single_EE(lin_spring, lin_damper) # VMC_EE DEPRICATED USE VMC WITH S PARAM = 1.0 instead
+vmc = VMC_Single(lin_spring, lin_damper, s_param=1.0)
 
 # -------------------- Logging / Plotting --------------------
 SAVE_PLOT = True 
