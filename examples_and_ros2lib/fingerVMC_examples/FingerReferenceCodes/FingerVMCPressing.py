@@ -2,7 +2,7 @@
 Task-space VMC example.
 
 Virtual springs and dampers are placed at the MCP base and fingertip in Cartesian space.
-The resulting forces are mapped to motor torques via J^T. Gravity, friction and joint-limit
+The resulting forces are mapped to motor torques via J^T. Gravity and joint-limit
 compensation are added on top.
 
 Usage (from SoftVMC root):
@@ -21,12 +21,12 @@ import rclpy
 
 from VMCFinger.FingerController import FingerController, CONTROL_FREQUENCY
 from VMCFinger.FingerVMCTaskSpace import VMC
-from VMCFinger.FingerGravFricLim import GravFricLim
+from VMCFinger.FingerGravComp import GravComp
 
 rclpy.init()
 controller   = FingerController()
 vmc          = VMC()          # edit vmc.target_DIP / vmc.spring_DIP.stiffness to tune
-compensation = GravFricLim()
+compensation = GravComp()
 
 
 def control_loop():
@@ -37,8 +37,8 @@ def control_loop():
     # VMC torques (Jacobian transpose of virtual spring/damper forces)
     tau_vmc  = vmc.finger_torques(q_motor, q_dot_motor)
 
-    # Compensation (gravity + joint limits + Stribeck friction)
-    tau_comp = compensation.compute_compensation_torques(q_motor, q_dot_motor, tau_vmc)
+    # Compensation (gravity + joint limits)
+    tau_comp = compensation.compute_compensation_torques(q_motor)
 
     controller.publish_torques(tau_vmc + tau_comp)
 

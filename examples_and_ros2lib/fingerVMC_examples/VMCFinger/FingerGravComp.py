@@ -5,9 +5,9 @@ from KinematicsFinger.FK_Finger import motor_to_joint
 from KinematicsFinger.JacobiansFinger import q2joint, q2MCP, q2PIP, q2DIP
 
 
-class GravFricLim:
+class GravComp:
     """
-    Gravity + Stribeck friction + joint-limit compensation for the finger.
+    Gravity + joint-limit compensation for the finger.
 
     Call compute_compensation_torques() and add the result to the VMC torques.
     """
@@ -33,10 +33,6 @@ class GravFricLim:
             'PIP': np.array([ 0.000925,  0.0150,  0.001138]),
             'DIP': np.array([-0.000716,  0.0105,  0.000955]),
         }
-
-        # Stribeck friction model: tau_f = F_max * exp(-(v/v_lim)^2) * sign(tau)
-        self.F_max = 0.20   # [N·m] static friction amplitude
-        self.v_lim = 0.03   # [rad/s] Stribeck velocity
 
         # Joint limits [rad] and limit-spring stiffness [N·m/rad]
         self.limit_springs = {
@@ -66,22 +62,15 @@ class GravFricLim:
         ])
         return np.array(self.J_motors(*q_motor)).T @ tau_joint
 
-    def friction_compensation(self, q_dot_motor, tau_commanded):
-        """Stribeck friction compensation torques [N·m]."""
-        return self.F_max * np.exp(-(q_dot_motor / self.v_lim) ** 2) * np.sign(tau_commanded)
-
-    def compute_compensation_torques(self, q_motor, q_dot_motor, tau_vmc):
+    def compute_compensation_torques(self, q_motor):
         """
-        Full compensation: gravity + joint limits + friction.
+        Full compensation: gravity + joint limits.
 
         Args:
-            q_motor:     [q_MCP, q_PIP] motor angles [rad]
-            q_dot_motor: [q_dot_MCP, q_dot_PIP] motor velocities [rad/s]
-            tau_vmc:     [tau_MCP, tau_PIP] VMC torques [N·m]
+            q_motor: [q_MCP, q_PIP] motor angles [rad]
         Returns:
             tau_comp: [tau_MCP, tau_PIP] compensation torques [N·m]
         """
-        tau_grav  = self.gravity_compensation(q_motor)
-        tau_lim   = self.deadzone_spring_torques(q_motor)
-        tau_fric  = self.friction_compensation(q_dot_motor, tau_grav + tau_lim + tau_vmc)
-        return tau_grav + tau_lim + tau_fric
+        tau_grav = self.gravity_compensation(q_motor)
+        tau_lim  = self.deadzone_spring_torques(q_motor)
+        return tau_grav + tau_lim
