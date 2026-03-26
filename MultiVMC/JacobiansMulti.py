@@ -23,21 +23,8 @@ A_INV2 = np.linalg.inv(A2)
 A_INV3 = np.linalg.inv(A3)
 
 # Helper functions for Jacobians
-# def R_MATRIX(Dx, Dy, D, d=SECTION_RADIUS):
-#         return Matrix([
-#             [1 + Dx**2/D**2*(cos(D/d)-1),  Dx*Dy/D**2*(cos(D/d)-1),  Dx/D*sin(D/d)],
-#             [Dx*Dy/D**2*(cos(D/d)-1),  1 + Dy**2/D**2*(cos(D/d)-1),  Dy/D*sin(D/d)],
-#             [-Dx/D*sin(D/d),               -Dy/D*sin(D/d),            cos(D/d)]
-#         ])
-
-# def t_vector(Dx, Dy, D, Dl, L0, d=SECTION_RADIUS):
-#     return Matrix([
-#         [(d*(L0+Dl)/D**2)*Dx*(1-cos(D/d))],
-#         [(d*(L0+Dl)/D**2)*Dy*(1-cos(D/d))],
-#         [(d*(L0+Dl)/D**2)*D*sin(D/d)]
-#     ])
-
-def R_MATRIX(Dx, Dy, D, d=SECTION_RADIUS, s_param=1.0):
+def R_MATRIX(Dx, Dy, D, s_param=1.0):
+        d = SECTION_RADIUS
         theta_s = s_param*(D/d)
         return Matrix([
             [1 + Dx**2/D**2*(cos(theta_s)-1),  Dx*Dy/D**2*(cos(theta_s)-1),  Dx/D*sin(theta_s)],
@@ -45,7 +32,8 @@ def R_MATRIX(Dx, Dy, D, d=SECTION_RADIUS, s_param=1.0):
             [-Dx/D*sin(theta_s),               -Dy/D*sin(theta_s),            cos(theta_s)]
         ])
 
-def t_vector(Dx, Dy, D, Dl, L0, d=SECTION_RADIUS, s_param=1.0):
+def t_vector(Dx, Dy, D, Dl, L0, s_param=1.0):
+    d = SECTION_RADIUS
     theta_s = s_param*(D/d)
     return Matrix([
         [(s_param*d*(L0+Dl)/D**2)*Dx*(1-cos(theta_s))],
@@ -131,9 +119,9 @@ def q_motor2pose_ee():
 
     # MOTOR TO PCC CONVERSION
     # pcc = A_inv * DELTAL = A_inv * (q * MOTOR_RADIUS)
-    pcc1 = Matrix(A_INV1.tolist()) @ (Matrix([q11, q12, q13])*MOTOR_RADIUS)
-    pcc2 = Matrix(A_INV2.tolist()) @ (Matrix([q21, q22, q23])*MOTOR_RADIUS)
-    pcc3 = Matrix(A_INV3.tolist()) @ (Matrix([q31, q32, q33])*MOTOR_RADIUS)
+    pcc1 = Matrix(A_INV1.tolist()) * (Matrix([q11, q12, q13])*MOTOR_RADIUS)
+    pcc2 = Matrix(A_INV2.tolist()) * (Matrix([q21, q22, q23])*MOTOR_RADIUS)
+    pcc3 = Matrix(A_INV3.tolist()) * (Matrix([q31, q32, q33])*MOTOR_RADIUS)
 
     Dx1, Dy1, Dl1 = pcc1[0], pcc1[1], pcc1[2]
     Dx2, Dy2, Dl2 = pcc2[0], pcc2[1], pcc2[2]
@@ -158,7 +146,7 @@ def q_motor2pose_ee():
     roll  = atan2(R[2,1], R[2,2] + 1e-12)
 
     T = Matrix.vstack(t, Matrix([yaw, pitch, roll]))
-    # T is already a function of q since we substituted pcc = A_inv @ (q * MOTOR_RADIUS) above 
+    # T is already a function of q since we substituted pcc = A_inv * (q * MOTOR_RADIUS) above 
     # so we can directly differentiate w.r.t q
     q_vec = Matrix([q11, q12, q13, q21, q22, q23, q31, q32, q33])
     J = T.jacobian(q_vec)  # d(pose)/d(q_motor)
@@ -166,108 +154,207 @@ def q_motor2pose_ee():
     return lambdify((q11, q12, q13, q21, q22, q23, q31, q32, q33), J, modules=['numpy'], cse=True)
 
 
-# def pcc2pose(s_param):
-#     """
-#     Jacobian for any point along the segment 
-#     Jacobian d(pose)/d(pcc), shape (6,9). 
-#     pose(s_param) = [x, y, z, yaw, pitch, roll] .
-#     Args: s_param: s = [0,1] defines position along the segment (0 = base, 1 = tip).
-#     """
+def pcc2pose(s_param):
+    """
+    Jacobian for any point along the segment 
+    Jacobian d(pose)/d(pcc), shape (6,9). 
+    pose(s_param) = [x, y, z, yaw, pitch, roll] .
+    Args: s_param: s = [0,1] defines position along the segment (0 = base, 1 = tip).
+    """
+    # Declare pcc symbols
+    Dx1, Dy1, Dl1, Dx2, Dy2, Dl2, Dx3, Dy3, Dl3 = symbols(
+        "Dx1 Dy1 Dl1 Dx2 Dy2 Dl2 Dx3 Dy3 Dl3")
 
-#     Dx, Dy, Dl = symbols("Dx Dy Dl")
-#     d  = SECTION_RADIUS  # section radius [m]  (diameter = 60 mm)
-#     L0 = REST_LENGTH   # rest length [m]
-    
-#     D = sqrt(Dx**2 + Dy**2 + 1e-12)  # curvature magnitude (regularised)
+    L0_1 = L0_2 = L0_3 = REST_LENGTH   # rest length [m]
 
-#     # PCC rotation matrix (Rodrigues on curvature axis)
-#     theta_s = s_param*(D/d)
-#     R = Matrix([
-#         [1 + Dx**2/D**2*(cos(theta_s)-1),  Dx*Dy/D**2*(cos(theta_s)-1),  Dx/D*sin(theta_s)],
-#         [Dx*Dy/D**2*(cos(theta_s)-1),  1 + Dy**2/D**2*(cos(theta_s)-1),  Dy/D*sin(theta_s)],
-#         [-Dx/D*sin(theta_s),               -Dy/D*sin(theta_s),            cos(theta_s)]
-#     ])
+    # curvature magnitude (regularised)
+    D1 = sqrt(Dx1**2 + Dy1**2 + 1e-12)
+    D2 = sqrt(Dx2**2 + Dy2**2 + 1e-12)
+    D3 = sqrt(Dx3**2 + Dy3**2 + 1e-12)
 
-#     # PCC tip translation
-#     t = Matrix([
-#         [(s_param*d*(L0+Dl)/D**2)*Dx*(1-cos(theta_s))],
-#         [(s_param*d*(L0+Dl)/D**2)*Dy*(1-cos(theta_s))],
-#         [(s_param*d*(L0+Dl)/D**2)*D*sin(theta_s)]
-#     ])
+    if s_param <= 1/3:
+        # in segment 1
+        R = R_MATRIX(Dx1, Dy1, D1, s_param)
+        t = t_vector(Dx1, Dy1, D1, Dl1, L0_1, s_param)
 
-#     # ZYX Euler angles from R
-#     yaw   = atan2(R[1,0], R[0,0] + 1e-12)
-#     pitch = asin(-R[2,0])
-#     roll  = atan2(R[2,1], R[2,2] + 1e-12)
+    elif s_param <= 2/3:
+        # full segment 1 + segment 2
+        R1 = R_MATRIX(Dx1, Dy1, D1)
+        R2 = R_MATRIX(Dx2, Dy2, D2, s_param)
 
-#     T = Matrix.vstack(t, Matrix([yaw, pitch, roll]))
-#     J = T.jacobian(Matrix([Dx, Dy, Dl]))
-#     return lambdify((Dx, Dy, Dl), J, modules=['numpy'])
+        t1 = t_vector(Dx1, Dy1, D1, Dl1, L0_1)
+        t2 = t_vector(Dx2, Dy2, D2, Dl2, L0_2, s_param)
+
+        R = R1 * R2
+        t = t1 + R1 * t2
+
+    else:
+        # full segment 1 + full segment 2 + segment 3
+        R1 = R_MATRIX(Dx1, Dy1, D1)
+        R2 = R_MATRIX(Dx2, Dy2, D2)
+        R3 = R_MATRIX(Dx3, Dy3, D3, s_param)
+
+        t1 = t_vector(Dx1, Dy1, D1, Dl1, L0_1)
+        t2 = t_vector(Dx2, Dy2, D2, Dl2, L0_2)
+        t3 = t_vector(Dx3, Dy3, D3, Dl3, L0_3, s_param)
+
+        R = R1 * R2 * R3
+        t = t1 + R1 * t2 + R1 * R2 * t3
+
+    # ZYX Euler angles from R
+    yaw   = atan2(R[1,0], R[0,0] + 1e-12)
+    pitch = asin(-R[2,0])
+    roll  = atan2(R[2,1], R[2,2] + 1e-12)
+
+    T = Matrix.vstack(t, Matrix([yaw, pitch, roll]))
+
+    pcc_vec = Matrix([Dx1, Dy1, Dl1, Dx2, Dy2, Dl2, Dx3, Dy3, Dl3])
+    J = T.jacobian(pcc_vec)
+    return lambdify((Dx1, Dy1, Dl1, Dx2, Dy2, Dl2, Dx3, Dy3, Dl3), J, modules=['numpy'])
 
 
-# def q_motor2pose(s_param):
-#     """
-#     Jacobian d(pose)/d(q_motor), shape (6,3). 
-#     DELTAL = q_motor * MOTOR_RADIUS (we do the conversion inside this function)
-#     Args: s_param: s = [0,1] defines position along the segment (0 = base, 1 = tip).
-#     """
+def q_motor2pose(s_param):
+    """
+    Jacobian d(pose)/d(q_motor), shape (6,9). 
+    DELTAL = q_motor * MOTOR_RADIUS (we do the conversion inside this function)
+    Args: s_param: s = [0,1] defines position along the segment (0 = base, 1 = tip).
+    """
 
-#     q1, q2, q3 = symbols("q1 q2 q3")
-#     d  = SECTION_RADIUS  # section radius [m]  (diameter = 60 mm)
-#     L0 = REST_LENGTH   # rest length [m]
+        # Motor values (q12 = segment1 motor2) [rad] 
+    q11, q12, q13 = symbols("q11 q12 q13")
+    q21, q22, q23 = symbols("q21 q22 q23")
+    q31, q32, q33 = symbols("q31 q32 q33")
 
-#     pcc = A_INV * (Matrix([q1, q2, q3])*MOTOR_RADIUS)   
-#     Dx, Dy, Dl = pcc[0], pcc[1], pcc[2]
+    L0_1 = L0_2 = L0_3 = REST_LENGTH   # rest length [m]
 
-#     D = sqrt(Dx**2 + Dy**2 + 1e-12)
+    # MOTOR TO PCC CONVERSION
+    # pcc = A_inv * DELTAL = A_inv * (q * MOTOR_RADIUS)
+    pcc1 = Matrix(A_INV1.tolist()) * (Matrix([q11, q12, q13])*MOTOR_RADIUS)
+    pcc2 = Matrix(A_INV2.tolist()) * (Matrix([q21, q22, q23])*MOTOR_RADIUS)
+    pcc3 = Matrix(A_INV3.tolist()) * (Matrix([q31, q32, q33])*MOTOR_RADIUS)
 
-#     # PCC rotation matrix (Rodrigues on curvature axis)
-#     theta_s = s_param*(D/d)
-#     R = Matrix([
-#         [1 + Dx**2/D**2*(cos(theta_s)-1),  Dx*Dy/D**2*(cos(theta_s)-1),  Dx/D*sin(theta_s)],
-#         [Dx*Dy/D**2*(cos(theta_s)-1),  1 + Dy**2/D**2*(cos(theta_s)-1),  Dy/D*sin(theta_s)],
-#         [-Dx/D*sin(theta_s),               -Dy/D*sin(theta_s),            cos(theta_s)]
-#     ])
+    Dx1, Dy1, Dl1 = pcc1[0], pcc1[1], pcc1[2]
+    Dx2, Dy2, Dl2 = pcc2[0], pcc2[1], pcc2[2]
+    Dx3, Dy3, Dl3 = pcc3[0], pcc3[1], pcc3[2]
 
-#     # PCC tip translation
-#     t = Matrix([
-#         [(s_param*d*(L0+Dl)/D**2)*Dx*(1-cos(theta_s))],
-#         [(s_param*d*(L0+Dl)/D**2)*Dy*(1-cos(theta_s))],
-#         [(s_param*d*(L0+Dl)/D**2)*D*sin(theta_s)]
-#     ])
+    D1 = sqrt(Dx1**2 + Dy1**2 + 1e-12)
+    D2 = sqrt(Dx2**2 + Dy2**2 + 1e-12)
+    D3 = sqrt(Dx3**2 + Dy3**2 + 1e-12)
 
-#     yaw   = atan2(R[1,0], R[0,0] + 1e-12)
-#     pitch = asin(-R[2,0])
-#     roll  = atan2(R[2,1], R[2,2] + 1e-12)
+    if s_param <= 1/3:
+        # segment 1
+        R = R_MATRIX(Dx1, Dy1, D1, s_param)
+        t = t_vector(Dx1, Dy1, D1, Dl1, L0_1, s_param)
 
-#     T = Matrix.vstack(t, Matrix([yaw, pitch, roll]))
-#     # T is already a function of q since we substituted pcc = A_inv @ (q * MOTOR_RADIUS) above 
-#     # so we can directly differentiate w.r.t q
-#     J = T.jacobian(Matrix([q1, q2, q3]))  # d(pose)/d(q_motor)
+    elif s_param <= 2/3:
+        # full segment 1 + segment 2
+        R1 = R_MATRIX(Dx1, Dy1, D1)
+        R2 = R_MATRIX(Dx2, Dy2, D2, s_param)
 
-#     return lambdify((q1, q2, q3), J, modules=['numpy'], cse=True)
+        t1 = t_vector(Dx1, Dy1, D1, Dl1, L0_1)
+        t2 = t_vector(Dx2, Dy2, D2, Dl2, L0_2, s_param)
+
+        R = R1 * R2
+        t = t1 + R1 * t2
+
+    else:
+        # full segment 1 + full segment 2 + segment 3
+        R1 = R_MATRIX(Dx1, Dy1, D1)
+        R2 = R_MATRIX(Dx2, Dy2, D2)
+        R3 = R_MATRIX(Dx3, Dy3, D3, s_param)
+
+        t1 = t_vector(Dx1, Dy1, D1, Dl1, L0_1)
+        t2 = t_vector(Dx2, Dy2, D2, Dl2, L0_2)
+        t3 = t_vector(Dx3, Dy3, D3, Dl3, L0_3, s_param)
+
+        R = R1 * R2 * R3
+        t = t1 + R1 * t2 + R1 * R2 * t3
+
+    yaw   = atan2(R[1,0], R[0,0] + 1e-12)
+    pitch = asin(-R[2,0])
+    roll  = atan2(R[2,1], R[2,2] + 1e-12)
+
+    T = Matrix.vstack(t, Matrix([yaw, pitch, roll]))
+    # T is already a function of q since we substituted pcc = A_inv * (q * MOTOR_RADIUS) above 
+    # so we can directly differentiate w.r.t q
+    q_vec = Matrix([q11, q12, q13, q21, q22, q23, q31, q32, q33])
+    J = T.jacobian(q_vec)  # d(pose)/d(q_motor)
+
+    return lambdify((q11, q12, q13, q21, q22, q23, q31, q32, q33), J, modules=['numpy'], cse=True)
 
 
 if __name__ == "__main__":
     import time
+    import numpy as np
 
-    print("Building Jacobians (symbolic differentiation, takes a few seconds)...")
-    # t0 = time.time(); J_qt = pcc2q_motor();      print(f"  pcc2q_motor      done  ({time.time()-t0:.1f}s)")
-    # t0 = time.time(); J_qp = pcc2pose_ee(); print(f"  pcc2pose_ee done  ({time.time()-t0:.1f}s)")
-    # t0 = time.time(); J_tp = q_motor2pose_ee();   print(f"  q_motor2pose_ee   done  ({time.time()-t0:.1f}s)")
+    np.set_printoptions(precision=4, suppress=True)
 
-    # # Validate: tendon2pose(L) == q2coordinates(q) @ inv(q2tendon(q))  at 3 random configs
-    # print("\nValidation — max |tendon2pose - J_qp @ inv(J_qt)| at 3 random configurations:")
-    # rng = np.random.default_rng(0)
-    # for i in range(3):
-    #     q = rng.uniform([-0, -0.1, 0.5], [1., -.1, 2.])   # random [Dx, Dy, Dl] in mm
-    #     L = A @ q                                      # corresponding tendon lengths
+    print("Building Jacobians (symbolic differentiation, may take some time)...")
+    t0 = time.time(); J_pcc2q   = pcc2q_motor();      print(f"  pcc2q_motor      done ({time.time()-t0:.1f}s)")
+    t0 = time.time(); J_pcc  = pcc2pose_ee();      print(f"  pcc2pose_ee      done ({time.time()-t0:.1f}s)")
+    t0 = time.time(); J_q    = q_motor2pose_ee();  print(f"  q_motor2pose_ee  done ({time.time()-t0:.1f}s)")
 
-    #     q_motor = L / MOTOR_RADIUS                                    # q_motor = DELTAL / r
-    #     J_direct = np.array(J_tp(*q_motor))                            # (6,3) from q_motor2pose_ee
-    #     J_chain  = np.array(J_qp(*q)) @ np.linalg.inv(np.array(J_qt(*q)))  # (6,3) by chain rule
+    # Extra: Jacobians for intermediate backbone points
+    s_tests = [0.2, 0.5, 0.9]
+    J_pcc_s = {}
+    J_q_s = {}
 
-    #     err = np.max(np.abs(J_direct - J_chain))
-    #     print(f"  config {i+1}: q={np.round(q,2)},  max error = {err:.2e}")
-    #     print(f"    J_direct:\n{np.round(J_direct,3)}")
-    #     print(f"    J_chain:\n{np.round(J_chain,3)}\n")
+    for s in s_tests:
+        t0 = time.time(); J_pcc_s[s] = pcc2pose(s);    print(f"  pcc2pose(s={s:.2f})   done ({time.time()-t0:.1f}s)")
+        t0 = time.time(); J_q_s[s]   = q_motor2pose(s); print(f"  q_motor2pose(s={s:.2f}) done ({time.time()-t0:.1f}s)")
+
+    print("\nValidation EE: J(q_motor->pose_ee) ?= J(pcc->pose_ee) @ inv(J(pcc->q_motor))")
+    rng = np.random.default_rng(42)
+    n_tests = 3
+
+    for i in range(n_tests):
+        # Random multi-segment PCC config [Dx1,Dy1,Dl1, Dx2,Dy2,Dl2, Dx3,Dy3,Dl3]
+        pcc = np.array([
+            rng.uniform(-0.01, 0.01), rng.uniform(-0.01, 0.01), rng.uniform(-0.01, 0.01),
+            rng.uniform(-0.01, 0.01), rng.uniform(-0.01, 0.01), rng.uniform(-0.01, 0.01),
+            rng.uniform(-0.01, 0.01), rng.uniform(-0.01, 0.01), rng.uniform(-0.01, 0.01),
+        ], dtype=float)
+
+        # q_motor from pcc via your linear map (segment-wise)
+        pcc1, pcc2, pcc3 = pcc[0:3], pcc[3:6], pcc[6:9]
+        q1 = (A1 @ pcc1) / MOTOR_RADIUS
+        q2 = (A2 @ pcc2) / MOTOR_RADIUS
+        q3 = (A3 @ pcc3) / MOTOR_RADIUS
+        q_motor = np.concatenate([q1, q2, q3])
+
+        J_pcc2q_num  = np.array(J_pcc2q(*pcc), dtype=float)    # (9,9) d(q_motor)/d(pcc)
+        J_pcc_num = np.array(J_pcc(*pcc), dtype=float)   # (6,9) d(pose)/d(pcc)
+        J_q_num   = np.array(J_q(*q_motor), dtype=float) # (6,9) d(pose)/d(q_motor)
+
+        J_chain = J_pcc_num @ np.linalg.inv(J_pcc2q_num)
+        err = np.max(np.abs(J_q_num - J_chain))
+
+        print(f"  test {i+1}: max|J_direct - J_chain| = {err:.3e}")
+        if err > 1e-6:
+            print("    WARNING: error above tolerance (1e-6).")
+
+    print("\nValidation s_param: J(q_motor->pose(s)) ?= J(pcc->pose(s)) @ inv(J(pcc->q_motor))")
+    for s in s_tests:
+        print(f"  s = {s:.2f}")
+        for i in range(n_tests):
+            pcc = np.array([
+                rng.uniform(-0.01, 0.01), rng.uniform(-0.01, 0.01), rng.uniform(-0.01, 0.01),
+                rng.uniform(-0.01, 0.01), rng.uniform(-0.01, 0.01), rng.uniform(-0.01, 0.01),
+                rng.uniform(-0.01, 0.01), rng.uniform(-0.01, 0.01), rng.uniform(-0.01, 0.01),
+            ], dtype=float)
+
+            pcc1, pcc2, pcc3 = pcc[0:3], pcc[3:6], pcc[6:9]
+            q1 = (A1 @ pcc1) / MOTOR_RADIUS
+            q2 = (A2 @ pcc2) / MOTOR_RADIUS
+            q3 = (A3 @ pcc3) / MOTOR_RADIUS
+            q_motor = np.concatenate([q1, q2, q3])
+
+            J_pcc2q_num    = np.array(J_pcc2q(*pcc), dtype=float)         # (9,9)
+            J_pcc_s_num = np.array(J_pcc_s[s](*pcc), dtype=float)   # (6,9)
+            J_q_s_num   = np.array(J_q_s[s](*q_motor), dtype=float) # (6,9)
+
+            J_chain_s = J_pcc_s_num @ np.linalg.inv(J_pcc2q_num)
+            err_s = np.max(np.abs(J_q_s_num - J_chain_s))
+            print(f"    test {i+1}: max error = {err_s:.3e}")
+
+    print("\nDone.")
