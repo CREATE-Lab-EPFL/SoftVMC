@@ -174,29 +174,32 @@ def pcc2pose(s_param):
 
     if s_param <= 1/3:
         # in segment 1
-        R = R_MATRIX(Dx1, Dy1, D1, s_param)
-        t = t_vector(Dx1, Dy1, D1, Dl1, L0_1, s_param)
+        s_local = s_param * 3  # rescale to [0,1] for section 1
+        R = R_MATRIX(Dx1, Dy1, D1, s_local)
+        t = t_vector(Dx1, Dy1, D1, Dl1, L0_1, s_local)
 
     elif s_param <= 2/3:
         # full segment 1 + segment 2
+        s_local = (s_param - 1/3) * 3  # rescale to [0,1] for section 2
         R1 = R_MATRIX(Dx1, Dy1, D1)
-        R2 = R_MATRIX(Dx2, Dy2, D2, s_param)
+        R2 = R_MATRIX(Dx2, Dy2, D2, s_local)
 
         t1 = t_vector(Dx1, Dy1, D1, Dl1, L0_1)
-        t2 = t_vector(Dx2, Dy2, D2, Dl2, L0_2, s_param)
+        t2 = t_vector(Dx2, Dy2, D2, Dl2, L0_2, s_local)
 
         R = R1 * R2
         t = t1 + R1 * t2
 
     else:
         # full segment 1 + full segment 2 + segment 3
+        s_local = (s_param - 2/3) * 3  # rescale to [0,1] for section 3
         R1 = R_MATRIX(Dx1, Dy1, D1)
         R2 = R_MATRIX(Dx2, Dy2, D2)
-        R3 = R_MATRIX(Dx3, Dy3, D3, s_param)
+        R3 = R_MATRIX(Dx3, Dy3, D3, s_local)
 
         t1 = t_vector(Dx1, Dy1, D1, Dl1, L0_1)
         t2 = t_vector(Dx2, Dy2, D2, Dl2, L0_2)
-        t3 = t_vector(Dx3, Dy3, D3, Dl3, L0_3, s_param)
+        t3 = t_vector(Dx3, Dy3, D3, Dl3, L0_3, s_local)
 
         R = R1 * R2 * R3
         t = t1 + R1 * t2 + R1 * R2 * t3
@@ -243,29 +246,32 @@ def q_motor2pose(s_param):
 
     if s_param <= 1/3:
         # segment 1
-        R = R_MATRIX(Dx1, Dy1, D1, s_param)
-        t = t_vector(Dx1, Dy1, D1, Dl1, L0_1, s_param)
+        s_local = s_param * 3  # rescale to [0,1] for section 1
+        R = R_MATRIX(Dx1, Dy1, D1, s_local)
+        t = t_vector(Dx1, Dy1, D1, Dl1, L0_1, s_local)
 
     elif s_param <= 2/3:
         # full segment 1 + segment 2
+        s_local = (s_param - 1/3) * 3  # rescale to [0,1] for section 2
         R1 = R_MATRIX(Dx1, Dy1, D1)
-        R2 = R_MATRIX(Dx2, Dy2, D2, s_param)
+        R2 = R_MATRIX(Dx2, Dy2, D2, s_local)
 
         t1 = t_vector(Dx1, Dy1, D1, Dl1, L0_1)
-        t2 = t_vector(Dx2, Dy2, D2, Dl2, L0_2, s_param)
+        t2 = t_vector(Dx2, Dy2, D2, Dl2, L0_2, s_local)
 
         R = R1 * R2
         t = t1 + R1 * t2
 
     else:
         # full segment 1 + full segment 2 + segment 3
+        s_local = (s_param - 2/3) * 3  # rescale to [0,1] for section 3
         R1 = R_MATRIX(Dx1, Dy1, D1)
         R2 = R_MATRIX(Dx2, Dy2, D2)
-        R3 = R_MATRIX(Dx3, Dy3, D3, s_param)
+        R3 = R_MATRIX(Dx3, Dy3, D3, s_local)
 
         t1 = t_vector(Dx1, Dy1, D1, Dl1, L0_1)
         t2 = t_vector(Dx2, Dy2, D2, Dl2, L0_2)
-        t3 = t_vector(Dx3, Dy3, D3, Dl3, L0_3, s_param)
+        t3 = t_vector(Dx3, Dy3, D3, Dl3, L0_3, s_local)
 
         R = R1 * R2 * R3
         t = t1 + R1 * t2 + R1 * R2 * t3
