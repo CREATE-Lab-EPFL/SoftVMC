@@ -35,7 +35,7 @@ controller = MultiController()
 
 # ------------------ Define waypoints in Cartesian space ------------------
 # Positions in Cartesian space [x, y, z] (meters)
-POS_SCALE = 3
+POS_SCALE = 7
 
 q1_short = np.array([0.01 * POS_SCALE,                   0.0,                              3 * 0.145 - 0.001])
 q2_short = np.array([-0.01 * POS_SCALE * np.sin(np.pi/6), 0.01 * POS_SCALE * np.cos(np.pi/6), 3 * 0.145 - 0.001])
@@ -48,8 +48,9 @@ waypoint_index = 0
 # ------------------ Control loop constants ------------------
 stable_count = -50
 STABLE_STEPS = 50
-MOTOR_STOPPED_THRESHOLD = 0.1   # [rad/s]
-TAU_LIMIT = 0.1                 # [N·m] per motor safety limit
+MOTOR_STOPPED_THRESHOLD = 0.3   # [rad/s]
+TAU_LIMIT = 1                 # [N·m] per motor safety limit
+ANGLE_LIMIT_RAD = np.radians(30)                # [rad] per motor safety limit
 
 # ------------------- VMC Springs and Dampers ------------------
 lin_spring   = LinearSpring(400.0)
@@ -63,7 +64,7 @@ tanh_damper  = TanhDamper(1.0, 1.5)
 vmc = VMC_Multi(lin_spring, lin_damper, s_param=1.0)
 
 # -------------------- Logging / Plotting --------------------
-SAVE_PLOT = True
+SAVE_PLOT = False
 t0 = time.perf_counter()
 
 t_log = []          # seconds
@@ -108,10 +109,14 @@ def control_loop():
         waypoint_event_t.append(t_now)
         waypoint_event_goal.append(next_goal.copy())
 
-    # Safety clipping
+    # Safety limits
     if np.any(np.abs(tau_vmc) > TAU_LIMIT):
         print("Torque limit exceeded! Clipping.")
     tau_vmc = np.clip(tau_vmc, -TAU_LIMIT, TAU_LIMIT)
+
+    if np.any(np.abs(q_motor) >= ANGLE_LIMIT_RAD):
+        print("Angle limit exceeded! Stopping motors.")
+    tau_vmc = np.zeros_like(tau_vmc)  # For safety, stop all motors if angle limit exceeded
 
     # Log
     t_now = time.perf_counter() - t0

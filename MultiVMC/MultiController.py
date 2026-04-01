@@ -4,7 +4,7 @@ from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 
 # Control frequency [Hz]
-CONTROL_FREQUENCY = 500
+CONTROL_FREQUENCY = 330
 
 class MultiController(Node):
     """

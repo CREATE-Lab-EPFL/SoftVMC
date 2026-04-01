@@ -76,7 +76,7 @@ def pcc2pose_ee():
 
     L0_1 = L0_2 = L0_3 = REST_LENGTH   # rest length [m]
 
-    # curvature magnitude (regularised)
+    # curvature magnitude (regularised) #  SHOULD BE MOVED TO R_MATRIX AND t_vector DEFINITIONS----------------------------
     D1 = sqrt(Dx1**2 + Dy1**2 + 1e-12)
     D2 = sqrt(Dx2**2 + Dy2**2 + 1e-12)
     D3 = sqrt(Dx3**2 + Dy3**2 + 1e-12)

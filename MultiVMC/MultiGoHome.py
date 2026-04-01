@@ -1,5 +1,5 @@
 """
-Go Home Script — Single Segment Soft Robot (3 motors, absolute ticks)
+Go Home Script — Multi-Segment Soft Robot (3 motors, absolute ticks)
 ====================================================================
 
 Uses Dynamixel SDK directly (no ROS node required) to:
@@ -9,9 +9,9 @@ Uses Dynamixel SDK directly (no ROS node required) to:
 - optionally switch back to torque/current mode so ROS dynamixel_node can take over
 
 Usage:
-  python3 SingleVMC/SingleGoHome.py --read
-  python3 SingleVMC/SingleGoHome.py
-  python3 SingleVMC/SingleGoHome.py --no-torque-mode
+  python3 MultiVMC/MultiGoHome.py --read
+  python3 MultiVMC/MultiGoHome.py
+  python3 MultiVMC/MultiGoHome.py --no-torque-mode
 """
 
 import argparse
@@ -24,7 +24,7 @@ DEVICE_PORT = "/dev/ttyUSB0"
 PROTOCOL    = 2.0
 
 # Motor IDs 
-MOTOR_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+MOTOR_IDS = [11, 12, 13, 14, 15, 16, 17, 18, 19] 
 
 # --- Control table addresses (XL330-M288) -----------------------------------
 ADDR_TORQUE_ENABLE    = 64 # enable/disable
@@ -45,15 +45,15 @@ PROFILE_VELOCITY   = 40   # ~9 rpm (slow/safe)
 # --- HOME POSITION (ABSOLUTE ticks) -----------------------------------------
 # Update: put robot in desired home pose, run with --read, copy values here.
 HOME_POSITION = {
-    1: 3383,
-    2: 1215,
-    3: 2277,
-    4: 3383,
-    5: 1215,
-    6: 2277,
-    7: 3383,
-    8: 1215,
-    9: 2277,
+    11: 1619,
+    12: 2954,
+    13: 1314,
+    14: 3178,
+    15: 3786,
+    16: 3926,
+    17: 3908,
+    18: 3023,
+    19: 1248,
 }
 
 def init_bus():
@@ -67,7 +67,6 @@ def init_bus():
 
     return ph, pk
 
-
 def read_positions_abs(ph, pk):
     positions = {}
     for mid in MOTOR_IDS:
@@ -80,7 +79,6 @@ def read_positions_abs(ph, pk):
         else:
             positions[mid] = None
     return positions
-
 
 def set_extended_position_mode(ph, pk):
     for mid in MOTOR_IDS:
@@ -138,11 +136,12 @@ def main():
 
     ph, pk = init_bus()
     try:
+        print(f"Opening {DEVICE_PORT} @ {BAUDRATE}, protocol {PROTOCOL}")
         if args.read:
             pos = read_positions_abs(ph, pk)
             print("Current absolute positions (ticks):")
             for mid in MOTOR_IDS:
-                print(f"  Motor {mid}: {pos[mid] if pos[mid] is not None else 'READ ERROR'}")
+                print(f" {mid}: {pos[mid] if pos[mid] is not None else 'READ ERROR'},")
             print("\nCopy these into HOME_POSITION for your desired home pose.")
             return
 
