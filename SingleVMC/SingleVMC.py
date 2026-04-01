@@ -41,7 +41,7 @@ controller = SingleController()
 # ------------------ Define waypoints in Cartesian space  ------------------
 
 # Positions in Cartesian space [x, y, z] (meters)
-POS_SCALE = 3
+POS_SCALE = 6
 q1_short = np.array([0.01*POS_SCALE,                  0.0,                             0.144])  # q1 shorter (tau1 neg), q2,q3 equaly longer (tau2,tau3 pos)
 q2_short = np.array([-0.01*POS_SCALE*np.sin(np.pi/6), 0.01*POS_SCALE*np.cos(np.pi/6),  0.144])  # q2 shorter (tau2 neg), q1,q3 equally longer (tau1,tau3 pos)
 q3_short = np.array([-0.01*POS_SCALE*np.sin(np.pi/6), -0.01*POS_SCALE*np.cos(np.pi/6), 0.144]) # q3 shorter (tau3 neg), q1,q2 equally longer (tau1,tau2 pos)
@@ -58,7 +58,7 @@ waypoint_index = 0
 # Stability check for switching waypoints (switch when prev_pos = current_pos -> waypoint reached)
 stable_count   = -50             # negative to allow some initial settling time before the first switch
 STABLE_STEPS   = 50              # must be stable for this many steps before switching
-MOTOR_STOPPED_THRESHOLD = 0.1    # [rad/s] if motor velocity below this, consider it stopped
+MOTOR_STOPPED_THRESHOLD = 0.2    # [rad/s] if motor velocity below this, consider it stopped
 TAU_LIMIT      = 0.1             # [N·m] Safety limit for torques 
 
 # ------------------- VMC Springs and Dampers ------------------ 
@@ -76,7 +76,7 @@ tahn_damper = TanhDamper(1.0, 1.5)   # damping const [N·s/m], max force [N]
 vmc = VMC_Single(lin_spring, lin_damper, s_param=1.0)
 
 # -------------------- Logging / Plotting --------------------
-SAVE_PLOT = True 
+SAVE_PLOT = False 
 
 t0 = time.perf_counter()
 
