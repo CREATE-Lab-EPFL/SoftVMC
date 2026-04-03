@@ -53,9 +53,5 @@ if __name__ == "__main__":
     gc = GravityCompensation(mass=0.5, R_world_to_system=R)
     
     # Default: world frame (identity matrix)
-    F_world = gc.compute_force()
-    print(f"World frame: {F_world} N")
-    
-    # not possible to do code below because compute force doesn't take argument 
-    # F_finger = gc.compute_force(R)
-    # print(f"Finger frame: {F_finger} N")
+    F_finger = gc.compute_force()
+    print(f"Finger frame: {F_finger} N")
