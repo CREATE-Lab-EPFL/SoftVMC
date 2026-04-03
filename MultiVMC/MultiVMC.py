@@ -42,7 +42,7 @@ q2_short = np.array([-0.01 * POS_SCALE * np.sin(np.pi/6), 0.01 * POS_SCALE * np.
 q3_short = np.array([-0.01 * POS_SCALE * np.sin(np.pi/6), -0.01 * POS_SCALE * np.cos(np.pi/6), 3 * 0.145 - 0.001])
 rest_pos = np.array([0.0, 0.0, 3 * 0.145])
 
-waypoints      = [q1_short, q2_short, q3_short, rest_pos]
+waypoints      = [q1_short,q2_short,q3_short, rest_pos]
 waypoint_index = 0
 
 # ------------------ Control loop constants ------------------
@@ -50,21 +50,21 @@ stable_count = -50
 STABLE_STEPS = 50
 MOTOR_STOPPED_THRESHOLD = 0.3   # [rad/s]
 TAU_LIMIT = 1                 # [N·m] per motor safety limit
-ANGLE_LIMIT_RAD = np.radians(30)                # [rad] per motor safety limit
+ANGLE_LIMIT_RAD = np.radians(120)                # [rad] per motor safety limit
 
 # ------------------- VMC Springs and Dampers ------------------
-lin_spring   = LinearSpring(400.0)
+lin_spring   = LinearSpring(50.0)
 tanh_spring  = TanhSpring(200.0, 1.5)
 gauss_spring = GaussianSpring(800, 0.03)
 
-lin_damper   = LinearDamper(1.0)
+lin_damper   = LinearDamper(5.0)
 tanh_damper  = TanhDamper(1.0, 1.5)
 
 # Use s_param=1.0 (end of full backbone in your current FK/Jacobian setup)
 vmc = VMC_Multi(lin_spring, lin_damper, s_param=1.0)
 
 # -------------------- Logging / Plotting --------------------
-SAVE_PLOT = False
+SAVE_PLOT = True
 t0 = time.perf_counter()
 
 t_log = []          # seconds
@@ -116,7 +116,7 @@ def control_loop():
 
     if np.any(np.abs(q_motor) >= ANGLE_LIMIT_RAD):
         print("Angle limit exceeded! Stopping motors.")
-    tau_vmc = np.zeros_like(tau_vmc)  # For safety, stop all motors if angle limit exceeded
+        tau_vmc = np.zeros_like(tau_vmc)  # For safety, stop all motors if angle limit exceeded
 
     # Log
     t_now = time.perf_counter() - t0
@@ -185,7 +185,7 @@ finally:
 
         # Bottom: torques (9 motors)
         for k in range(9):
-            ax2.plot(t_arr, tau_arr[:, k], label=f"tau{k+1}")
+            ax2.plot(t_arr, tau_arr[:, k], label=f"tau{k+11}") # starts at motor 11
         ax2.set_xlabel("Time [s]")
         ax2.set_ylabel("Torque [N·m]")
         ax2.grid(True, alpha=0.3)
@@ -198,8 +198,8 @@ finally:
         plots_dir = os.path.join(script_dir, "plots")
         os.makedirs(plots_dir, exist_ok=True)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out_path = os.path.join(plots_dir, f"vmc_multi_task_{timestamp}.png")
+        timestamp = datetime.now().strftime("%d_%H%M")
+        out_path = os.path.join(plots_dir, f"{timestamp}.png")
 
         fig.savefig(out_path, dpi=200, bbox_inches="tight")
         plt.close(fig)
