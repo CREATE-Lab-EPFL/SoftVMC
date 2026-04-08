@@ -28,6 +28,7 @@ from MultiController import MultiController, CONTROL_FREQUENCY
 from FK_Multi import FK_Multi
 from MultiVMCTaskSpace import VMC_Multi_Modular
 from Modular_MultiVMC_Config import DEFAULT_START, VIRTUAL_COMPONENTS, TAU_LIMIT, ANGLE_LIMIT_RAD, SAVE_PLOT, PLOT_Z
+from MultiGravityComp import MultiGravComp
 
 
 class MultiVMCModularNode(MultiController):
@@ -37,6 +38,9 @@ class MultiVMCModularNode(MultiController):
         # VMC model (sum of all virtual components)
         self.vmc = VMC_Multi_Modular(VIRTUAL_COMPONENTS)
         self.n_comp = len(VIRTUAL_COMPONENTS)
+
+        # VMC gravity compensation (change params if needed e.g. mass, CoM,...)
+        self.grav_comp = MultiGravComp()
 
         # Goals: flattened [x1,y1,z1, x2,y2,z2, ...]
         self.goal_flat = DEFAULT_START.reshape(-1).copy()
@@ -55,6 +59,7 @@ class MultiVMCModularNode(MultiController):
         self.t0 = None
         self.t_log = []
         self.tau_log = []            # commanded torque (N,9)
+        self.tau_grav_log = []       # gravity torque (N,9)
         self.goal_log = []           # flattened goals (N,3*n_comp)
         self.comp_pos_logs = [[] for _ in range(self.n_comp)]  # each: list of [x,y,z]
 
@@ -76,17 +81,18 @@ class MultiVMCModularNode(MultiController):
         q_motor = np.radians(self.get_joint_positions())
         q_motor_dot = np.radians(self.get_joint_velocities())
 
-        # Modular resultant torque
+        # Torques computation
         tau_vmc = self.vmc.multi_torques(
             q_motor=q_motor,
             q_motor_dot=q_motor_dot,
             target_pos=self.goal_flat
         )
+        tau_grav = self.grav_comp.gravity_compensation(q_motor)
 
         # Safety limits
-        if np.any(np.abs(tau_vmc) > self.TAU_LIMIT):
+        if np.any(np.abs(tau_vmc+tau_grav) > self.TAU_LIMIT):
             self.get_logger().warn("Torque limit exceeded! Clipping.")
-        tau_cmd = np.clip(tau_vmc, -self.TAU_LIMIT, self.TAU_LIMIT)
+        tau_cmd = np.clip(tau_vmc + tau_grav, -self.TAU_LIMIT, self.TAU_LIMIT)
 
         # if np.any(np.abs(q_motor) >= self.ANGLE_LIMIT_RAD):
         #     self.get_logger().warn("Angle limit exceeded! Stopping motors.")
@@ -98,6 +104,7 @@ class MultiVMCModularNode(MultiController):
         t_now = time.perf_counter() - self.t0
         self.t_log.append(t_now)
         self.tau_log.append(np.asarray(tau_cmd, dtype=float))
+        self.tau_grav_log.append(np.asarray(tau_grav, dtype=float))   
         self.goal_log.append(self.goal_flat.copy())
 
         # Log actual position of each virtual component point
@@ -115,7 +122,7 @@ class MultiVMCModularNode(MultiController):
             return
 
         # ---- synchronize lengths to avoid occasional shutdown race mismatch ----
-        lengths = [len(self.t_log), len(self.tau_log), len(self.goal_log)]
+        lengths = [len(self.t_log), len(self.tau_log), len(self.tau_grav_log), len(self.goal_log)]
         lengths += [len(self.comp_pos_logs[i]) for i in range(self.n_comp)]
         n = min(lengths)
 
@@ -125,12 +132,9 @@ class MultiVMCModularNode(MultiController):
 
         t_arr = np.asarray(self.t_log[:n])
         tau_arr = np.asarray(self.tau_log[:n])                      # (n,9)
+        tau_grav_arr = np.asarray(self.tau_grav_log[:n])  # (n,9)
         goal_arr = np.asarray(self.goal_log[:n])                    # (n,3*n_comp)
         comp_pos_arrs = [np.asarray(self.comp_pos_logs[i][:n]) for i in range(self.n_comp)]  # each (n,3)
-
-        t_arr = np.asarray(self.t_log)
-        tau_arr = np.asarray(self.tau_log)            # (N,9)
-        goal_arr = np.asarray(self.goal_log)          # (N,3*n_comp)
 
         # Position axes: x,y (+ optional z), plus torque axis at bottom
         n_pos_axes = 3 if PLOT_Z else 2
@@ -215,9 +219,27 @@ class MultiVMCModularNode(MultiController):
             ax_z.grid(True, alpha=0.3)
             ax_z.legend(ncol=4, fontsize=8)
 
-        # Torque plot
+        # Torque plot: tau_cmd solid, tau_grav dashed, same color per motor
         for k in range(9):
-            ax_tau.plot(t_arr, tau_arr[:, k], label=f"tau{k+11}")
+            motor_label = f"tau{k+11}"
+
+            line_cmd, = ax_tau.plot(
+                t_arr, tau_arr[:, k],
+                "-", linewidth=1.6,
+                label=motor_label
+            )
+            ax_tau.plot(
+                t_arr, tau_grav_arr[:, k],
+                "--", linewidth=1.4, alpha=0.9,
+                color=line_cmd.get_color(),
+                label=f"{motor_label}_grav"
+            )
+
+        ax_tau.set_xlabel("Time [s]")
+        ax_tau.set_ylabel("Torque [N·m]")
+        ax_tau.grid(True, alpha=0.3)
+        ax_tau.legend(ncol=3, fontsize=8)
+
         ax_tau.set_xlabel("Time [s]")
         ax_tau.set_ylabel("Torque [N·m]")
         ax_tau.grid(True, alpha=0.3)
