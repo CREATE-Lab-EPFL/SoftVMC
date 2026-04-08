@@ -106,11 +106,10 @@ class VMC_Multi_Modular:
                 [x1,y1,z1, x2,y2,z2, ..., xN,yN,zN]
     Output torque is sum of all component torques.
     """
-
+    # Sequence: generic iterable (e.g. list or tuple) of VirtualComponent objects
     def __init__(self, components: Sequence[VirtualComponent]):
+        # List: Python list whose elements are of type VirtualComponent
         self.components: List[VirtualComponent] = list(components)
-        if len(self.components) == 0:
-            raise ValueError("VMC_Multi_Modular requires at least one component.")
 
         # Prebuild Jacobians for each component s_param
         self.J_funcs = [q_motor2pose(c.s_param) for c in self.components]

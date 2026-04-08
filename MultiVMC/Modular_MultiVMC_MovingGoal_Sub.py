@@ -27,46 +27,48 @@ from std_msgs.msg import Float64MultiArray
 from MultiController import MultiController, CONTROL_FREQUENCY
 from FK_Multi import FK_Multi
 from MultiVMCTaskSpace import VMC_Multi_Modular
-from Modular_MultiVMC_Config import VIRTUAL_COMPONENTS, DEFAULT_GOALS, TAU_LIMIT, ANGLE_LIMIT_RAD, SAVE_PLOT
+from Modular_MultiVMC_Config import DEFAULT_START, VIRTUAL_COMPONENTS, TAU_LIMIT, ANGLE_LIMIT_RAD, SAVE_PLOT, PLOT_Z
 
 
 class MultiVMCModularNode(MultiController):
     def __init__(self):
-        super().__init__()
+        super().__init__() # takes ~7 seconds
 
         # VMC model (sum of all virtual components)
         self.vmc = VMC_Multi_Modular(VIRTUAL_COMPONENTS)
         self.n_comp = len(VIRTUAL_COMPONENTS)
 
         # Goals: flattened [x1,y1,z1, x2,y2,z2, ...]
-        self.goal_flat = DEFAULT_GOALS.reshape(-1).copy()
+        self.goal_flat = DEFAULT_START.reshape(-1).copy()
 
         # Safety
         self.TAU_LIMIT = TAU_LIMIT
         self.ANGLE_LIMIT_RAD = ANGLE_LIMIT_RAD
 
-        # ROS subscription for goals
+        # ROS subscription for goals (100 Hz)
         self.goal_sub = self.create_subscription(
             Float64MultiArray, "/goal_pos_multi", self.goal_cb, 10
         )
 
         # Logging
         self.SAVE_PLOT = SAVE_PLOT
-        self.t0 = time.perf_counter()
+        self.t0 = None
         self.t_log = []
         self.tau_log = []            # commanded torque (N,9)
         self.goal_log = []           # flattened goals (N,3*n_comp)
         self.comp_pos_logs = [[] for _ in range(self.n_comp)]  # each: list of [x,y,z]
 
-        # Timer for control loop
+        # Timer for control loop (330 Hz)
         self.control_timer_ = self.create_timer(1.0 / CONTROL_FREQUENCY, self.control_loop)
 
-        self.get_logger().info(
-            f"Started modular subscriber with {self.n_comp} components, topic=/goal_pos_multi"
-        )
+        self.get_logger().info(f"Started modular VMC subscriber, you can now run the goal publisher")
 
     def goal_cb(self, msg: Float64MultiArray):
-        data = np.asarray(msg.data, dtype=float).reshape(-1)  # expect flat array of length 3*n_comp
+        # start time on first received goal
+        if self.t0 is None:
+            self.t0 = time.perf_counter() 
+        # data = [x1,y1,z1,...,xN,yN,zN]  where N = number of components = n_comp
+        data = np.asarray(msg.data, dtype=float).reshape(-1)  
         self.goal_flat = data.copy()
 
     def control_loop(self):
@@ -86,11 +88,13 @@ class MultiVMCModularNode(MultiController):
             self.get_logger().warn("Torque limit exceeded! Clipping.")
         tau_cmd = np.clip(tau_vmc, -self.TAU_LIMIT, self.TAU_LIMIT)
 
-        if np.any(np.abs(q_motor) >= self.ANGLE_LIMIT_RAD):
-            self.get_logger().warn("Angle limit exceeded! Stopping motors.")
-            tau_cmd = np.zeros_like(tau_cmd)
+        # if np.any(np.abs(q_motor) >= self.ANGLE_LIMIT_RAD):
+        #     self.get_logger().warn("Angle limit exceeded! Stopping motors.")
+        #     tau_cmd = np.zeros_like(tau_cmd)
 
         # Log time/torque/goals
+        if self.t0 is None:
+            return  # wait until first goal arrives
         t_now = time.perf_counter() - self.t0
         self.t_log.append(t_now)
         self.tau_log.append(np.asarray(tau_cmd, dtype=float))
@@ -102,46 +106,122 @@ class MultiVMCModularNode(MultiController):
             self.comp_pos_logs[i].append(np.asarray(pose_i[:3], dtype=float))
 
         # Publish torques
-        self.publish_torques(tau_cmd)
+        self.publish_torques(tau_cmd) 
 
     def save_plot(self):
+
         if len(self.t_log) < 2:
             print("[WARN] Not enough data logged to plot.")
             return
+
+        # ---- synchronize lengths to avoid occasional shutdown race mismatch ----
+        lengths = [len(self.t_log), len(self.tau_log), len(self.goal_log)]
+        lengths += [len(self.comp_pos_logs[i]) for i in range(self.n_comp)]
+        n = min(lengths)
+
+        if n < 2:
+            print("[WARN] Not enough synchronized data logged to plot.")
+            return
+
+        t_arr = np.asarray(self.t_log[:n])
+        tau_arr = np.asarray(self.tau_log[:n])                      # (n,9)
+        goal_arr = np.asarray(self.goal_log[:n])                    # (n,3*n_comp)
+        comp_pos_arrs = [np.asarray(self.comp_pos_logs[i][:n]) for i in range(self.n_comp)]  # each (n,3)
 
         t_arr = np.asarray(self.t_log)
         tau_arr = np.asarray(self.tau_log)            # (N,9)
         goal_arr = np.asarray(self.goal_log)          # (N,3*n_comp)
 
-        fig, axes = plt.subplots(2, 1, sharex=True, figsize=(13, 9))
-        ax1, ax2 = axes
-        fig.suptitle("Multi Modular VMC: Component Positions/Goals + Motor Torques")
+        # Position axes: x,y (+ optional z), plus torque axis at bottom
+        n_pos_axes = 3 if PLOT_Z else 2
+        n_rows = n_pos_axes + 1  # +1 torque plot
+        fig, axes = plt.subplots(n_rows, 1, sharex=True, figsize=(13, 3.2 * n_rows))
+        fig.suptitle("Multi Modular VMC: Position Components + Motor Torques")
 
-        # Top: plot each component's actual xyz and goal xyz
+        # --- METADATA BOX ---
+        def _component_desc(comp) -> str:
+            spring = comp.spring
+            damper = comp.damper
+
+            def fmt_params(obj):
+                if not hasattr(obj, "__dict__") or len(obj.__dict__) == 0:
+                    return ""
+                return ", ".join(f"{k}={v}" for k, v in obj.__dict__.items())
+
+            sname = type(spring).__name__
+            dname = type(damper).__name__
+            sparams = fmt_params(spring)
+            dparams = fmt_params(damper)
+
+            spring_txt = f"{sname}({sparams})" if sparams else sname
+            damper_txt = f"{dname}({dparams})" if dparams else dname
+            return f"s={comp.s_param:.3f} | spring={spring_txt} | damper={damper_txt}"
+
+        # ---- centered metadata under title ----
+        meta_lines = []
         for i, comp in enumerate(VIRTUAL_COMPONENTS):
-            pos_i = np.asarray(self.comp_pos_logs[i])      # (N,3)
-            goal_i = goal_arr[:, 3*i:3*i+3]               # (N,3)
+            cname = comp.name if comp.name else f"seg{i+1}"
+            meta_lines.append(f"{cname}: {_component_desc(comp)}")
 
-            name = comp.name if comp.name else f"comp{i+1}"
-            ax1.plot(t_arr, pos_i[:, 0], label=f"{name} x")
-            ax1.plot(t_arr, pos_i[:, 1], label=f"{name} y")
-            ax1.plot(t_arr, pos_i[:, 2], label=f"{name} z")
+        # wrap to avoid one super-long line
+        # 1 component per line (simple + clean). You can combine if you prefer.
+        meta_text = "\n".join(meta_lines)
 
-            ax1.plot(t_arr, goal_i[:, 0], "--", alpha=0.6, label=f"{name} goal x")
-            ax1.plot(t_arr, goal_i[:, 1], "--", alpha=0.6, label=f"{name} goal y")
-            ax1.plot(t_arr, goal_i[:, 2], "--", alpha=0.6, label=f"{name} goal z")
+        # Make room at top for title + metadata
+        fig.subplots_adjust(top=0.82)
 
-        ax1.set_ylabel("Position [m]")
-        ax1.grid(True, alpha=0.3)
-        ax1.legend(ncol=4, fontsize=8)
+        # Title slightly higher
+        fig.suptitle("Multi Modular VMC: Position Components + Motor Torques", y=0.97)
 
-        # Bottom: torques
+        # Centered metadata box under title
+        fig.text(
+            0.5, 0.92, meta_text,
+            ha="center", va="top", fontsize=8.5, family="monospace",
+            bbox=dict(boxstyle="round", facecolor="white", alpha=0.9, edgecolor="gray")
+        )
+
+        # --- PLOTS ---
+        ax_x = axes[0]
+        ax_y = axes[1]
+        ax_z = axes[2] if PLOT_Z else None
+        ax_tau = axes[-1]
+
+        # Position plots split by component axis
+        for i, comp in enumerate(VIRTUAL_COMPONENTS):
+            pos_i = comp_pos_arrs[i]                                # (n,3)
+            goal_i = goal_arr[:, 3*i:3*i+3]                        # (n,3)
+            name = comp.name if comp.name else f"seg{i+1}"
+
+            line_x, = ax_x.plot(t_arr, pos_i[:, 0], label=f"{name}")
+            ax_x.plot(t_arr, goal_i[:, 0], "--", color=line_x.get_color(), alpha=0.8, label=f"goal_{name}")
+
+            line_y, = ax_y.plot(t_arr, pos_i[:, 1], label=f"{name}")
+            ax_y.plot(t_arr, goal_i[:, 1], "--", color=line_y.get_color(), alpha=0.8, label=f"goal_{name}")
+
+            if PLOT_Z:
+                line_z, = ax_z.plot(t_arr, pos_i[:, 2], label=f"{name}")
+                ax_z.plot(t_arr, goal_i[:, 2], "--", color=line_z.get_color(), alpha=0.8, label=f"goal_{name}")
+                
+        ax_x.set_ylabel("X [m]")
+        ax_x.grid(True, alpha=0.3)
+        ax_x.legend(ncol=4, fontsize=8)
+
+        ax_y.set_ylabel("Y [m]")
+        ax_y.grid(True, alpha=0.3)
+        ax_y.legend(ncol=4, fontsize=8)
+
+        if PLOT_Z:
+            ax_z.set_ylabel("Z [m]")
+            ax_z.grid(True, alpha=0.3)
+            ax_z.legend(ncol=4, fontsize=8)
+
+        # Torque plot
         for k in range(9):
-            ax2.plot(t_arr, tau_arr[:, k], label=f"tau{k+11}")
-        ax2.set_xlabel("Time [s]")
-        ax2.set_ylabel("Torque [N·m]")
-        ax2.grid(True, alpha=0.3)
-        ax2.legend(ncol=3, fontsize=8)
+            ax_tau.plot(t_arr, tau_arr[:, k], label=f"tau{k+11}")
+        ax_tau.set_xlabel("Time [s]")
+        ax_tau.set_ylabel("Torque [N·m]")
+        ax_tau.grid(True, alpha=0.3)
+        ax_tau.legend(ncol=3, fontsize=8)
 
         plt.tight_layout()
 
@@ -151,12 +231,11 @@ class MultiVMCModularNode(MultiController):
         plots_dir = os.path.join(script_dir, "plots")
         os.makedirs(plots_dir, exist_ok=True)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out_path = os.path.join(plots_dir, f"vmc_multi_modular_{timestamp}.png")
+        timestamp = datetime.now().strftime("%H%M%S")
+        out_path = os.path.join(plots_dir, f"vmc_{timestamp}.png")
         fig.savefig(out_path, dpi=200, bbox_inches="tight")
         plt.close(fig)
         print(f"[OK] Saved plot to: {out_path}")
-
 
 def main():
     rclpy.init()

@@ -13,9 +13,9 @@ from Modular_MultiVMC_Config import (
     SYNCHRONIZED_ARRIVAL,
 )
 
-# TERMINAL 3 (ONLY AFTER running MultiVMC_MovingGoal_Sub.py)
+# TERMINAL 3 (ONLY AFTER running Modular_MultiVMC_MovingGoal_Sub.py)
 # source /opt/ros/humble/setup.bash
-# python3 MultiVMC_MovingGoal_Pub.py
+# python3 Modular_MultiVMC_MovingGoal_Pub.py
 
 class MultiGoalPublisher(Node):
     """
@@ -121,10 +121,9 @@ class MultiGoalPublisher(Node):
         msg.data = flat.tolist()
         self.pub.publish(msg)
 
-        if self.idx % 10 == 0 or self.idx == len(self.path) - 1:
-            self.get_logger().info(
-                f"Published x:{goals_now[:,0]}, y:{goals_now[:,1]}, z:{goals_now[:,2]}"
-            )
+        self.get_logger().info(
+            f"Published x:{goals_now[:,0]}, y:{goals_now[:,1]}, z:{goals_now[:,2]}"
+        )
 
         if not self.loop_back:
             if self.idx < len(self.path) - 1:
