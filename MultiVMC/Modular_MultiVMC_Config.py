@@ -33,45 +33,68 @@ Z_SEG1 = 1 * 0.145 - 0.01
 Z_SEG2 = 2 * 0.145 - 0.01
 Z_SEG3 = 3 * 0.145 - 0.01
 
-# ---- DELTA1 => q11..q13 ----
-q11_short = goal_from_angle(DELTA1[0], Z_SEG1)
-q12_short = goal_from_angle(DELTA1[1], Z_SEG1)
-q13_short = goal_from_angle(DELTA1[2], Z_SEG1)
+# ---- DELTA1 => q11..q13 (motors attached to segment 1)----
+q11_short = goal_from_angle(DELTA1[0], Z_SEG3)
+q12_short = goal_from_angle(DELTA1[1], Z_SEG3)
+q13_short = goal_from_angle(DELTA1[2], Z_SEG3)
 
-# ---- DELTA2 => q14..q16 ----
-q14_short = goal_from_angle(DELTA2[0], Z_SEG2) 
-q15_short = goal_from_angle(DELTA2[1], Z_SEG2)
-q16_short = goal_from_angle(DELTA2[2], Z_SEG2, r=0.01* SCALE1)
+# ---- DELTA2 => q14..q16 (motors attached to segment 2) ----
+q14_short = goal_from_angle(DELTA2[0], Z_SEG3) 
+q15_short = goal_from_angle(DELTA2[1], Z_SEG3)
+q16_short = goal_from_angle(DELTA2[2], Z_SEG3, r=0.01* SCALE1)
 
-# ---- DELTA3 => q17..q19 ----
+# ---- DELTA3 => q17..q19 (motors attached to segment 3) ----
 q17_short = goal_from_angle(DELTA3[0], Z_SEG3, r=0.01 * SCALE2)
 q18_short = goal_from_angle(DELTA3[1], Z_SEG3)
 q19_short = goal_from_angle(DELTA3[2], Z_SEG3)
 
 # Segment 3 EE rest position
 rest_pos = np.array([0.0, 0.0, 3 * 0.145], dtype=float)
+gauss_pos = goal_from_angle(DELTA3[2], 0.145)
 
 # -------------- Virtual Components --------------
 
+# VIRTUAL_COMPONENTS = [
+#     VirtualComponent(
+#         spring=LinearSpring(50.0),
+#         damper=LinearDamper(5.0),
+#         s_param=1.0,
+#         name="seg3_tip_q17",
+#     ),
+#     VirtualComponent(
+#         spring=LinearSpring(230.0),
+#         damper=LinearDamper(5.0),
+#         s_param=1.0 / 3.0,
+#         name="seg1_tip_q11",
+#     ),
+# ]
+
 VIRTUAL_COMPONENTS = [
     VirtualComponent(
-        spring=LinearSpring(50.0),
+        spring=LinearSpring(150.0),
         damper=LinearDamper(5.0),
         s_param=1.0,
-        name="seg3_tip_q17",
+        name="seg3_tip_q19",
     ),
     VirtualComponent(
-        spring=LinearSpring(230.0),
+        spring=GaussianSpring(strength=400.0, sigma=0.06),
         damper=LinearDamper(5.0),
         s_param=1.0 / 3.0,
-        name="seg1_tip_q11",
+        name="seg1_tip_q19",
+    ),
+    VirtualComponent(
+        spring=GaussianSpring(strength=330.0, sigma=0.06),
+        damper=LinearDamper(5.0),
+        s_param=2.0 / 3.0,
+        name="seg2_tip_q19",
     ),
 ]
 
 # shape (N,3), one [x,y,z] per virtual component
 DEFAULT_GOALS = np.array([
-    q17_short,              # seg3_tip
-    q11_short,              # seg1_tip
+    q19_short,            
+    gauss_pos,
+    gauss_pos,              
 ], dtype=float)
 
 # Start position for each virtual component depends on s_param:
@@ -103,7 +126,7 @@ LOOP_BACK = False       # ping-pong starts<->ends
 SYNCHRONIZED_ARRIVAL = False
 
 # -------------- Subscriber Config --------------
-TAU_LIMIT = 0.1                    # [N·m] per motor safety limit
+TAU_LIMIT = 0.15                    # [N·m] per motor safety limit
 ANGLE_LIMIT_RAD = np.radians(540)  # NO LONGER USED IN SUBSCRIBER
 SAVE_PLOT = True
-PLOT_Z = False   # True -> include z-position subplot, False -> only x and y
+PLOT_Z = True   # True -> include z-position subplot, False -> only x and y

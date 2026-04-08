@@ -208,16 +208,16 @@ class MultiVMCModularNode(MultiController):
                 
         ax_x.set_ylabel("X [m]")
         ax_x.grid(True, alpha=0.3)
-        ax_x.legend(ncol=4, fontsize=8)
+        ax_x.legend(ncol=4, fontsize=8, loc="lower right")
 
         ax_y.set_ylabel("Y [m]")
         ax_y.grid(True, alpha=0.3)
-        ax_y.legend(ncol=4, fontsize=8)
+        ax_y.legend(ncol=4, fontsize=8, loc="lower right")
 
         if PLOT_Z:
             ax_z.set_ylabel("Z [m]")
             ax_z.grid(True, alpha=0.3)
-            ax_z.legend(ncol=4, fontsize=8)
+            ax_z.legend(ncol=4, fontsize=8, loc="lower right")
 
         # Torque plot: tau_cmd solid, tau_grav dashed, same color per motor
         for k in range(9):
@@ -238,14 +238,9 @@ class MultiVMCModularNode(MultiController):
         ax_tau.set_xlabel("Time [s]")
         ax_tau.set_ylabel("Torque [N·m]")
         ax_tau.grid(True, alpha=0.3)
-        ax_tau.legend(ncol=3, fontsize=8)
+        ax_tau.legend(ncol=3, fontsize=8, loc="lower right")
 
-        ax_tau.set_xlabel("Time [s]")
-        ax_tau.set_ylabel("Torque [N·m]")
-        ax_tau.grid(True, alpha=0.3)
-        ax_tau.legend(ncol=3, fontsize=8)
-
-        plt.tight_layout()
+        #plt.tight_layout()
 
         # Save
         import os
