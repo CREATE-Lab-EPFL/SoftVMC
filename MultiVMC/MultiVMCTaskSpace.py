@@ -1,6 +1,17 @@
 import numpy as np
+from dataclasses import dataclass
+from typing import List, Sequence
+
 from FK_Multi import FK_Multi, FK_Multi_ee
 from JacobiansMulti import q_motor2pose, q_motor2pose_ee
+
+@dataclass
+class VirtualComponent:
+    spring: object
+    damper: object
+    s_param: float
+    name: str = ""
+
 
 class VMC_Multi_EE:
     """
@@ -86,6 +97,55 @@ class VMC_Multi:
         tau = J_xyz.T @ F_virtual  # (9,)
         return tau
 
+class VMC_Multi_Modular:
+    """
+    Multi-component task-space VMC.
+
+    components: list of VirtualComponent(s), each with its own spring/damper/s_param.
+    target_pos: flattened list/array of length 3*n_comp:
+                [x1,y1,z1, x2,y2,z2, ..., xN,yN,zN]
+    Output torque is sum of all component torques.
+    """
+
+    def __init__(self, components: Sequence[VirtualComponent]):
+        self.components: List[VirtualComponent] = list(components)
+        if len(self.components) == 0:
+            raise ValueError("VMC_Multi_Modular requires at least one component.")
+
+        # Prebuild Jacobians for each component s_param
+        self.J_funcs = [q_motor2pose(c.s_param) for c in self.components]
+
+    # def _reshape_targets(self, target_pos):
+    #     t = np.asarray(target_pos, dtype=float).reshape(-1)
+    #     n = len(self.components)
+    #     if t.size != 3 * n:
+    #         raise ValueError(
+    #             f"Expected target_pos size {3*n} for {n} components, got {t.size}."
+    #         )
+    #     return t.reshape(n, 3)
+
+    def multi_torques(self, q_motor, q_motor_dot, target_pos):
+        q_motor = np.asarray(q_motor, dtype=float).reshape(-1)          # (9,)
+        q_motor_dot = np.asarray(q_motor_dot, dtype=float).reshape(-1)  # (9,)
+        targets = np.asarray(target_pos, dtype=float).reshape(len(self.components), 3)
+        # targets = self._reshape_targets(target_pos)  # (n_comp,3)
+
+        tau_total = np.zeros(9, dtype=float)
+
+        for i, comp in enumerate(self.components):
+            J = np.array(self.J_funcs[i](*q_motor), dtype=float)     # (6,9)
+            pose = np.asarray(FK_Multi(q_motor, comp.s_param), dtype=float).reshape(-1)  # (6,)
+            pose_dot = J @ q_motor_dot                                # (6,)
+
+            pos = pose[:3]
+            vel = pose_dot[:3]
+            J_xyz = J[:3, :]                                          # (3,9)
+
+            F_virtual = comp.spring.compute_force(pos, targets[i]) + comp.damper.compute_force(vel)
+            tau_i = J_xyz.T @ F_virtual                               # (9,)
+            tau_total += tau_i
+
+        return tau_total
 
 # Example usage
 # if __name__ == "__main__":

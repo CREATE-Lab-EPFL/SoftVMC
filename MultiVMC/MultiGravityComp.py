@@ -6,6 +6,7 @@ from VMC_utils.GravityCompensation import GravityCompensation
 
 from JacobiansMulti import q_motor2pose
 
+SEGMENT_MASS = 0.030  # [kg] mass of each segment (adjust as needed)
 
 class MultiGravComp:
     """
@@ -21,14 +22,14 @@ class MultiGravComp:
 
     def __init__(
         self,
-        masses=(0.030, 0.030, 0.030),            # [kg] one lump per segment
-        s_param=(1.0 / 3.0, 1.0 / 2.0, 1.0),     # CoM-like points for 3 equal segments
-        R_world_to_system=np.eye(3),             # adjust if robot frame != world frame
+        masses=(SEGMENT_MASS, SEGMENT_MASS, SEGMENT_MASS),    # [kg] one lump per segment
+        s_param=(1.0 / 6.0, 0.5, 5.0 / 6.0),                  # Center of mass points for 3 segments
+        R_world_to_system=np.eye(3),                          # robot frame = world frame (z up)
         gravity=9.81
     ):
         self.masses = np.asarray(masses, dtype=float)
         self.s_param = np.asarray(s_param, dtype=float)
-        
+
         # One GravityCompensation object per lumped mass
         self.gravity_comp = [
             GravityCompensation(
@@ -68,8 +69,8 @@ class MultiGravComp:
 if __name__ == "__main__":
     # Quick sanity test at zero configuration
     gc = MultiGravComp(
-        masses=(0.030, 0.030, 0.030),
-        s_param=(1.0 / 6.0, 0.5, 5.0 / 6.0),
+        masses=(SEGMENT_MASS, SEGMENT_MASS, SEGMENT_MASS),
+        s_param=(1.0 / 6.0, 0.5, 5.0 / 6.0),                # Center of mass points for 3 segments
         R_world_to_system=np.eye(3),
         gravity=9.81
     )

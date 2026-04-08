@@ -7,4 +7,5 @@ build/
 *.db
 .json
 *.yaml
+*.pyc
 HumanManipulationVMC/
