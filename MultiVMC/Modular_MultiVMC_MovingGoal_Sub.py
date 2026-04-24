@@ -1,21 +1,3 @@
-"""
-# TERMINAL 1
-# cd ros2_dynamixel && colcon build && source install/setup.bash
-# sudo echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
-# ros2 run dynamixel_interface dynamixel_node --ros-args -p baudrate:=1000000 -p motor_ids:=[11,12,13,14,15,16,17,18,19] -p control_mode:=torque
-
-# TERMINAL 2
-# export PYTHONPATH="${PYTHONPATH}:$(pwd)"
-# python3 Modular_MultiVMC_MovingGoal_Sub.py
-
-# TERMINAL 3 (ONLY AFTER running Modular_MultiVMC_MovingGoal_Sub.py)
-# source /opt/ros/humble/setup.bash
-# python3 Modular_MultiVMC_MovingGoal_Pub.py
-
-# TERMINAL 4 
-# python3 MultiGoHome.py --read (COPY OUTPUT TO MultiGoHome.py)
-# python3 MultiGoHome.py 
-"""
 import numpy as np
 import rclpy
 import time
@@ -27,7 +9,7 @@ from std_msgs.msg import Float64MultiArray
 from MultiController import MultiController, CONTROL_FREQUENCY
 from FK_Multi import FK_Multi
 from MultiVMCTaskSpace import VMC_Multi_Modular
-from Modular_MultiVMC_Config import DEFAULT_START, VIRTUAL_COMPONENTS, TAU_LIMIT, ANGLE_LIMIT_RAD, SAVE_PLOT, PLOT_Z
+from Modular_MultiVMC_Config import DEFAULT_START, VIRTUAL_COMPONENTS, TAU_LIMIT, SAVE_PLOT, PLOT_Z, STEPS_M, PUBLISH_PERIOD
 from MultiGravityComp import MultiGravComp
 
 
@@ -47,7 +29,6 @@ class MultiVMCModularNode(MultiController):
 
         # Safety
         self.TAU_LIMIT = TAU_LIMIT
-        self.ANGLE_LIMIT_RAD = ANGLE_LIMIT_RAD
 
         # ROS subscription for goals (100 Hz)
         self.goal_sub = self.create_subscription(
@@ -94,10 +75,6 @@ class MultiVMCModularNode(MultiController):
             self.get_logger().warn("Torque limit exceeded! Clipping.")
         tau_cmd = np.clip(tau_vmc + tau_grav, -self.TAU_LIMIT, self.TAU_LIMIT)
 
-        # if np.any(np.abs(q_motor) >= self.ANGLE_LIMIT_RAD):
-        #     self.get_logger().warn("Angle limit exceeded! Stopping motors.")
-        #     tau_cmd = np.zeros_like(tau_cmd)
-
         # Log time/torque/goals
         if self.t0 is None:
             return  # wait until first goal arrives
@@ -106,7 +83,6 @@ class MultiVMCModularNode(MultiController):
         self.tau_log.append(np.asarray(tau_cmd, dtype=float))
         self.tau_grav_log.append(np.asarray(tau_grav, dtype=float))   
         self.goal_log.append(self.goal_flat.copy())
-
         # Log actual position of each virtual component point
         for i, comp in enumerate(VIRTUAL_COMPONENTS):
             pose_i = FK_Multi(q_motor, comp.s_param)      # [x,y,z,yaw,pitch,roll]
@@ -166,7 +142,7 @@ class MultiVMCModularNode(MultiController):
         for i, comp in enumerate(VIRTUAL_COMPONENTS):
             cname = comp.name if comp.name else f"seg{i+1}"
             meta_lines.append(f"{cname}: {_component_desc(comp)}")
-
+        meta_lines.append(f"GOAL_STEPS_M={STEPS_M:.4f} m/step | GOAL_PUBLISH_PERIOD={PUBLISH_PERIOD:.3f} s")
         # wrap to avoid one super-long line
         # 1 component per line (simple + clean). You can combine if you prefer.
         meta_text = "\n".join(meta_lines)
@@ -190,21 +166,25 @@ class MultiVMCModularNode(MultiController):
         ax_z = axes[2] if PLOT_Z else None
         ax_tau = axes[-1]
 
-        # Position plots split by component axis
+        # Position plots
+        # 1) Actual robot position (single black line per axis) - use first component log as representative
+        pos_ref = comp_pos_arrs[0]  # (n,3)
+        ax_x.plot(t_arr, pos_ref[:, 0], color="black", linewidth=2.0, label="position_x")
+        ax_y.plot(t_arr, pos_ref[:, 1], color="black", linewidth=2.0, label="position_y")
+        if PLOT_Z:
+            ax_z.plot(t_arr, pos_ref[:, 2], color="black", linewidth=2.0, label="position_z")
+
+        # 2) Goals per component (dashed, colored)
+        goal_cmap = plt.get_cmap("tab10", self.n_comp)
         for i, comp in enumerate(VIRTUAL_COMPONENTS):
-            pos_i = comp_pos_arrs[i]                                # (n,3)
             goal_i = goal_arr[:, 3*i:3*i+3]                        # (n,3)
             name = comp.name if comp.name else f"seg{i+1}"
+            c = goal_cmap(i)
 
-            line_x, = ax_x.plot(t_arr, pos_i[:, 0], label=f"{name}")
-            ax_x.plot(t_arr, goal_i[:, 0], "--", color=line_x.get_color(), alpha=0.8, label=f"goal_{name}")
-
-            line_y, = ax_y.plot(t_arr, pos_i[:, 1], label=f"{name}")
-            ax_y.plot(t_arr, goal_i[:, 1], "--", color=line_y.get_color(), alpha=0.8, label=f"goal_{name}")
-
+            ax_x.plot(t_arr, goal_i[:, 0], "--", color=c, alpha=0.9, label=f"goal_{name}")
+            ax_y.plot(t_arr, goal_i[:, 1], "--", color=c, alpha=0.9, label=f"goal_{name}")
             if PLOT_Z:
-                line_z, = ax_z.plot(t_arr, pos_i[:, 2], label=f"{name}")
-                ax_z.plot(t_arr, goal_i[:, 2], "--", color=line_z.get_color(), alpha=0.8, label=f"goal_{name}")
+                ax_z.plot(t_arr, goal_i[:, 2], "--", color=c, alpha=0.9, label=f"goal_{name}")
                 
         ax_x.set_ylabel("X [m]")
         ax_x.grid(True, alpha=0.3)
@@ -240,16 +220,14 @@ class MultiVMCModularNode(MultiController):
         ax_tau.grid(True, alpha=0.3)
         ax_tau.legend(ncol=3, fontsize=8, loc="lower right")
 
-        #plt.tight_layout()
-
         # Save
         import os
         script_dir = os.path.dirname(os.path.abspath(__file__))
         plots_dir = os.path.join(script_dir, "plots")
         os.makedirs(plots_dir, exist_ok=True)
 
-        timestamp = datetime.now().strftime("%H%M%S")
-        out_path = os.path.join(plots_dir, f"vmc_{timestamp}.png")
+        timestamp = datetime.now().strftime("%d_%H%M")
+        out_path = os.path.join(plots_dir, f"z_{timestamp}.png")
         fig.savefig(out_path, dpi=200, bbox_inches="tight")
         plt.close(fig)
         print(f"[OK] Saved plot to: {out_path}")

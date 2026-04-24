@@ -6,7 +6,7 @@ from VMC_utils.GravityCompensation import GravityCompensation
 
 from JacobiansMulti import q_motor2pose
 
-SEGMENT_MASS = 0.030  # [kg] mass of each segment (adjust as needed)
+SEGMENT_MASS = 0.040  # [kg] mass of each segment (adjust as needed)
 
 class MultiGravComp:
     """
