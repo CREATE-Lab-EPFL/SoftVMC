@@ -112,7 +112,8 @@ DEFAULT_START = np.array(
 # 100 steps per second = 1 cm/s  (reference velocity)
 STEPS_M = 0.0008         # 0.1 mm 
 PUBLISH_PERIOD = 0.01    # 100 Hz
-LOOP_BACK = False       # ping-pong starts<->ends
+LOOP_BACK = False        # ping-pong starts<->ends
+MOVING_GOAL = True       # True: publish path gradually, False: publish DEFAULT_GOALS directly
 
 # True  -> all components share one alpha timeline (arrive together even if distances differ)
 # False -> each component uses its own step count / alpha timeline
@@ -122,49 +123,3 @@ SYNCHRONIZED_ARRIVAL = False
 TAU_LIMIT = 0.4                    # [N·m] per motor safety limit
 SAVE_PLOT = True
 PLOT_Z = True   # True -> include z-position subplot, False -> only x and y
-
-# # ---- Previous configs (for reference) ----
-
-# # ---- Goal helpers ----
-# POS_SCALE0 = 12
-# SCALE1 = 19
-# SCALE2 = 12
-# R = 0.01 * POS_SCALE0 # scaling 1 cm by POS_SCALE
-
-# def goal_from_angle(theta: float, z: float, r: float = R) -> np.ndarray:
-#     return np.array([r * np.cos(theta), r * np.sin(theta), z], dtype=float)
-
-# # z per segment -> change according to desired segment
-# Z_SEG1 = 1 * 0.145 - 0.01
-# Z_SEG2 = 2 * 0.145 - 0.01
-# Z_SEG3 = 3 * 0.145 - 0.15
-
-# # ---- DELTA1 => q11..q13 (motors attached to segment 1)----
-# q11_short = goal_from_angle(DELTA1[0], Z_SEG3)
-# q12_short = goal_from_angle(DELTA1[1], Z_SEG3)
-# q13_short = goal_from_angle(DELTA1[2], Z_SEG3)
-
-# # ---- DELTA2 => q14..q16 (motors attached to segment 2) ----
-# q14_short = goal_from_angle(DELTA2[0], Z_SEG3) 
-# q15_short = goal_from_angle(DELTA2[1], Z_SEG3)
-# q16_short = goal_from_angle(DELTA2[2], Z_SEG3, r=0.01* SCALE1)
-
-# # ---- DELTA3 => q17..q19 (motors attached to segment 3) ----
-# q17_short = goal_from_angle(DELTA3[0], Z_SEG3, r=0.01 * SCALE2)
-# q18_short = goal_from_angle(DELTA3[1], Z_SEG3)
-# q19_short = goal_from_angle(DELTA3[2], Z_SEG3) # [0.10392305    0.06   0.425     ]
-
-# VIRTUAL_COMPONENTS = [
-#     VirtualComponent(
-#         spring=LinearSpring(50.0),
-#         damper=LinearDamper(5.0),
-#         s_param=1.0,
-#         name="seg3_tip_q17",
-#     ),
-#     VirtualComponent(
-#         spring=LinearSpring(230.0),
-#         damper=LinearDamper(5.0),
-#         s_param=1.0 / 3.0,
-#         name="seg1_tip_q11",
-#     ),
-# ]

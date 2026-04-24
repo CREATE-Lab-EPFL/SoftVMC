@@ -11,6 +11,7 @@ from Modular_MultiVMC_Config import (
     PUBLISH_PERIOD,
     LOOP_BACK,
     SYNCHRONIZED_ARRIVAL,
+    MOVING_GOAL,
 )
 
 # TERMINAL 3 (ONLY AFTER running Modular_MultiVMC_MovingGoal_Sub.py)
@@ -36,20 +37,25 @@ class MultiGoalPublisher(Node):
         self.step_m = STEPS_M
         self.publish_period = PUBLISH_PERIOD
         self.loop_back = LOOP_BACK
-
-        if SYNCHRONIZED_ARRIVAL:
-            self.path = self.build_path_synchronized(self.starts, self.ends, self.step_m)  # (T,N,3)
-        else:
-            self.path = self.build_path_desynchronized(self.starts, self.ends, self.step_m)  # (T,N,3)
+        self.moving_goal = MOVING_GOAL
 
         self.idx = 0
         self.direction = 1
 
-        mode = "SYNCHRONIZED" if SYNCHRONIZED_ARRIVAL else "DESYNCHRONIZED"
-        self.get_logger().info(
-            f"[{mode}] Publishing {self.n_comp} components on /goal_pos_multi, "
-            f"step={self.step_m} m, frames={len(self.path)}"
-        )
+        if self.moving_goal:
+            if SYNCHRONIZED_ARRIVAL:
+                self.path = self.build_path_synchronized(self.starts, self.ends, self.step_m)  # (T,N,3)
+            else:
+                self.path = self.build_path_desynchronized(self.starts, self.ends, self.step_m)  # (T,N,3)
+
+            mode = "SYNCHRONIZED" if SYNCHRONIZED_ARRIVAL else "DESYNCHRONIZED"
+            self.get_logger().info(
+                f"[MOVING_GOAL=True | {mode}] Publishing {self.n_comp} components on /goal_pos_multi, "
+            )
+        else:
+            self.get_logger().info(
+                f"[MOVING_GOAL=False] Publishing fixed DEFAULT_GOALS for {self.n_comp} components on /goal_pos_multi"
+            )
 
         self.timer = self.create_timer(self.publish_period, self.timer_cb)
 
@@ -114,8 +120,12 @@ class MultiGoalPublisher(Node):
         return path
 
     def timer_cb(self):
-        goals_now = self.path[self.idx]              # (N,3)
-        flat = goals_now.reshape(-1)                 # (3N,)
+        if self.moving_goal:
+            goals_now = self.path[self.idx]              # (N,3)
+        else:
+            goals_now = self.ends                        # (N,3) immediate fixed goal
+
+        flat = goals_now.reshape(-1)                     # (3N,)
 
         msg = Float64MultiArray()
         msg.data = flat.tolist()
@@ -124,6 +134,9 @@ class MultiGoalPublisher(Node):
         self.get_logger().info(
             f"Published x:{goals_now[:,0]}, y:{goals_now[:,1]}, z:{goals_now[:,2]}"
         )
+
+        if not self.moving_goal:
+            return  # keep publishing fixed goal, no path index update
 
         if not self.loop_back:
             if self.idx < len(self.path) - 1:
