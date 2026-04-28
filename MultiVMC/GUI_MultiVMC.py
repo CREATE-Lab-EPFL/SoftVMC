@@ -4,11 +4,11 @@ robot_gui.py
 GUI node — acts as both the VC_Param publisher and VC_ref_pos publisher.
 Subscribes to /joint_positions and /VMC_torque for live visualization.
 
-Layout  (2 × 2 grid):
+Layout  (2 x 2 grid):
   ┌────────────────────┬──────────────────────────┐
   │ ① Parameter Tuning │ ③ 3-D Robot Visualisation│
   ├────────────────────┼──────────────────────────┤
-  │ ② Position Control │ ④ Torque Over Time        │
+  │ ② Position Control │ ④ Torque Over Time       │
   └────────────────────┴──────────────────────────┘
 
 Run (after vmc_torque_node.py is already running):
@@ -59,14 +59,10 @@ from GUI_MultiVMC_Config import (
     TAU_PLOT_WINDOW,
     FK_S_SAMPLES,
     PLOTLY_OUTPUT_DIR,
+    ENABLE_PARAM_TUNING,
 )
 
-try:
-    from FK_Multi import FK_Multi
-    _HAS_FK = True
-except ImportError:
-    _HAS_FK = False
-    print("[WARN] FK_Multi not found — 3-D robot shape will be unavailable.")
+from FK_Multi import FK_Multi
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -194,6 +190,12 @@ class RobotGUI:
         self._cell4 = ttk.LabelFrame(self.root, text="④ Torque Over Time",          **kw)
 
         self._cell1.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
+        if not ENABLE_PARAM_TUNING:
+            for child in self._cell1.winfo_children():
+                child.configure(state="disabled") if hasattr(child, "configure") else None
+            ttk.Label(self._cell1, text="Param tuning disabled\n(multi-param spring/damper)",
+                    foreground="gray").pack(expand=True)
+
         self._cell2.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
         self._cell3.grid(row=0, column=1, sticky="nsew", padx=4, pady=4)
         self._cell4.grid(row=1, column=1, sticky="nsew", padx=4, pady=4)
@@ -246,6 +248,8 @@ class RobotGUI:
         self._param_status.grid(row=N_VC+2, column=0, columnspan=4)
 
     def _apply_params(self):
+        if not ENABLE_PARAM_TUNING:
+            return
         try:
             k = [float(v.get()) for v in self._k_vars]
             c = [float(v.get()) for v in self._c_vars]
@@ -452,9 +456,6 @@ class RobotGUI:
         self._canvas_3d.get_tk_widget().pack(fill="both", expand=True)
 
     def _update_cell3(self, q: np.ndarray, t_now: float):
-        if not _HAS_FK:
-            return
-
         s_vals = np.linspace(0.0, 1.0, FK_S_SAMPLES)
         robot_pts = []
         for s in s_vals:
@@ -598,8 +599,8 @@ class RobotGUI:
         # ── Cell 4: Torque line chart ──────────────────────────────────────────
         self._save_plotly_torque(go, stamp)
 
-        # ── Cell 3: 3-D animation (only if FK available) ──────────────────────
-        if _HAS_FK and len(self._robot_shape_log) > 1:
+        # ── Cell 3: 3-D animation ──────────────────────
+        if len(self._robot_shape_log) > 1:
             self._save_plotly_3d(go, stamp)
 
         messagebox.showinfo("Saved", f"Plotly reports saved to  ./{PLOTLY_OUTPUT_DIR}/")

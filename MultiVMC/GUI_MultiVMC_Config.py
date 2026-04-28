@@ -86,6 +86,10 @@ LOOP_BACK        = False
 MOVING_GOAL      = True
 SYNCHRONIZED_ARRIVAL = False
 
+# Set False when using springs/dampers with more than 1 parameter (e.g. GaussianSpring).
+# The torque node will then use config values as-is and ignore /VC_Param entirely.
+ENABLE_PARAM_TUNING = True
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
