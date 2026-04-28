@@ -1,6 +1,6 @@
 """
-vmc_torque_node.py
-──────────────────
+GUI_MultiVMC_Torque.py
+──────────────────────
 Standalone torque computation back-end.
 
 Subscribes:
@@ -15,7 +15,11 @@ Publishes:
 
 Run:
     export PYTHONPATH="${PYTHONPATH}:$(pwd)"
-    python3 vmc_torque_node.py
+    python3 GUI_MultiVMC_Torque.py
+
+Run (after GUI_MultiVMC_Torque.py is already running):
+    export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+    python3 GUI_MultiVMC.py
 """
 
 import copy

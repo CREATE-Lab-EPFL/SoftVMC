@@ -1,5 +1,5 @@
 """
-robot_gui.py
+GUI_MultiVMC.py
 ────────────
 GUI node — acts as both the VC_Param publisher and VC_ref_pos publisher.
 Subscribes to /joint_positions and /VMC_torque for live visualization.
@@ -11,9 +11,9 @@ Layout  (2 x 2 grid):
   │ ② Position Control │ ④ Torque Over Time       │
   └────────────────────┴──────────────────────────┘
 
-Run (after vmc_torque_node.py is already running):
+Run (after GUI_MultiVMC_Torque.py is already running):
     export PYTHONPATH="${PYTHONPATH}:$(pwd)"
-    python3 robot_gui.py
+    python3 GUI_MultiVMC.py
 
 Dependencies beyond ROS2 / standard library:
     pip install matplotlib plotly
@@ -139,8 +139,8 @@ class GUINode(Node):
 class RobotGUI:
     """Four-cell tkinter GUI wired to a GUINode."""
 
-    _UPDATE_MS   = 66    # ~15 Hz GUI refresh  (3-D plots are expensive)
-    _LOG_MAXLEN  = 3000  # keep ≤3000 frames in memory (~200 s at 15 Hz)
+    _UPDATE_MS   = 100    # 10 Hz GUI refresh  (3-D plots are expensive)
+    _LOG_MAXLEN  = 2000  # keep ≤2000 frames in memory (200 s at 10 Hz)
 
     def __init__(self, root: tk.Tk, node: GUINode):
         self.root = root
@@ -576,6 +576,8 @@ class RobotGUI:
             self._update_cell4(tau, t_now)
 
         self.root.after(self._UPDATE_MS, self._update_loop)
+        self._after_id = self.root.after(self._UPDATE_MS, self._update_loop)
+
 
     # ─────────────────────────────────────────────────────────────────────────
     # Plotly export
@@ -625,7 +627,7 @@ class RobotGUI:
             xaxis_title="Time [s]",
             yaxis_title="Torque [N·m]",
             template="plotly_white",
-            legend=dict(ncols=3),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
         )
         path = os.path.join(PLOTLY_OUTPUT_DIR, f"torque_{stamp}.html")
         fig.write_html(path, include_plotlyjs="cdn")
@@ -744,7 +746,7 @@ class RobotGUI:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _on_close(self):
-        # Auto-save on window close if there is data
+        self.root.after_cancel(self._after_id)
         if len(self._t_log) >= 2:
             try:
                 self._save_plotly()

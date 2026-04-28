@@ -35,16 +35,15 @@ COMPONENT_SPECS = [
         ),
         goal=np.array([0.0, 0.15, 0.25], dtype=float),
     ),
-    # ── Uncomment to add more components ──────────────────────────────────────
-    # dict(
-    #     component=VirtualComponent(
-    #         spring=LinearSpring(230.0),
-    #         damper=LinearDamper(5.0),
-    #         s_param=1.0,
-    #         name="lin_x",
-    #     ),
-    #     goal=go_x,
-    # ),
+    dict(
+        component=VirtualComponent(
+            spring=LinearSpring(230.0),
+            damper=LinearDamper(5.0),
+            s_param=1.0,
+            name="lin_x",
+        ),
+        goal=go_x,
+    ),
     # dict(
     #     component=VirtualComponent(
     #         spring=GaussianSpring(strength=400.0, sigma=0.06),
@@ -138,7 +137,7 @@ Z_RANGE  = (0.0,  0.45)  # [m] z slider range
 TAU_PLOT_WINDOW = 10.0   # [s] how many seconds are visible in the live torque chart
 
 # ── 3D visualization s-sample density ─────────────────────────────────────────
-FK_S_SAMPLES = 20        # number of FK evaluations along the robot for the 3D line
+FK_S_SAMPLES = 4        # number of FK evaluations along the robot for the 3D line
 
 # ── Plotly output directory ───────────────────────────────────────────────────
 PLOTLY_OUTPUT_DIR = "plots"
