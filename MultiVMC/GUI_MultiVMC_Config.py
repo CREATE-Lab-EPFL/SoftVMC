@@ -33,7 +33,7 @@ COMPONENT_SPECS = [
             s_param=1.0,
             name="lin_y",
         ),
-        goal=np.array([0.0, 0.15, 0.25], dtype=float),
+        goal=np.array([0.0, 0.15, 0.25], dtype=float),# GUI OVERRIDES THIS GOAL --- IGNORE ---
     ),
     dict(
         component=VirtualComponent(
@@ -42,17 +42,17 @@ COMPONENT_SPECS = [
             s_param=1.0,
             name="lin_x",
         ),
-        goal=go_x,
+        goal=go_x, # GUI OVERRIDES THIS GOAL --- IGNORE ---
     ),
-    # dict(
-    #     component=VirtualComponent(
-    #         spring=GaussianSpring(strength=400.0, sigma=0.06),
-    #         damper=LinearDamper(5.0),
-    #         s_param=1.0 / 3.0,
-    #         name="gauss_y_seg1",
-    #     ),
-    #     goal=gauss_y,
-    # ),
+    dict(
+        component=VirtualComponent(
+            spring=GaussianSpring(strength=400.0, sigma=0.06),
+            damper=LinearDamper(5.0),
+            s_param=1.0 / 3.0,
+            name="gauss_y_seg1",
+        ),
+        goal=gauss_y,
+    ),
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────

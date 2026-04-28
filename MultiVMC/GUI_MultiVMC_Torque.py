@@ -33,7 +33,6 @@ from MultiVMCTaskSpace import VMC_Multi_Modular
 from MultiGravityComp import MultiGravComp
 from GUI_MultiVMC_Config import (
     VIRTUAL_COMPONENTS,
-    DEFAULT_GOALS,
     DEFAULT_START,
     N_VC,
     TAU_LIMIT,
@@ -63,7 +62,7 @@ class VMCTorqueNode(Node):
         # ── Robot state ───────────────────────────────────────────────────────
         self._q      = np.zeros(9, dtype=float)   # rad
         self._q_dot  = np.zeros(9, dtype=float)   # rad/s
-        self._goal   = DEFAULT_GOALS.reshape(-1).copy()   # flattened (3N,)
+        self._goal   = DEFAULT_START.reshape(-1).copy()   # flattened (3N,)
 
         # ── Subscribers ───────────────────────────────────────────────────────
         self.create_subscription(

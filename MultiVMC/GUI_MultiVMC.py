@@ -6,9 +6,9 @@ Subscribes to /joint_positions and /VMC_torque for live visualization.
 
 Layout  (2 x 2 grid):
   ┌────────────────────┬──────────────────────────┐
-  │ ① Parameter Tuning │ ③ 3-D Robot Visualisation│
+  │ ①  3-D Robot Visualisation │ ③ Parameter Tuning │
   ├────────────────────┼──────────────────────────┤
-  │ ② Position Control │ ④ Torque Over Time       │
+  │ ② Position Control │ ④ Torque Over Time      │
   └────────────────────┴──────────────────────────┘
 
 Run (after GUI_MultiVMC_Torque.py is already running):
@@ -16,19 +16,18 @@ Run (after GUI_MultiVMC_Torque.py is already running):
     python3 GUI_MultiVMC.py
 
 Dependencies beyond ROS2 / standard library:
-    pip install matplotlib plotly
+    pip install matplotlib
 """
 
-import os
+import signal
 import threading
 import time
 from collections import deque
-from datetime import datetime
 
 import numpy as np
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -37,16 +36,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from mpl_toolkits.mplot3d import Axes3D          # noqa – registers 3-D projection
 
 
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 
 from GUI_MultiVMC_Config import (
     VIRTUAL_COMPONENTS,
-    DEFAULT_GOALS,
     DEFAULT_START,
     N_VC,
     GUI_COLORS,
@@ -58,7 +53,6 @@ from GUI_MultiVMC_Config import (
     Z_RANGE,
     TAU_PLOT_WINDOW,
     FK_S_SAMPLES,
-    PLOTLY_OUTPUT_DIR,
     ENABLE_PARAM_TUNING,
 )
 
@@ -148,21 +142,20 @@ class RobotGUI:
         self.root.title("VMC Robot Controller")
 
         # ── Mutable state ─────────────────────────────────────────────────────
-        self._ref_pos   = DEFAULT_GOALS.copy()          # (N,3)  current targets
+        self._ref_pos      = DEFAULT_START.copy()   # (N,3) published goal
+        self._mouse_target = DEFAULT_START.copy()   # (N,3) raw mouse XY during drag
         self._k_vals    = list(SPRING_PARAM_INIT)
         self._c_vals    = list(DAMPER_PARAM_INIT)
-        self._pub_active  = tk.BooleanVar(value=True)
-        self._selected_vc = tk.IntVar(value=0)
-        self._dragging    = False
-        self._ignore_z    = False    # guard against programmatic slider set()
+        self._pub_active   = tk.BooleanVar(value=True)
+        self._selected_vc  = tk.IntVar(value=0)
+        self._dragging     = False
+        self._ignore_z     = False   # guard against programmatic slider set()
+        self._goal_speed   = tk.DoubleVar(value=5.0)  # cm/s
 
-        # ── Logging for plotly export ──────────────────────────────────────────
-        self._t0           = time.perf_counter()
-        self._t_log        = deque(maxlen=self._LOG_MAXLEN)
-        self._tau_log      = deque(maxlen=self._LOG_MAXLEN)
-        self._robot_shape_log = deque(maxlen=self._LOG_MAXLEN)  # list of (K,3) arrays
-        self._vc_attach_log   = deque(maxlen=self._LOG_MAXLEN)  # list of (N,3) arrays
-        self._vc_ref_log      = deque(maxlen=self._LOG_MAXLEN)  # list of (N,3) arrays
+        # ── Logging for torque plot ────────────────────────────────────────────
+        self._t0      = time.perf_counter()
+        self._t_log   = deque(maxlen=self._LOG_MAXLEN)
+        self._tau_log = deque(maxlen=self._LOG_MAXLEN)
 
         self._build_layout()
         self._setup_cell1()
@@ -178,10 +171,10 @@ class RobotGUI:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _build_layout(self):
-        self.root.columnconfigure(0, weight=1)
+        self.root.columnconfigure(0, weight=3)
         self.root.columnconfigure(1, weight=2)
         self.root.rowconfigure(0, weight=1)
-        self.root.rowconfigure(1, weight=2)
+        self.root.rowconfigure(1, weight=4)
 
         kw = dict(padding=8)
         self._cell1 = ttk.LabelFrame(self.root, text="① Parameter Tuning",        **kw)
@@ -189,7 +182,9 @@ class RobotGUI:
         self._cell3 = ttk.LabelFrame(self.root, text="③ 3-D Robot Visualisation",  **kw)
         self._cell4 = ttk.LabelFrame(self.root, text="④ Torque Over Time",          **kw)
 
-        self._cell1.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
+        self._cell3.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
+
+        self._cell1.grid(row=0, column=1, sticky="nsew", padx=4, pady=4)
         if not ENABLE_PARAM_TUNING:
             for child in self._cell1.winfo_children():
                 child.configure(state="disabled") if hasattr(child, "configure") else None
@@ -197,7 +192,6 @@ class RobotGUI:
                     foreground="gray").pack(expand=True)
 
         self._cell2.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
-        self._cell3.grid(row=0, column=1, sticky="nsew", padx=4, pady=4)
         self._cell4.grid(row=1, column=1, sticky="nsew", padx=4, pady=4)
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -275,6 +269,20 @@ class RobotGUI:
         ttk.Button(top, text="Reset Positions",
                    command=self._reset_positions).pack(side="left", padx=6)
 
+        # ── Drag speed cap ────────────────────────────────────────────────────
+        ttk.Separator(top, orient="vertical").pack(side="left", fill="y", padx=8)
+        ttk.Label(top, text="Drag speed:").pack(side="left")
+        ttk.Scale(top, from_=0.5, to=10.0, orient="horizontal",
+                  variable=self._goal_speed, length=150).pack(side="left", padx=4)
+        self._speed_lbl = ttk.Label(top, text="5.0 cm/s", width=9)
+        self._speed_lbl.pack(side="left")
+        self._goal_speed.trace_add(
+            "write",
+            lambda *_: self._speed_lbl.config(
+                text=f"{self._goal_speed.get():.1f} cm/s"
+            ),
+        )
+
         # ── VC selectors ──────────────────────────────────────────────────────
         sel_row = ttk.Frame(f)
         sel_row.pack(side="top", fill="x", pady=(0, 4))
@@ -298,7 +306,7 @@ class RobotGUI:
         xy_frame = ttk.Frame(mid)
         xy_frame.pack(side="left", fill="both", expand=True)
 
-        self._fig_xy, self._ax_xy = plt.subplots(figsize=(3.6, 3.6))
+        self._fig_xy, self._ax_xy = plt.subplots(figsize=(6.0, 6.0))
         self._ax_xy.set_xlim(*XY_RANGE)
         self._ax_xy.set_ylim(*XY_RANGE)
         self._ax_xy.set_xlabel("X [m]")
@@ -372,27 +380,30 @@ class RobotGUI:
     def _xy_press(self, event):
         if event.inaxes != self._ax_xy:
             return
-        self._dragging = True
-        self._apply_xy(event)
-
-    def _xy_motion(self, event):
-        if not self._dragging or event.inaxes != self._ax_xy:
-            return
-        self._apply_xy(event)
-
-    def _xy_release(self, _event):
-        self._dragging = False
-
-    def _apply_xy(self, event):
         idx = self._selected_vc.get()
         x = float(np.clip(event.xdata, *XY_RANGE))
         y = float(np.clip(event.ydata, *XY_RANGE))
+        # Jump immediately on click; drag will be speed-capped from here
         self._ref_pos[idx, 0] = x
         self._ref_pos[idx, 1] = y
+        self._mouse_target[idx, 0] = x
+        self._mouse_target[idx, 1] = y
         self._xy_pts[idx].set_data([x], [y])
         self._canvas_xy.draw_idle()
         if self._pub_active.get():
             self.node.publish_ref_pos(self._ref_pos)
+        self._dragging = True
+
+    def _xy_motion(self, event):
+        if not self._dragging or event.inaxes != self._ax_xy:
+            return
+        idx = self._selected_vc.get()
+        self._mouse_target[idx, 0] = float(np.clip(event.xdata, *XY_RANGE))
+        self._mouse_target[idx, 1] = float(np.clip(event.ydata, *XY_RANGE))
+        # Actual movement is handled in _update_loop at capped speed
+
+    def _xy_release(self, _event):
+        self._dragging = False
 
     def _z_changed(self, idx: int, lbl: ttk.Label):
         if self._ignore_z:
@@ -406,7 +417,8 @@ class RobotGUI:
     def _reset_positions(self):
         self._ignore_z = True
         for i in range(N_VC):
-            self._ref_pos[i] = DEFAULT_START[i].copy()
+            self._ref_pos[i]      = DEFAULT_START[i].copy()
+            self._mouse_target[i] = DEFAULT_START[i].copy()
             self._xy_pts[i].set_data([DEFAULT_START[i, 0]], [DEFAULT_START[i, 1]])
             self._z_vars[i].set(float(DEFAULT_START[i, 2]))
             self._z_lbls[i].config(text=f"{DEFAULT_START[i, 2]:.3f} m")
@@ -502,23 +514,11 @@ class RobotGUI:
 
         self._canvas_3d.draw_idle()
 
-        # Log for plotly export
-        if robot_pts:
-            self._robot_shape_log.append(np.array(robot_pts))
-            self._vc_attach_log.append(vc_attach_pts.copy())
-            self._vc_ref_log.append(vc_ref_pts.copy())
-
     # ─────────────────────────────────────────────────────────────────────────
     # Cell 4 — Torque Over Time
     # ─────────────────────────────────────────────────────────────────────────
 
     def _setup_cell4(self):
-        # Save button
-        top = ttk.Frame(self._cell4)
-        top.pack(side="top", fill="x")
-        ttk.Button(top, text="Save Plotly Report",
-                   command=self._save_plotly).pack(side="right", padx=6, pady=2)
-
         self._fig_tau, self._ax_tau = plt.subplots(figsize=(5, 3))
         ax = self._ax_tau
         ax.set_xlabel("Time [s]", fontsize=8)
@@ -570,176 +570,27 @@ class RobotGUI:
         q      = self.node.get_joint_positions()
         tau, ts = self.node.get_latest_torque()
 
+        # Speed-capped XY tracking during drag
+        if self._dragging:
+            idx      = self._selected_vc.get()
+            max_step = (self._goal_speed.get() / 100.0) * (self._UPDATE_MS / 1000.0)
+            diff     = self._mouse_target[idx, :2] - self._ref_pos[idx, :2]
+            dist     = float(np.linalg.norm(diff))
+            if dist > 1e-6:
+                self._ref_pos[idx, :2] += diff / dist * min(dist, max_step)
+                self._xy_pts[idx].set_data(
+                    [self._ref_pos[idx, 0]], [self._ref_pos[idx, 1]])
+                self._canvas_xy.draw_idle()
+                if self._pub_active.get():
+                    self.node.publish_ref_pos(self._ref_pos)
+
         self._update_cell3(q, t_now)
 
         if ts is not None:
             self._update_cell4(tau, t_now)
 
-        self.root.after(self._UPDATE_MS, self._update_loop)
         self._after_id = self.root.after(self._UPDATE_MS, self._update_loop)
 
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Plotly export
-    # ─────────────────────────────────────────────────────────────────────────
-
-    def _save_plotly(self):
-        try:
-            import plotly.graph_objects as go
-            from plotly.subplots import make_subplots
-        except ImportError:
-            messagebox.showerror("Error", "plotly not installed.\nRun: pip install plotly")
-            return
-
-        if len(self._t_log) < 2:
-            messagebox.showwarning("Warning", "Not enough data logged yet.")
-            return
-
-        os.makedirs(PLOTLY_OUTPUT_DIR, exist_ok=True)
-        stamp = datetime.now().strftime("%d_%H%M")
-
-        # ── Cell 4: Torque line chart ──────────────────────────────────────────
-        self._save_plotly_torque(go, stamp)
-
-        # ── Cell 3: 3-D animation ──────────────────────
-        if len(self._robot_shape_log) > 1:
-            self._save_plotly_3d(go, stamp)
-
-        messagebox.showinfo("Saved", f"Plotly reports saved to  ./{PLOTLY_OUTPUT_DIR}/")
-
-    def _save_plotly_torque(self, go, stamp: str):
-        t_arr   = np.array(self._t_log)
-        tau_arr = np.array(self._tau_log)   # (M, 9)
-        cmap    = plt.get_cmap("tab10", 9)
-
-        fig = go.Figure()
-        for k in range(9):
-            r, g, b, _ = cmap(k)
-            color = f"rgb({int(r*255)},{int(g*255)},{int(b*255)})"
-            fig.add_trace(go.Scatter(
-                x=t_arr, y=tau_arr[:, k],
-                mode="lines", name=f"τ{k+11}",
-                line=dict(color=color, width=1.5),
-            ))
-
-        fig.update_layout(
-            title="VMC Motor Torques — session log",
-            xaxis_title="Time [s]",
-            yaxis_title="Torque [N·m]",
-            template="plotly_white",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02),
-        )
-        path = os.path.join(PLOTLY_OUTPUT_DIR, f"torque_{stamp}.html")
-        fig.write_html(path, include_plotlyjs="cdn")
-        print(f"[OK] Saved torque plot → {path}")
-
-    def _save_plotly_3d(self, go, stamp: str):
-        """
-        3-D animation: one plotly Frame per logged timestep.
-        A slider lets you scrub through time.  'Play' button animates at ~15 fps.
-        """
-        t_arr      = np.array(self._t_log)
-        rp_list    = list(self._robot_shape_log)
-        att_list   = list(self._vc_attach_log)
-        ref_list   = list(self._vc_ref_log)
-
-        n_frames = min(len(t_arr), len(rp_list))
-        # Sub-sample to ≤300 frames so the HTML stays manageable
-        step     = max(1, n_frames // 300)
-        indices  = range(0, n_frames, step)
-
-        def _make_traces(frame_idx):
-            rp  = rp_list[frame_idx]    # (K,3)
-            att = att_list[frame_idx]   # (N,3)
-            ref = ref_list[frame_idx]   # (N,3)
-            traces = [
-                go.Scatter3d(
-                    x=rp[:, 0], y=rp[:, 1], z=rp[:, 2],
-                    mode="lines+markers",
-                    line=dict(color="black", width=4),
-                    marker=dict(size=3),
-                    name="robot",
-                ),
-            ]
-            for i in range(N_VC):
-                color = GUI_COLORS[i % len(GUI_COLORS)]
-                name  = VIRTUAL_COMPONENTS[i].name or f"VC{i+1}"
-                # attachment
-                traces.append(go.Scatter3d(
-                    x=[att[i, 0]], y=[att[i, 1]], z=[att[i, 2]],
-                    mode="markers", marker=dict(color=color, size=8),
-                    name=f"{name} attach",
-                ))
-                # reference
-                traces.append(go.Scatter3d(
-                    x=[ref[i, 0]], y=[ref[i, 1]], z=[ref[i, 2]],
-                    mode="markers", marker=dict(color=color, symbol="diamond", size=10),
-                    name=f"{name} ref",
-                ))
-                # connector
-                traces.append(go.Scatter3d(
-                    x=[att[i, 0], ref[i, 0]],
-                    y=[att[i, 1], ref[i, 1]],
-                    z=[att[i, 2], ref[i, 2]],
-                    mode="lines",
-                    line=dict(color=color, width=2, dash="dot"),
-                    showlegend=False,
-                ))
-            return traces
-
-        # Initial frame
-        init_traces = _make_traces(0)
-
-        frames = [
-            go.Frame(
-                data=_make_traces(fi),
-                name=f"{t_arr[fi]:.2f}",
-            )
-            for fi in indices
-        ]
-
-        slider_steps = [
-            dict(
-                args=[[f.name], dict(frame=dict(duration=0, redraw=True), mode="immediate")],
-                label=f.name,
-                method="animate",
-            )
-            for f in frames
-        ]
-
-        fig = go.Figure(data=init_traces, frames=frames)
-        fig.update_layout(
-            title="VMC 3-D Robot — session log",
-            template="plotly_white",
-            scene=dict(
-                xaxis_title="X [m]",
-                yaxis_title="Y [m]",
-                zaxis_title="Z [m]",
-                aspectmode="cube",
-            ),
-            updatemenus=[dict(
-                type="buttons", showactive=False, y=0.05, x=0.05,
-                buttons=[
-                    dict(label="▶ Play",
-                         method="animate",
-                         args=[None, dict(frame=dict(duration=70, redraw=True),
-                                          fromcurrent=True)]),
-                    dict(label="⏸ Pause",
-                         method="animate",
-                         args=[[None], dict(frame=dict(duration=0), mode="immediate")]),
-                ],
-            )],
-            sliders=[dict(
-                active=0,
-                currentvalue=dict(prefix="t = ", suffix=" s", font=dict(size=12)),
-                pad=dict(t=40),
-                steps=slider_steps,
-            )],
-        )
-
-        path = os.path.join(PLOTLY_OUTPUT_DIR, f"robot3d_{stamp}.html")
-        fig.write_html(path, include_plotlyjs="cdn")
-        print(f"[OK] Saved 3-D animation → {path}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Close
@@ -747,11 +598,6 @@ class RobotGUI:
 
     def _on_close(self):
         self.root.after_cancel(self._after_id)
-        if len(self._t_log) >= 2:
-            try:
-                self._save_plotly()
-            except Exception as exc:
-                print(f"[WARN] auto-save failed: {exc}")
         self.root.destroy()
 
 
@@ -759,19 +605,30 @@ class RobotGUI:
 # Entry point
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _spin_safe(node):
+    """Spin target that silences ExternalShutdownException on Ctrl+C."""
+    try:
+        rclpy.spin(node)
+    except Exception:
+        pass
+
+
 def main():
     rclpy.init()
     ros_node = GUINode()
 
     # ROS2 spin in daemon thread — killed automatically when the main thread ends
     ros_thread = threading.Thread(
-        target=rclpy.spin, args=(ros_node,), daemon=True, name="rclpy_spin"
+        target=_spin_safe, args=(ros_node,), daemon=True, name="rclpy_spin"
     )
     ros_thread.start()
 
     root = tk.Tk()
-    root.geometry("1500x920")
+    root.geometry("1600x1000")
     root.minsize(1100, 700)
+
+    # One Ctrl+C closes the window cleanly instead of requiring two presses
+    signal.signal(signal.SIGINT, lambda *_: root.quit())
 
     gui = RobotGUI(root, ros_node)  # noqa (keeps reference alive)
 
