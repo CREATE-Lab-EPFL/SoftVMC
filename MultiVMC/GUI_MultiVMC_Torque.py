@@ -10,8 +10,7 @@ Subscribes:
     /joint_velocities  Float64MultiArray  [deg/s] x 9
 
 Publishes:
-    /goal_torque       Float64MultiArray  [N·m] x 9  (robot hardware)
-    /VMC_torque        Float64MultiArray  [N·m] x 9  (GUI / logging)
+    /goal_torque       Float64MultiArray  [N·m] x 9  (robot hardware + GUI)
 
 Run:
     export PYTHONPATH="${PYTHONPATH}:$(pwd)"
@@ -76,7 +75,6 @@ class VMCTorqueNode(Node):
 
         # ── Publishers ────────────────────────────────────────────────────────
         self._pub_hw  = self.create_publisher(Float64MultiArray, "/goal_torque",  10)
-        self._pub_vmc = self.create_publisher(Float64MultiArray, "/VMC_torque",   10)
 
         # ── Control timer ─────────────────────────────────────────────────────
         self.create_timer(1.0 / CONTROL_FREQUENCY, self._control_loop)
@@ -163,7 +161,6 @@ class VMCTorqueNode(Node):
         msg = Float64MultiArray()
         msg.data = tau.tolist()
         self._pub_hw.publish(msg)
-        self._pub_vmc.publish(msg)
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────

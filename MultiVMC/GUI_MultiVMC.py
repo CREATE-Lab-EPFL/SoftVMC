@@ -81,7 +81,7 @@ class GUINode(Node):
         self.create_subscription(
             Float64MultiArray, "/joint_positions", self._cb_pos,    10)
         self.create_subscription(
-            Float64MultiArray, "/VMC_torque",       self._cb_torque, 10)
+            Float64MultiArray, "/goal_torque",      self._cb_torque, 10)
 
         # ── Shared state ──────────────────────────────────────────────────────
         self._lock            = threading.Lock()
