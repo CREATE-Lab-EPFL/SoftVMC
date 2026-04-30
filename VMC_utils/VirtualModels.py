@@ -410,6 +410,21 @@ class DeadzoneLimitSpring:
         self.angle_lower = angle_lower
         self.angle_upper = angle_upper
     
+    # def compute_force(self, angle_current, dummy_arg=None):
+    #     """
+    #     Args:
+    #         angle_current: current value — scalar or array (rad or m)
+    #         dummy_arg: ignored — exists so this matches the two-arg spring interface
+
+    #     Returns:
+    #         F: restoring force/torque, same shape as angle_current
+    #     """
+    #     x = np.asarray(angle_current, dtype=float)
+    #     force = np.zeros_like(x)
+    #     force[x < self.angle_lower] = self.stiffness * (self.angle_lower - x[x < self.angle_lower])
+    #     force[x > self.angle_upper] = self.stiffness * (self.angle_upper - x[x > self.angle_upper])
+    #     return force if x.ndim > 0 else float(force)
+    
     def compute_force(self, angle_current):
         """
         Args:
@@ -424,6 +439,7 @@ class DeadzoneLimitSpring:
             return self.stiffness * (self.angle_upper - angle_current)
         else:
             return 0.0
+
 
 
 # ============================================================================

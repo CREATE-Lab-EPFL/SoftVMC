@@ -5,7 +5,7 @@ import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from VMC_utils.VirtualModels import (
     ConstrainedLinearSpring, LinearDamper, LinearSpring,
-    TanhSpring, TanhDamper, GaussianSpring,
+    TanhSpring, TanhDamper, GaussianSpring, DeadzoneLimitSpring
 )
 
 """
@@ -35,24 +35,24 @@ COMPONENT_SPECS = [
         ),
         goal=np.array([0.0, 0.15, 0.25], dtype=float),# GUI OVERRIDES THIS GOAL --- IGNORE ---
     ),
-    dict(
-        component=VirtualComponent(
-            spring=LinearSpring(230.0),
-            damper=LinearDamper(5.0),
-            s_param=1.0,
-            name="lin_x",
-        ),
-        goal=go_x, # GUI OVERRIDES THIS GOAL --- IGNORE ---
-    ),
-    dict(
-        component=VirtualComponent(
-            spring=GaussianSpring(strength=400.0, sigma=0.06),
-            damper=LinearDamper(5.0),
-            s_param=1.0 / 3.0,
-            name="gauss_y_seg1",
-        ),
-        goal=gauss_y,
-    ),
+    # dict(
+    #     component=VirtualComponent(
+    #         spring=LinearSpring(230.0),
+    #         damper=LinearDamper(5.0),
+    #         s_param=1.0,
+    #         name="lin_x",
+    #     ),
+    #     goal=go_x, # GUI OVERRIDES THIS GOAL --- IGNORE ---
+    # ),
+    # dict(
+    #     component=VirtualComponent(
+    #         spring=GaussianSpring(strength=400.0, sigma=0.06),
+    #         damper=LinearDamper(5.0),
+    #         s_param=1.0 / 3.0,
+    #         name="gauss_y_seg1",
+    #     ),
+    #     goal=gauss_y,
+    # ),
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -92,12 +92,26 @@ ENABLE_PARAM_TUNING = True
 # ─────────────────────────────────────────────────────────────────────────────
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
-TAU_LIMIT = 0.4   # [N·m] per motor
-SAVE_PLOT = True
-PLOT_Z    = True
+TAU_LIMIT  = 0.4   # [N·m] per motor
+SAVE_PLOT  = True
+SAVE_DATA  = True  # save raw arrays to .npz alongside the plot
+PLOT_Z     = True  # include z-axis subplot in saved plot
+PLOT_FORCE = True  # include /force_shear subplot in saved plot
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ── NEW: GUI metadata ─────────────────────────────────────────────────────────
+# Pretension config
+# tau_pretension[i] = PRETENSION_WEIGHTS[i] * q_motor[i]
+#   applied only when q_motor[i] > PRETENSION_THRESHOLD (per motor).
+# Set weights to 0.0 to disable pretension for a motor.
+# ─────────────────────────────────────────────────────────────────────────────
+SCALE = 6
+PRETENSION_WEIGHTS    = SCALE*np.array([0.005, 0.005, 0.005, 0.005, 0.005, 0.005,
+                                   0.005, 0.005, 0.005], dtype=float)  # [N·m/rad] x 9
+PRETENSION_THRESHOLD  = np.deg2rad(30.0)   # [rad]  same threshold for all motors
+PRETENSION_ENABLED    = True              # master switch for pretension (can still set weights/threshold above)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ── GUI metadata ─────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Number of virtual components (convenience)
@@ -130,7 +144,7 @@ SPRING_PARAM_INIT   = [t[1] for t in _spring_info]   # e.g. [230.0, 230.0]
 DAMPER_PARAM_INIT   = [t[1] for t in _damper_info]   # e.g. [5.0, 5.0]
 
 # ── Position-control graph ranges ─────────────────────────────────────────────
-XY_RANGE = (-0.5, 0.5)   # [m] both x and y axes
+XY_RANGE = (-0.3, 0.3)   # [m] both x and y axes
 Z_RANGE  = (0.0,  0.45)  # [m] z slider range
 
 # ── Torque-plot rolling window ─────────────────────────────────────────────────

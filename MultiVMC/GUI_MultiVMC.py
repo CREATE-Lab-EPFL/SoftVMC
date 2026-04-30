@@ -2,7 +2,7 @@
 GUI_MultiVMC.py
 ────────────
 GUI node — acts as both the VC_Param publisher and VC_ref_pos publisher.
-Subscribes to /joint_positions and /VMC_torque for live visualization.
+Subscribes to /joint_positions and /goal_torque for live visualization.
 
 Layout  (2 x 2 grid):
   ┌────────────────────┬──────────────────────────┐
@@ -10,13 +10,6 @@ Layout  (2 x 2 grid):
   ├────────────────────┼──────────────────────────┤
   │ ② Position Control │ ④ Torque Over Time      │
   └────────────────────┴──────────────────────────┘
-
-Run (after GUI_MultiVMC_Torque.py is already running):
-    export PYTHONPATH="${PYTHONPATH}:$(pwd)"
-    python3 GUI_MultiVMC.py
-
-Dependencies beyond ROS2 / standard library:
-    pip install matplotlib
 """
 
 import signal
@@ -38,7 +31,7 @@ from mpl_toolkits.mplot3d import Axes3D          # noqa – registers 3-D projec
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64, Float64MultiArray
 
 from GUI_MultiVMC_Config import (
     VIRTUAL_COMPONENTS,
@@ -82,12 +75,16 @@ class GUINode(Node):
             Float64MultiArray, "/joint_positions", self._cb_pos,    10)
         self.create_subscription(
             Float64MultiArray, "/goal_torque",      self._cb_torque, 10)
+        self.create_subscription(
+            Float64,           "/force_shear",      self._cb_force,  10)
 
         # ── Shared state ──────────────────────────────────────────────────────
         self._lock            = threading.Lock()
         self.joint_positions  = np.zeros(9, dtype=float)   # radians
         self.latest_torque    = np.zeros(9, dtype=float)   # N·m
         self.torque_timestamp = None                        # perf_counter float
+        self._force           = 0.0
+        self._force_ts        = None
 
     # ── Callbacks (ROS spin thread) ───────────────────────────────────────────
 
@@ -100,6 +97,11 @@ class GUINode(Node):
             self.latest_torque    = np.asarray(msg.data, dtype=float)
             self.torque_timestamp = time.perf_counter()
 
+    def _cb_force(self, msg: Float64):
+        with self._lock:
+            self._force    = float(msg.data)
+            self._force_ts = time.perf_counter()
+
     # ── Thread-safe getters (GUI main thread) ─────────────────────────────────
 
     def get_joint_positions(self) -> np.ndarray:
@@ -110,6 +112,11 @@ class GUINode(Node):
         """Returns (torque_array, timestamp_or_None)."""
         with self._lock:
             return self.latest_torque.copy(), self.torque_timestamp
+
+    def get_latest_force(self):
+        """Returns (force_float, timestamp_or_None)."""
+        with self._lock:
+            return self._force, self._force_ts
 
     # ── Publishers (GUI main thread) ──────────────────────────────────────────
 
@@ -152,15 +159,18 @@ class RobotGUI:
         self._ignore_z     = False   # guard against programmatic slider set()
         self._goal_speed   = tk.DoubleVar(value=5.0)  # cm/s
 
-        # ── Logging for torque plot ────────────────────────────────────────────
-        self._t0      = time.perf_counter()
-        self._t_log   = deque(maxlen=self._LOG_MAXLEN)
-        self._tau_log = deque(maxlen=self._LOG_MAXLEN)
+        # ── Logging for torque / force plots ─────────────────────────────────
+        self._t0          = time.perf_counter()
+        self._t_log       = deque(maxlen=self._LOG_MAXLEN)
+        self._tau_log     = deque(maxlen=self._LOG_MAXLEN)
+        self._t_force_log = deque(maxlen=self._LOG_MAXLEN)
+        self._f_log       = deque(maxlen=self._LOG_MAXLEN)
 
         self._build_layout()
         self._setup_cell1()
         self._setup_cell2()
         self._setup_cell3()
+        self._setup_cell_force()
         self._setup_cell4()
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -177,22 +187,31 @@ class RobotGUI:
         self.root.rowconfigure(1, weight=4)
 
         kw = dict(padding=8)
-        self._cell1 = ttk.LabelFrame(self.root, text="① Parameter Tuning",        **kw)
+        self._cell3 = ttk.LabelFrame(self.root, text="③ 3-D Robot Visualisation", **kw)
         self._cell2 = ttk.LabelFrame(self.root, text="② Position Control",         **kw)
-        self._cell3 = ttk.LabelFrame(self.root, text="③ 3-D Robot Visualisation",  **kw)
-        self._cell4 = ttk.LabelFrame(self.root, text="④ Torque Over Time",          **kw)
 
         self._cell3.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
-
-        self._cell1.grid(row=0, column=1, sticky="nsew", padx=4, pady=4)
-        if not ENABLE_PARAM_TUNING:
-            for child in self._cell1.winfo_children():
-                child.configure(state="disabled") if hasattr(child, "configure") else None
-            ttk.Label(self._cell1, text="Param tuning disabled\n(multi-param spring/damper)",
-                    foreground="gray").pack(expand=True)
-
         self._cell2.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
-        self._cell4.grid(row=1, column=1, sticky="nsew", padx=4, pady=4)
+
+        # Right column: single frame spanning both rows, 3 panels stacked inside
+        self._right_frame = ttk.Frame(self.root)
+        self._right_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=4, pady=4)
+        self._right_frame.rowconfigure(0, weight=0)   # param tuning — fixed height
+        self._right_frame.rowconfigure(1, weight=1)   # force plot   — expand
+        self._right_frame.rowconfigure(2, weight=2)   # torque plot  — expand (2×)
+        self._right_frame.columnconfigure(0, weight=1)
+
+        self._cell1      = ttk.LabelFrame(self._right_frame, text="① Parameter Tuning", **kw)
+        self._cell_force = ttk.LabelFrame(self._right_frame, text="⑤ Shear Force [N]",  **kw)
+        self._cell4      = ttk.LabelFrame(self._right_frame, text="④ Torque Over Time",  **kw)
+
+        self._cell1.grid(     row=0, column=0, sticky="nsew", pady=(0, 4))
+        self._cell_force.grid(row=1, column=0, sticky="nsew", pady=(0, 4))
+        self._cell4.grid(     row=2, column=0, sticky="nsew")
+
+        if not ENABLE_PARAM_TUNING:
+            ttk.Label(self._cell1, text="Param tuning disabled\n(multi-param spring/damper)",
+                      foreground="gray").pack(expand=True)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Cell 1 — Parameter Tuning
@@ -330,6 +349,9 @@ class RobotGUI:
         self._canvas_xy.draw()
         self._canvas_xy.get_tk_widget().pack(fill="both", expand=True)
 
+        self._hover_lbl = ttk.Label(xy_frame, text="", font=("Courier", 9))
+        self._hover_lbl.pack(side="bottom", pady=2)
+
         self._canvas_xy.mpl_connect("button_press_event",   self._xy_press)
         self._canvas_xy.mpl_connect("motion_notify_event",  self._xy_motion)
         self._canvas_xy.mpl_connect("button_release_event", self._xy_release)
@@ -395,6 +417,10 @@ class RobotGUI:
         self._dragging = True
 
     def _xy_motion(self, event):
+        if event.inaxes == self._ax_xy and event.xdata is not None:
+            self._hover_lbl.config(text=f"x = {event.xdata:+.3f} m    y = {event.ydata:+.3f} m")
+        else:
+            self._hover_lbl.config(text="")
         if not self._dragging or event.inaxes != self._ax_xy:
             return
         idx = self._selected_vc.get()
@@ -515,6 +541,45 @@ class RobotGUI:
         self._canvas_3d.draw_idle()
 
     # ─────────────────────────────────────────────────────────────────────────
+    # Cell Force — Shear Force Over Time
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _setup_cell_force(self):
+        self._fig_force, self._ax_force = plt.subplots(figsize=(5, 2))
+        ax = self._ax_force
+        ax.set_xlabel("Time [s]", fontsize=8)
+        ax.set_ylabel("F_shear [N]", fontsize=8)
+        ax.set_title("Shear Force", fontsize=9)
+        ax.grid(True, alpha=0.3)
+        self._force_line, = ax.plot([], [], "-", linewidth=1.4, color="darkorange",
+                                    label="F_shear")
+        ax.legend(fontsize=7, loc="upper left")
+
+        self._canvas_force = FigureCanvasTkAgg(self._fig_force, master=self._cell_force)
+        self._canvas_force.draw()
+        self._canvas_force.get_tk_widget().pack(fill="both", expand=True)
+
+    def _update_cell_force(self, force: float, t_now: float):
+        self._t_force_log.append(t_now)
+        self._f_log.append(force)
+
+        if len(self._t_force_log) < 2:
+            return
+
+        t_arr = np.array(self._t_force_log)
+        f_arr = np.array(self._f_log)
+
+        mask = t_arr >= (t_arr[-1] - TAU_PLOT_WINDOW)
+        t_w  = t_arr[mask]
+        f_w  = f_arr[mask]
+
+        self._force_line.set_data(t_w, f_w)
+        self._ax_force.set_xlim(t_w[0], max(t_w[-1], t_w[0] + 1.0))
+        ymax = max(float(np.max(np.abs(f_w))) * 1.1, 0.5)
+        self._ax_force.set_ylim(-ymax, ymax)
+        self._canvas_force.draw_idle()
+
+    # ─────────────────────────────────────────────────────────────────────────
     # Cell 4 — Torque Over Time
     # ─────────────────────────────────────────────────────────────────────────
 
@@ -568,7 +633,8 @@ class RobotGUI:
     def _update_loop(self):
         t_now  = time.perf_counter() - self._t0
         q      = self.node.get_joint_positions()
-        tau, ts = self.node.get_latest_torque()
+        tau, ts      = self.node.get_latest_torque()
+        force, fts   = self.node.get_latest_force()
 
         # Speed-capped XY tracking during drag
         if self._dragging:
@@ -585,6 +651,9 @@ class RobotGUI:
                     self.node.publish_ref_pos(self._ref_pos)
 
         self._update_cell3(q, t_now)
+
+        if fts is not None:
+            self._update_cell_force(force, t_now)
 
         if ts is not None:
             self._update_cell4(tau, t_now)
