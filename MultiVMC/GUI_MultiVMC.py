@@ -3,13 +3,6 @@ GUI_MultiVMC.py
 ────────────
 GUI node — acts as both the VC_Param publisher and VC_ref_pos publisher.
 Subscribes to /joint_positions and /goal_torque for live visualization.
-
-Layout  (2 x 2 grid):
-  ┌────────────────────┬──────────────────────────┐
-  │ ①  3-D Robot Visualisation │ ③ Parameter Tuning │
-  ├────────────────────┼──────────────────────────┤
-  │ ② Position Control │ ④ Torque Over Time      │
-  └────────────────────┴──────────────────────────┘
 """
 
 import signal
@@ -46,7 +39,6 @@ from GUI_MultiVMC_Config import (
     Z_RANGE,
     TAU_PLOT_WINDOW,
     FK_S_SAMPLES,
-    ENABLE_PARAM_TUNING,
 )
 
 from FK_Multi import FK_Multi
@@ -165,6 +157,7 @@ class RobotGUI:
         self._tau_log     = deque(maxlen=self._LOG_MAXLEN)
         self._t_force_log = deque(maxlen=self._LOG_MAXLEN)
         self._f_log       = deque(maxlen=self._LOG_MAXLEN)
+        self._ee_trail    = deque(maxlen=300)   # end-effector (x,y) trail, 30 s at 10 Hz
 
         self._build_layout()
         self._setup_cell1()
@@ -208,10 +201,6 @@ class RobotGUI:
         self._cell1.grid(     row=0, column=0, sticky="nsew", pady=(0, 4))
         self._cell_force.grid(row=1, column=0, sticky="nsew", pady=(0, 4))
         self._cell4.grid(     row=2, column=0, sticky="nsew")
-
-        if not ENABLE_PARAM_TUNING:
-            ttk.Label(self._cell1, text="Param tuning disabled\n(multi-param spring/damper)",
-                      foreground="gray").pack(expand=True)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Cell 1 — Parameter Tuning
@@ -261,8 +250,6 @@ class RobotGUI:
         self._param_status.grid(row=N_VC+2, column=0, columnspan=4)
 
     def _apply_params(self):
-        if not ENABLE_PARAM_TUNING:
-            return
         try:
             k = [float(v.get()) for v in self._k_vars]
             c = [float(v.get()) for v in self._c_vars]
@@ -455,11 +442,18 @@ class RobotGUI:
             self.node.publish_ref_pos(self._ref_pos)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Cell 3 — 3-D Robot Visualisation
+    # Cell 3 — 3-D Robot Visualisation  +  End-Effector X-Y / Z
     # ─────────────────────────────────────────────────────────────────────────
 
     def _setup_cell3(self):
-        self._fig3d = plt.figure(figsize=(5, 4))
+        # ── Split cell3 horizontally ──────────────────────────────────────────
+        c3_left  = ttk.Frame(self._cell3)
+        c3_right = ttk.Frame(self._cell3)
+        c3_left.pack( side="left",  fill="both", expand=True)
+        c3_right.pack(side="right", fill="both", expand=True)
+
+        # ── LEFT: 3-D backbone ───────────────────────────────────────────────
+        self._fig3d = plt.figure(figsize=(4, 3))
         self._ax3d  = self._fig3d.add_subplot(111, projection="3d")
         ax = self._ax3d
         ax.set_xlabel("X [m]", fontsize=8)
@@ -467,14 +461,11 @@ class RobotGUI:
         ax.set_zlabel("Z [m]", fontsize=8)
         ax.set_title("Robot + VCs", fontsize=9)
 
-        # Robot backbone
         self._robot_ln, = ax.plot([], [], [], "k-o",
                                   linewidth=2, markersize=3, label="robot")
-
-        # Per-VC: attachment dot, reference star, dashed connector
-        self._vc_attach  = []
-        self._vc_ref     = []
-        self._vc_conn    = []
+        self._vc_attach = []
+        self._vc_ref    = []
+        self._vc_conn   = []
         for i in range(N_VC):
             color = GUI_COLORS[i % len(GUI_COLORS)]
             name  = VIRTUAL_COMPONENTS[i].name or f"VC{i+1}"
@@ -486,15 +477,70 @@ class RobotGUI:
             self._vc_attach.append(a)
             self._vc_ref.append(r)
             self._vc_conn.append(c)
-
         ax.legend(fontsize=7, loc="upper left")
 
-        self._canvas_3d = FigureCanvasTkAgg(self._fig3d, master=self._cell3)
+        self._canvas_3d = FigureCanvasTkAgg(self._fig3d, master=c3_left)
         self._canvas_3d.draw()
         self._canvas_3d.get_tk_widget().pack(fill="both", expand=True)
 
+        # ── RIGHT: End-effector X-Y + Z indicator ────────────────────────────
+        ee_top = ttk.Frame(c3_right)
+        ee_top.pack(side="top", fill="x", pady=(0, 2))
+        ttk.Label(ee_top, text="End Effector (FK s=1)",
+                  font=("Helvetica", 9, "bold")).pack(side="left", padx=4)
+        ttk.Button(ee_top, text="Clear trail",
+                   command=self._clear_ee_trail).pack(side="right", padx=4)
+
+        ee_mid = ttk.Frame(c3_right)
+        ee_mid.pack(side="top", fill="both", expand=True)
+
+        # X-Y scatter + trail
+        ee_xy_frame = ttk.Frame(ee_mid)
+        ee_xy_frame.pack(side="left", fill="both", expand=True)
+
+        self._fig_ee, self._ax_ee = plt.subplots(figsize=(3.5, 3.5))
+        aee = self._ax_ee
+        aee.set_xlim(*XY_RANGE)
+        aee.set_ylim(*XY_RANGE)
+        aee.set_xlabel("X [m]", fontsize=8)
+        aee.set_ylabel("Y [m]", fontsize=8)
+        aee.set_title("EE X-Y", fontsize=9)
+        aee.set_aspect("equal")
+        aee.grid(True, alpha=0.3)
+        self._ee_trail_ln, = aee.plot([], [], "-", color="steelblue",
+                                      linewidth=1.2, alpha=0.5)
+        self._ee_dot, = aee.plot([], [], "o", color="steelblue",
+                                 markersize=9, zorder=5)
+        self._fig_ee.tight_layout()
+
+        self._canvas_ee = FigureCanvasTkAgg(self._fig_ee, master=ee_xy_frame)
+        self._canvas_ee.draw()
+        self._canvas_ee.get_tk_widget().pack(fill="both", expand=True)
+
+        # Z read-only indicator
+        ee_z_frame = ttk.LabelFrame(ee_mid, text="Z [m]", padding=4)
+        ee_z_frame.pack(side="right", fill="y", padx=4, pady=4)
+
+        self._ee_z_scale = tk.Scale(
+            ee_z_frame,
+            from_=Z_RANGE[1], to=Z_RANGE[0],
+            orient="vertical", length=150,
+            showvalue=False, state="disabled",
+            troughcolor="#cce0ff",
+        )
+        self._ee_z_scale.pack()
+        self._ee_z_lbl = ttk.Label(ee_z_frame, text="0.000 m", font=("Courier", 8))
+        self._ee_z_lbl.pack()
+
+    def _clear_ee_trail(self):
+        self._ee_trail.clear()
+        self._ee_trail_ln.set_data([], [])
+        self._ee_dot.set_data([], [])
+        self._canvas_ee.draw_idle()
+
     def _update_cell3(self, q: np.ndarray, t_now: float):
-        s_vals = np.linspace(0.0, 1.0, FK_S_SAMPLES)
+        # ── 3-D backbone ─────────────────────────────────────────────────────
+        s_vals    = np.linspace(0.0, 1.0, FK_S_SAMPLES)
         robot_pts = []
         for s in s_vals:
             try:
@@ -503,15 +549,13 @@ class RobotGUI:
             except Exception:
                 pass
 
-        vc_attach_pts = np.zeros((N_VC, 3))
-        vc_ref_pts    = self._ref_pos.copy()
+        vc_ref_pts = self._ref_pos.copy()
 
         if robot_pts:
             rp = np.array(robot_pts)
             self._robot_ln.set_data(rp[:, 0], rp[:, 1])
             self._robot_ln.set_3d_properties(rp[:, 2])
 
-            # Auto-scale axes
             span = max(np.ptp(rp), 0.1)
             cx, cy, cz = rp.mean(axis=0)
             for set_lim, c in zip(
@@ -522,23 +566,38 @@ class RobotGUI:
 
         for i, comp in enumerate(VIRTUAL_COMPONENTS):
             try:
-                pose = FK_Multi(q, float(comp.s_param))
+                pose   = FK_Multi(q, float(comp.s_param))
                 attach = pose[:3]
                 ref    = vc_ref_pts[i]
-                vc_attach_pts[i] = attach
 
                 self._vc_attach[i].set_data([attach[0]], [attach[1]])
                 self._vc_attach[i].set_3d_properties([attach[2]])
-
                 self._vc_ref[i].set_data([ref[0]], [ref[1]])
                 self._vc_ref[i].set_3d_properties([ref[2]])
-
                 self._vc_conn[i].set_data([attach[0], ref[0]], [attach[1], ref[1]])
                 self._vc_conn[i].set_3d_properties([attach[2], ref[2]])
             except Exception:
                 pass
 
         self._canvas_3d.draw_idle()
+
+        # ── End-effector X-Y trail + Z indicator (s=1.0) ─────────────────────
+        try:
+            ee = FK_Multi(q, 1.0)
+            ee_x, ee_y, ee_z = float(ee[0]), float(ee[1]), float(ee[2])
+
+            self._ee_trail.append((ee_x, ee_y))
+            trail = np.array(self._ee_trail)
+            self._ee_trail_ln.set_data(trail[:, 0], trail[:, 1])
+            self._ee_dot.set_data([ee_x], [ee_y])
+            self._canvas_ee.draw_idle()
+
+            self._ee_z_scale.config(state="normal")
+            self._ee_z_scale.set(ee_z)
+            self._ee_z_scale.config(state="disabled")
+            self._ee_z_lbl.config(text=f"{ee_z:.3f} m")
+        except Exception:
+            pass
 
     # ─────────────────────────────────────────────────────────────────────────
     # Cell Force — Shear Force Over Time

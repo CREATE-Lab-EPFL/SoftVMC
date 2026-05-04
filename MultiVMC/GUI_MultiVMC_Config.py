@@ -79,24 +79,20 @@ DEFAULT_START = np.array(
 # ─────────────────────────────────────────────────────────────────────────────
 # Publisher Config  (used by old publisher; kept for compatibility)
 # ─────────────────────────────────────────────────────────────────────────────
-STEPS_M          = 0.0008   # [m] per step
-PUBLISH_PERIOD   = 0.01     # [s]  100 Hz
-LOOP_BACK        = False
-MOVING_GOAL      = True
-SYNCHRONIZED_ARRIVAL = False
-
-# Set False when using springs/dampers with more than 1 parameter (e.g. GaussianSpring).
-# The torque node will then use config values as-is and ignore /VC_Param entirely.
-ENABLE_PARAM_TUNING = True
+# STEPS_M          = 0.0008   # [m] per step
+# PUBLISH_PERIOD   = 0.01     # [s]  100 Hz
+# LOOP_BACK        = False
+# MOVING_GOAL      = True
+# SYNCHRONIZED_ARRIVAL = False
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
 TAU_LIMIT  = 0.4   # [N·m] per motor
-SAVE_PLOT  = True
-SAVE_DATA  = True  # save raw arrays to .npz alongside the plot
+SAVE_PLOT  = False 
+SAVE_DATA  = False  # save raw arrays to .npz alongside the plot
 PLOT_Z     = True  # include z-axis subplot in saved plot
-PLOT_FORCE = True  # include /force_shear subplot in saved plot
+PLOT_FORCE = False  # include /force_shear subplot in saved plot
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Pretension config

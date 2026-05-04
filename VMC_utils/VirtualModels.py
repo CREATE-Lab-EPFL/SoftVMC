@@ -245,6 +245,7 @@ class GaussianSpring:
         Returns:
             F: [Fx, Fy, Fz] repulsive force vector (N)
         """
+        # MAXIMUM FORCE WHEN delta = sigma
         delta = pos_current - pos_obstacle
         distance_sq = np.dot(delta, delta)
         decay = np.exp(-distance_sq / (2 * self.sigma**2))
