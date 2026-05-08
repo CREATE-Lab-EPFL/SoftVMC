@@ -145,6 +145,30 @@ class VMC_Multi_Modular:
             tau_total += tau_i
 
         return tau_total
+    
+    def multi_torques_and_forces(self, q_motor, q_motor_dot, target_pos):
+        q_motor = np.asarray(q_motor, dtype=float).reshape(-1)          # (9,)
+        q_motor_dot = np.asarray(q_motor_dot, dtype=float).reshape(-1)  # (9,)
+        targets = np.asarray(target_pos, dtype=float).reshape(len(self.components), 3)
+        # targets = self._reshape_targets(target_pos)  # (n_comp,3)
+
+        tau_total = np.zeros(9, dtype=float)
+        F_virtuals_tot = np.zeros(3, dtype=float)
+        for i, comp in enumerate(self.components):
+            J = np.array(self.J_funcs[i](*q_motor), dtype=float)     # (6,9)
+            pose = np.asarray(FK_Multi(q_motor, comp.s_param), dtype=float).reshape(-1)  # (6,)
+            pose_dot = J @ q_motor_dot                                # (6,)
+
+            pos = pose[:3]
+            vel = pose_dot[:3]
+            J_xyz = J[:3, :]                                          # (3,9)
+
+            F_virtual = comp.spring.compute_force(pos, targets[i]) + comp.damper.compute_force(vel)
+            tau_i = J_xyz.T @ F_virtual                               # (9,)
+            tau_total += tau_i
+            F_virtuals_tot += F_virtual
+
+        return tau_total, F_virtuals_tot
 
 # Example usage
 # if __name__ == "__main__":

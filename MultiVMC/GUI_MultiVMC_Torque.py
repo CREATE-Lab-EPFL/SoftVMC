@@ -45,7 +45,7 @@ from rclpy.node import Node
 from std_msgs.msg import Float64, Float64MultiArray
 
 from MultiController import CONTROL_FREQUENCY
-from MultiVMCTaskSpace import VMC_Multi_Modular
+from MultiVMCTaskSpace import VMC_Multi_Modular  # multi_torques_and_forces used below
 from MultiGravityComp import MultiGravComp
 from FK_Multi import FK_Multi
 from GUI_MultiVMC_Config import (
@@ -97,6 +97,8 @@ class VMCTorqueNode(Node):
         self._comp_pos_logs  = [[] for _ in range(N_VC)]
         self._force_shear    = 0.0   # latest value from /force_shear
         self._force_log      = []    # sampled at control-loop rate
+        self._f_virtual_log  = []    # (3,) task-space virtual force, sampled at control-loop rate
+        self._k_log          = []    # (N_VC,) spring param per component, sampled at control-loop rate
 
         # ── Subscribers ───────────────────────────────────────────────────────
         self.create_subscription(
@@ -111,7 +113,8 @@ class VMCTorqueNode(Node):
             Float64,           "/force_shear",       self._cb_force_shear, 10)
 
         # ── Publishers ────────────────────────────────────────────────────────
-        self._pub_hw  = self.create_publisher(Float64MultiArray, "/goal_torque",  10)
+        self._pub_hw     = self.create_publisher(Float64MultiArray, "/goal_torque",     10)
+        self._pub_vforce = self.create_publisher(Float64MultiArray, "/virtual_forces",  10)
 
         # ── Control timer ─────────────────────────────────────────────────────
         self.create_timer(1.0 / CONTROL_FREQUENCY, self._control_loop)
@@ -192,7 +195,7 @@ class VMCTorqueNode(Node):
     # ── Control loop ──────────────────────────────────────────────────────────
 
     def _control_loop(self):
-        tau_vmc  = self._vmc.multi_torques(
+        tau_vmc, f_virtual = self._vmc.multi_torques_and_forces(
             q_motor     = self._q,
             q_motor_dot = self._q_dot,
             target_pos  = self._goal,
@@ -209,6 +212,10 @@ class VMCTorqueNode(Node):
 
         self._publish(tau_cmd)
 
+        msg_vf = Float64MultiArray()
+        msg_vf.data = f_virtual.tolist()
+        self._pub_vforce.publish(msg_vf)
+
         # LOGS FOR PLOTTING:
         if self._t0 is None:
             return
@@ -218,6 +225,11 @@ class VMCTorqueNode(Node):
         self._tau_grav_log.append(tau_grav.copy())
         self._goal_log.append(self._goal.copy())
         self._force_log.append(self._force_shear)
+        self._f_virtual_log.append(f_virtual.copy())
+        self._k_log.append([
+            getattr(comp.spring, SPRING_PARAM_NAMES[i])
+            for i, comp in enumerate(self._components)
+        ])
         for i, comp in enumerate(self._components):
             pose_i = FK_Multi(self._q, float(comp.s_param))
             self._comp_pos_logs[i].append(np.asarray(pose_i[:3], dtype=float))
@@ -236,24 +248,27 @@ class VMCTorqueNode(Node):
 
         lengths = ([len(self._t_log), len(self._tau_log),
                     len(self._tau_grav_log), len(self._goal_log),
-                    len(self._force_log)]
+                    len(self._force_log), len(self._f_virtual_log),
+                    len(self._k_log)]
                    + [len(self._comp_pos_logs[i]) for i in range(N_VC)])
         n = min(lengths)
         if n < 2:
             print("[WARN] Not enough synchronized data to plot.")
             return
 
-        t_arr        = np.asarray(self._t_log[:n])
-        tau_arr      = np.asarray(self._tau_log[:n])         # (n, 9)
-        tau_grav_arr = np.asarray(self._tau_grav_log[:n])    # (n, 9)
-        goal_arr     = np.asarray(self._goal_log[:n])        # (n, 3*N_VC)
-        force_arr    = np.asarray(self._force_log[:n])       # (n,)
-        comp_pos_arrs = [
+        t_arr          = np.asarray(self._t_log[:n])
+        tau_arr        = np.asarray(self._tau_log[:n])         # (n, 9)
+        tau_grav_arr   = np.asarray(self._tau_grav_log[:n])    # (n, 9)
+        goal_arr       = np.asarray(self._goal_log[:n])        # (n, 3*N_VC)
+        force_arr      = np.asarray(self._force_log[:n])       # (n,)
+        f_virtual_arr  = np.asarray(self._f_virtual_log[:n])   # (n, 3)
+        k_arr          = np.asarray(self._k_log[:n])            # (n, N_VC)
+        comp_pos_arrs  = [
             np.asarray(self._comp_pos_logs[i][:n]) for i in range(N_VC)
-        ]                                                     # each (n, 3)
+        ]                                                       # each (n, 3)
 
         n_pos_axes = 3 if PLOT_Z else 2
-        n_rows = n_pos_axes + (1 if PLOT_FORCE else 0) + 1
+        n_rows = n_pos_axes + (1 if PLOT_FORCE else 0) + 3   # +1 virtual forces, +1 spring params, +1 torques
         fig, axes = plt.subplots(n_rows, 1, sharex=True, figsize=(13, 3.2 * n_rows))
         fig.suptitle("GUI Multi VMC: Position Components + Motor Torques", y=0.97)
 
@@ -284,11 +299,13 @@ class VMCTorqueNode(Node):
         )
 
         # ── Position axes ─────────────────────────────────────────────────────
-        ax_x     = axes[0]
-        ax_y     = axes[1]
-        ax_z     = axes[2] if PLOT_Z else None
-        ax_force = axes[2 + (1 if PLOT_Z else 0)] if PLOT_FORCE else None
-        ax_tau   = axes[-1]
+        ax_x      = axes[0]
+        ax_y      = axes[1]
+        ax_z      = axes[2] if PLOT_Z else None
+        ax_force  = axes[2 + (1 if PLOT_Z else 0)] if PLOT_FORCE else None
+        ax_vforce = axes[n_pos_axes + (1 if PLOT_FORCE else 0)]
+        ax_k      = axes[n_pos_axes + (1 if PLOT_FORCE else 0) + 1]
+        ax_tau    = axes[-1]
 
         goal_cmap = plt.get_cmap("tab10", N_VC)
         for i, comp in enumerate(self._components):
@@ -322,6 +339,25 @@ class VMCTorqueNode(Node):
             ax_force.set_ylabel("F_shear [N]")
             ax_force.grid(True, alpha=0.3)
             ax_force.legend(fontsize=8, loc="lower right")
+
+        # ── Virtual forces axis ───────────────────────────────────────────────
+        vf_colors = ["tab:blue", "tab:orange", "tab:green"]
+        for k, (lbl, c) in enumerate(zip(["Fx", "Fy", "Fz"], vf_colors)):
+            ax_vforce.plot(t_arr, f_virtual_arr[:, k], color=c, linewidth=1.6, label=lbl)
+        ax_vforce.set_ylabel("F_virtual [N]")
+        ax_vforce.grid(True, alpha=0.3)
+        ax_vforce.legend(ncol=3, fontsize=8, loc="lower right")
+
+        # ── Spring param (k) axis ─────────────────────────────────────────────
+        k_cmap = plt.get_cmap("tab10", N_VC)
+        for i, comp in enumerate(self._components):
+            name  = comp.name or f"VC{i+1}"
+            pname = SPRING_PARAM_NAMES[i]
+            ax_k.plot(t_arr, k_arr[:, i], color=k_cmap(i), linewidth=1.6,
+                      label=f"{name} {pname}")
+        ax_k.set_ylabel("Spring param")
+        ax_k.grid(True, alpha=0.3)
+        ax_k.legend(ncol=N_VC, fontsize=8, loc="lower right")
 
         # ── Torque axis ───────────────────────────────────────────────────────
         for k in range(9):
@@ -364,6 +400,8 @@ class VMCTorqueNode(Node):
                 comp_pos     = comp_pos_3d,     # (n, N_VC, 3) [m]  FK actual
                 # ── force ─────────────────────────────────────────────────────
                 force        = force_arr,       # (n,)        [N]   shear
+                f_virtual    = f_virtual_arr,   # (n, 3)      [N]   task-space virtual force
+                k_params     = k_arr,           # (n, N_VC)   spring param per component over time
                 # ── metadata ──────────────────────────────────────────────────
                 comp_names   = np.array([c.name or f"VC{i+1}"
                                          for i, c in enumerate(self._components)]),

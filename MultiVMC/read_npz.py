@@ -1,22 +1,22 @@
 """
 read_npz.py  —  Recreate plots from a saved .npz data file.
 
-Usage:
-    python3 read_npz.py plots/z_29_1929.npz           # save PNG next to .npz
-    python3 read_npz.py plots/z_29_1929.npz --show    # open interactive window
-    python3 read_npz.py plots/z_29_1929.npz --t 5 40  # crop to t ∈ [5, 40] s
-
 # Save a PNG next to the .npz
-python3 read_npz.py plots/z_29_1929.npz
+python3 read_npz.py plots/k20_300_big.npz
 
 # Open interactive window (pan/zoom)
-python3 read_npz.py plots/z_29_1929.npz --show
+python3 read_npz.py plots/k20_300_big.npz --show
 
-# Crop to a time window (e.g. seconds 5-40)
-python3 read_npz.py plots/z_29_1929.npz --t 5 40
+# Crop the plot to a time window (e.g. seconds 5-40)
+python3 read_npz.py plots/k20_300_big.npz --t 5 40
 
-# Specify output path explicitly
-python3 read_npz.py plots/z_29_1929.npz --out /tmp/my_plot.png
+# Specify output PNG path explicitly
+python3 read_npz.py plots/k20_300_big.npz --out /tmp/my_plot.png
+
+# Crop to a time window and save a new .npz (e.g. seconds 5-40)
+python3 read_npz.py plots/k20_300_big.npz --n 5 40
+#   → writes plots/k20_300_big_t5-40.npz with only the samples in [5, 40] s
+#   → all time-indexed arrays are cropped; scalars (tau_limit, etc.) are kept
 """
 
 import argparse
@@ -27,13 +27,39 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # ── Config flags (mirrors GUI_MultiVMC_Config defaults) ───────────────────────
-PLOT_Z     = True
-PLOT_FORCE = True
+PLOT_Z      = True
+PLOT_FORCE  = True
+PLOT_VFORCE = True
+PLOT_K      = True
 
 
 def load(path: str):
     d = np.load(path, allow_pickle=True)
     return {k: d[k] for k in d.files}
+
+
+def save_npz(d: dict, t_min: float, t_max: float, in_path: str, out_path: str = None):
+    t = d["t"]
+    mask = np.ones(len(t), dtype=bool)
+    if t_min is not None:
+        mask &= t >= t_min
+    if t_max is not None:
+        mask &= t <= t_max
+
+    cropped = {}
+    for k, v in d.items():
+        arr = np.asarray(v)
+        if arr.shape and arr.shape[0] == len(t):
+            cropped[k] = arr[mask]
+        else:
+            cropped[k] = arr
+
+    if out_path is None:
+        base = os.path.splitext(in_path)[0]
+        out_path = f"{base}_t{t_min:.0f}-{t_max:.0f}.npz"
+
+    np.savez_compressed(out_path, **cropped)
+    print(f"[OK] Saved → {out_path}  ({mask.sum()} samples)")
 
 
 def plot(d: dict, t_min: float = None, t_max: float = None,
@@ -45,6 +71,12 @@ def plot(d: dict, t_min: float = None, t_max: float = None,
     goal     = d["goal"]         # (n, N_VC, 3)
     comp_pos = d["comp_pos"]     # (n, N_VC, 3)
     force    = d["force"]        # (n,)
+
+    has_vforce = "f_virtual" in d and PLOT_VFORCE
+    f_virtual  = d["f_virtual"] if has_vforce else None   # (n, 3) or None
+
+    has_k  = "k_params" in d and PLOT_K
+    k_data = d["k_params"] if has_k else None             # (n, N_VC) or None
 
     names    = list(d.get("comp_names",   np.array([])))
     s_params = list(d.get("comp_s_params", np.array([])))
@@ -67,10 +99,14 @@ def plot(d: dict, t_min: float = None, t_max: float = None,
     goal     = goal[mask]
     comp_pos = comp_pos[mask]
     force    = force[mask]
+    if f_virtual is not None:
+        f_virtual = f_virtual[mask]
+    if k_data is not None:
+        k_data = k_data[mask]
 
     # ── Figure layout (same as save_plot) ────────────────────────────────────
     n_pos_axes = 3 if PLOT_Z else 2
-    n_rows     = n_pos_axes + (1 if PLOT_FORCE else 0) + 1
+    n_rows     = n_pos_axes + (1 if PLOT_FORCE else 0) + (1 if has_vforce else 0) + (1 if has_k else 0) + 1
     fig, axes  = plt.subplots(n_rows, 1, sharex=True, figsize=(13, 3.2 * n_rows))
     fig.suptitle("GUI Multi VMC: Position Components + Motor Torques", y=0.97)
 
@@ -93,11 +129,13 @@ def plot(d: dict, t_min: float = None, t_max: float = None,
              bbox=dict(boxstyle="round", facecolor="white", alpha=0.9, edgecolor="gray"))
 
     # ── Axes references ───────────────────────────────────────────────────────
-    ax_x     = axes[0]
-    ax_y     = axes[1]
-    ax_z     = axes[2] if PLOT_Z else None
-    ax_force = axes[2 + (1 if PLOT_Z else 0)] if PLOT_FORCE else None
-    ax_tau   = axes[-1]
+    ax_x      = axes[0]
+    ax_y      = axes[1]
+    ax_z      = axes[2] if PLOT_Z else None
+    ax_force  = axes[n_pos_axes] if PLOT_FORCE else None
+    ax_vforce = axes[n_pos_axes + (1 if PLOT_FORCE else 0)] if has_vforce else None
+    ax_k      = axes[n_pos_axes + (1 if PLOT_FORCE else 0) + (1 if has_vforce else 0)] if has_k else None
+    ax_tau    = axes[-1]
 
     cmap = plt.get_cmap("tab10", N_VC)
 
@@ -132,6 +170,24 @@ def plot(d: dict, t_min: float = None, t_max: float = None,
         ax_force.set_ylabel("F_shear [N]")
         ax_force.grid(True, alpha=0.3)
         ax_force.legend(fontsize=8, loc="lower right")
+
+    # ── Virtual forces axis ───────────────────────────────────────────────────
+    if has_vforce:
+        vf_colors = ["tab:blue", "tab:orange", "tab:green"]
+        for k, (lbl, c) in enumerate(zip(["Fx", "Fy", "Fz"], vf_colors)):
+            ax_vforce.plot(t, f_virtual[:, k], color=c, linewidth=1.6, label=lbl)
+        ax_vforce.set_ylabel("F_virtual [N]")
+        ax_vforce.grid(True, alpha=0.3)
+        ax_vforce.legend(ncol=3, fontsize=8, loc="lower right")
+
+    # ── Spring param (k) axis ────────────────────────────────────────────────
+    if has_k:
+        k_cmap = plt.get_cmap("tab10", N_VC)
+        for i, name in enumerate(names):
+            ax_k.plot(t, k_data[:, i], color=k_cmap(i), linewidth=1.6, label=f"{name} k")
+        ax_k.set_ylabel("Spring param")
+        ax_k.grid(True, alpha=0.3)
+        ax_k.legend(ncol=N_VC, fontsize=8, loc="lower right")
 
     # ── Torque axis ───────────────────────────────────────────────────────────
     tau_cmap = plt.get_cmap("tab10", 9)
@@ -175,11 +231,17 @@ def main():
                         help="Crop time axis to [T_MIN, T_MAX] seconds")
     parser.add_argument("--out", default=None,
                         help="Output PNG path (default: <npz_stem>_replot.png)")
+    parser.add_argument("--n", nargs=2, type=float, metavar=("T_MIN", "T_MAX"),
+                        help="Crop to [T_MIN, T_MAX] seconds and save a new .npz")
     args = parser.parse_args()
 
     d = load(args.npz)
-    t_min, t_max = (args.t[0], args.t[1]) if args.t else (None, None)
-    plot(d, t_min=t_min, t_max=t_max, show=args.show, out_path=args.out)
+
+    if args.n:
+        save_npz(d, t_min=args.n[0], t_max=args.n[1], in_path=args.npz)
+    else:
+        t_min, t_max = (args.t[0], args.t[1]) if args.t else (None, None)
+        plot(d, t_min=t_min, t_max=t_max, show=args.show, out_path=args.out)
 
 
 if __name__ == "__main__":

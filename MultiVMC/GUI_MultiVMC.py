@@ -39,6 +39,7 @@ from GUI_MultiVMC_Config import (
     Z_RANGE,
     TAU_PLOT_WINDOW,
     FK_S_SAMPLES,
+    PLOT_VIRTUAL_FORCES,
 )
 
 from FK_Multi import FK_Multi
@@ -68,7 +69,9 @@ class GUINode(Node):
         self.create_subscription(
             Float64MultiArray, "/goal_torque",      self._cb_torque, 10)
         self.create_subscription(
-            Float64,           "/force_shear",      self._cb_force,  10)
+            Float64,           "/force_shear",      self._cb_force,   10)
+        self.create_subscription(
+            Float64MultiArray, "/virtual_forces",   self._cb_vforce,  10)
 
         # ── Shared state ──────────────────────────────────────────────────────
         self._lock            = threading.Lock()
@@ -77,6 +80,8 @@ class GUINode(Node):
         self.torque_timestamp = None                        # perf_counter float
         self._force           = 0.0
         self._force_ts        = None
+        self._vforce          = np.zeros(3, dtype=float)   # [Fx, Fy, Fz] N
+        self._vforce_ts       = None
 
     # ── Callbacks (ROS spin thread) ───────────────────────────────────────────
 
@@ -94,6 +99,11 @@ class GUINode(Node):
             self._force    = float(msg.data)
             self._force_ts = time.perf_counter()
 
+    def _cb_vforce(self, msg: Float64MultiArray):
+        with self._lock:
+            self._vforce    = np.asarray(msg.data, dtype=float)[:3]
+            self._vforce_ts = time.perf_counter()
+
     # ── Thread-safe getters (GUI main thread) ─────────────────────────────────
 
     def get_joint_positions(self) -> np.ndarray:
@@ -109,6 +119,11 @@ class GUINode(Node):
         """Returns (force_float, timestamp_or_None)."""
         with self._lock:
             return self._force, self._force_ts
+
+    def get_latest_virtual_forces(self):
+        """Returns (vforce_array (3,), timestamp_or_None)."""
+        with self._lock:
+            return self._vforce.copy(), self._vforce_ts
 
     # ── Publishers (GUI main thread) ──────────────────────────────────────────
 
@@ -194,9 +209,10 @@ class RobotGUI:
         self._right_frame.rowconfigure(2, weight=2)   # torque plot  — expand (2×)
         self._right_frame.columnconfigure(0, weight=1)
 
+        _cell4_title = "④ Virtual Forces [N]" if PLOT_VIRTUAL_FORCES else "④ Torque Over Time"
         self._cell1      = ttk.LabelFrame(self._right_frame, text="① Parameter Tuning", **kw)
         self._cell_force = ttk.LabelFrame(self._right_frame, text="⑤ Shear Force [N]",  **kw)
-        self._cell4      = ttk.LabelFrame(self._right_frame, text="④ Torque Over Time",  **kw)
+        self._cell4      = ttk.LabelFrame(self._right_frame, text=_cell4_title,          **kw)
 
         self._cell1.grid(     row=0, column=0, sticky="nsew", pady=(0, 4))
         self._cell_force.grid(row=1, column=0, sticky="nsew", pady=(0, 4))
@@ -646,17 +662,27 @@ class RobotGUI:
         self._fig_tau, self._ax_tau = plt.subplots(figsize=(5, 3))
         ax = self._ax_tau
         ax.set_xlabel("Time [s]", fontsize=8)
-        ax.set_ylabel("Torque [N·m]", fontsize=8)
-        ax.set_title("Motor Torques", fontsize=9)
         ax.grid(True, alpha=0.3)
 
-        cmap = plt.get_cmap("tab10", 9)
-        self._tau_lines = [
-            ax.plot([], [], "-", linewidth=1.2,
-                    color=cmap(k), label=f"τ{k+11}")[0]
-            for k in range(9)
-        ]
-        ax.legend(ncol=3, fontsize=7, loc="upper left")
+        if PLOT_VIRTUAL_FORCES:
+            ax.set_ylabel("Virtual Force [N]", fontsize=8)
+            ax.set_title("Virtual Forces (task space)", fontsize=9)
+            vf_colors = ["tab:blue", "tab:orange", "tab:green"]
+            self._tau_lines = [
+                ax.plot([], [], "-", linewidth=1.4, color=c, label=lbl)[0]
+                for c, lbl in zip(vf_colors, ["Fx", "Fy", "Fz"])
+            ]
+            ax.legend(ncol=3, fontsize=7, loc="upper left")
+        else:
+            ax.set_ylabel("Torque [N·m]", fontsize=8)
+            ax.set_title("Motor Torques", fontsize=9)
+            cmap = plt.get_cmap("tab10", 9)
+            self._tau_lines = [
+                ax.plot([], [], "-", linewidth=1.2,
+                        color=cmap(k), label=f"τ{k+11}")[0]
+                for k in range(9)
+            ]
+            ax.legend(ncol=3, fontsize=7, loc="upper left")
 
         self._canvas_tau = FigureCanvasTkAgg(self._fig_tau, master=self._cell4)
         self._canvas_tau.draw()
@@ -714,8 +740,13 @@ class RobotGUI:
         if fts is not None:
             self._update_cell_force(force, t_now)
 
-        if ts is not None:
-            self._update_cell4(tau, t_now)
+        if PLOT_VIRTUAL_FORCES:
+            vforce, vfts = self.node.get_latest_virtual_forces()
+            if vfts is not None:
+                self._update_cell4(vforce, t_now)
+        else:
+            if ts is not None:
+                self._update_cell4(tau, t_now)
 
         self._after_id = self.root.after(self._UPDATE_MS, self._update_loop)
 
