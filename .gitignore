@@ -10,3 +10,6 @@ build/
 *.pyc
 HumanManipulationVMC/
 MultiVMC/plots/not_used/
+tmp/
+plots/
+settings.json

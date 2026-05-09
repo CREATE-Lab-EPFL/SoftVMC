@@ -39,23 +39,41 @@ COMPONENT_SPECS = [
     #     component=VirtualComponent(
     #         spring=LinearSpring(230.0),
     #         damper=LinearDamper(5.0),
+    #         s_param=2.0/3.0,
+    #         name="lin_seg2",
+    #     ),
+    #     goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
+    # ),
+    # dict(
+    #     component=VirtualComponent(
+    #         spring=LinearSpring(230.0),
+    #         damper=LinearDamper(5.0),
+    #         s_param=1.0/3.0,
+    #         name="lin_seg1",
+    #     ),
+    #     goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
+    # ),
+    # dict(
+    #     component=VirtualComponent(
+    #         spring=LinearSpring(230.0),
+    #         damper=LinearDamper(5.0),
     #         s_param=1.0,
     #         name="lin_x",
     #     ),
     #     goal=go_x, # GUI OVERRIDES THIS GOAL --- IGNORE ---
     # ),
-    dict(
-        component=VirtualComponent(
-            # Gaussian spring produces max force when sigma = delta_x so when initializing on the robot it could produce very large forces
-            # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
-            # once the reference is moved we can increase the strength to a nonzero force
-            spring=GaussianSpring(strength=0.0, sigma=0.1), 
-            damper=LinearDamper(5.0),
-            s_param=1.0 / 3.0,
-            name="gauss_seg1",
-        ),
-        goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
-    ),
+    # dict(
+    #     component=VirtualComponent(
+    #         # Gaussian spring produces max force when sigma = delta_x so when initializing on the robot it could produce very large forces
+    #         # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
+    #         # once the reference is moved we can increase the strength to a nonzero force
+    #         spring=GaussianSpring(strength=0.0, sigma=0.1), 
+    #         damper=LinearDamper(5.0),
+    #         s_param=1.0 / 3.0,
+    #         name="gauss_seg1",
+    #     ),
+    #     goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
+    # ),
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -93,9 +111,9 @@ DEFAULT_START = np.array(
 # ─────────────────────────────────────────────────────────────────────────────
 TAU_LIMIT  = 0.4   # [N·m] per motor
 SAVE_PLOT           = True
-SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
+SAVE_DATA           = False  # save raw arrays to .npz alongside the plot
 PLOT_Z              = True   # include z-axis subplot in saved plot
-PLOT_FORCE          = True  # include /force_shear subplot in saved plot
+PLOT_FORCE          = False  # include /force_shear subplot in saved plot
 PLOT_VIRTUAL_FORCES = True  # if True, Cell 4 in the GUI shows virtual forces instead of motor torques
 
 # ─────────────────────────────────────────────────────────────────────────────
