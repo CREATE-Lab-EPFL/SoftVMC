@@ -110,10 +110,10 @@ DEFAULT_START = np.array(
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
 TAU_LIMIT  = 0.4   # [N·m] per motor
-SAVE_PLOT           = True
-SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
+SAVE_PLOT           = False
+SAVE_DATA           = False  # save raw arrays to .npz alongside the plot
 PLOT_Z              = True   # include z-axis subplot in saved plot
-PLOT_FORCE          = True  # include /force_shear subplot in saved plot
+PLOT_FORCE          = False  # include /force_shear subplot in saved plot
 PLOT_VIRTUAL_FORCES = True  # if True, Cell 4 in the GUI shows virtual forces instead of motor torques
 
 # ─────────────────────────────────────────────────────────────────────────────
