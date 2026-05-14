@@ -99,6 +99,8 @@ class VMCTorqueNode(Node):
         self._force_log      = []    # sampled at control-loop rate
         self._f_virtual_log  = []    # (3,) task-space virtual force, sampled at control-loop rate
         self._k_log          = []    # (N_VC,) spring param per component, sampled at control-loop rate
+        self._q_log          = []    # (9,) joint positions [rad], sampled at control-loop rate
+        self._q_dot_log      = []    # (9,) joint velocities [rad/s], sampled at control-loop rate
 
         # ── Subscribers ───────────────────────────────────────────────────────
         self.create_subscription(
@@ -230,6 +232,8 @@ class VMCTorqueNode(Node):
             getattr(comp.spring, SPRING_PARAM_NAMES[i])
             for i, comp in enumerate(self._components)
         ])
+        self._q_log.append(self._q.copy())
+        self._q_dot_log.append(self._q_dot.copy())
         for i, comp in enumerate(self._components):
             pose_i = FK_Multi(self._q, float(comp.s_param))
             self._comp_pos_logs[i].append(np.asarray(pose_i[:3], dtype=float))
@@ -249,7 +253,7 @@ class VMCTorqueNode(Node):
         lengths = ([len(self._t_log), len(self._tau_log),
                     len(self._tau_grav_log), len(self._goal_log),
                     len(self._force_log), len(self._f_virtual_log),
-                    len(self._k_log)]
+                    len(self._k_log), len(self._q_log), len(self._q_dot_log)]
                    + [len(self._comp_pos_logs[i]) for i in range(N_VC)])
         n = min(lengths)
         if n < 2:
@@ -263,6 +267,8 @@ class VMCTorqueNode(Node):
         force_arr      = np.asarray(self._force_log[:n])       # (n,)
         f_virtual_arr  = np.asarray(self._f_virtual_log[:n])   # (n, 3)
         k_arr          = np.asarray(self._k_log[:n])            # (n, N_VC)
+        q_arr          = np.asarray(self._q_log[:n])            # (n, 9)
+        q_dot_arr      = np.asarray(self._q_dot_log[:n])        # (n, 9)
         comp_pos_arrs  = [
             np.asarray(self._comp_pos_logs[i][:n]) for i in range(N_VC)
         ]                                                       # each (n, 3)
@@ -402,6 +408,8 @@ class VMCTorqueNode(Node):
                 force        = force_arr,       # (n,)        [N]   shear
                 f_virtual    = f_virtual_arr,   # (n, 3)      [N]   task-space virtual force
                 k_params     = k_arr,           # (n, N_VC)   spring param per component over time
+                q_motor      = q_arr,           # (n, 9)      [rad] joint positions
+                q_motor_dot  = q_dot_arr,       # (n, 9)      [rad/s] joint velocities
                 # ── metadata ──────────────────────────────────────────────────
                 comp_names   = np.array([c.name or f"VC{i+1}"
                                          for i, c in enumerate(self._components)]),

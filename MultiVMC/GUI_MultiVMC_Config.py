@@ -28,7 +28,7 @@ gauss_y       = np.array([0.0, 0.15, 0.2],         dtype=float)
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            spring=LinearSpring(230.0),
+            spring=LinearSpring(100.0),
             damper=LinearDamper(5.0),
             s_param=1.0,
             name="lin_seg3",
@@ -37,7 +37,7 @@ COMPONENT_SPECS = [
     ),
     # dict(
     #     component=VirtualComponent(
-    #         spring=LinearSpring(230.0),
+    #         spring=LinearSpring(100.0),
     #         damper=LinearDamper(5.0),
     #         s_param=2.0/3.0,
     #         name="lin_seg2",
@@ -46,7 +46,7 @@ COMPONENT_SPECS = [
     # ),
     # dict(
     #     component=VirtualComponent(
-    #         spring=LinearSpring(230.0),
+    #         spring=LinearSpring(100.0),
     #         damper=LinearDamper(5.0),
     #         s_param=1.0/3.0,
     #         name="lin_seg1",
@@ -66,14 +66,39 @@ COMPONENT_SPECS = [
     #     component=VirtualComponent(
     #         # Gaussian spring produces max force when sigma = delta_x so when initializing on the robot it could produce very large forces
     #         # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
-    #         # once the reference is moved we can increase the strength to a nonzero force
-    #         spring=GaussianSpring(strength=0.0, sigma=0.1), 
+    #         # once the reference is moved we can increase the strength to a nonzero force Typically stregnth = 400 is quite good
+    #         # the max force produced by the gauss spring is when delta_x = sigma 
+    #         spring=GaussianSpring(strength=0.0, sigma=0.06), 
     #         damper=LinearDamper(5.0),
     #         s_param=1.0 / 3.0,
     #         name="gauss_seg1",
     #     ),
     #     goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
     # ),
+    # dict(
+    #     component=VirtualComponent(
+    #         # Gaussian spring produces max force when sigma = delta_x so when initializing on the robot it could produce very large forces
+    #         # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
+    #         # once the reference is moved we can increase the strength to a nonzero force
+    #         spring=GaussianSpring(strength=0.0, sigma=0.06), 
+    #         damper=LinearDamper(5.0),
+    #         s_param=2.0 / 3.0,
+    #         name="gauss_seg2",
+    #     ),
+    #     goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
+    # ),
+    dict(
+        component=VirtualComponent(
+            # Gaussian spring produces max force when sigma = delta_x so when initializing on the robot it could produce very large forces
+            # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
+            # once the reference is moved we can increase the strength to a nonzero force
+            spring=GaussianSpring(strength=0.0, sigma=0.06), 
+            damper=LinearDamper(5.0),
+            s_param=1.0,
+            name="gauss_seg3",
+        ),
+        goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
+    ),
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -96,6 +121,12 @@ DEFAULT_START = np.array(
     [_start_from_s_param(comp.s_param) for comp in VIRTUAL_COMPONENTS],
     dtype=float,
 )  # (N,3)
+# DEFAULT_START = np.array([
+#     [0.0, 0.0, 0.3],   # lin_seg3  (s=1.0)
+#     [0.0, 0.0, 0.145+0.0725],   # gauss_seg1 (s=1/3)
+#     [0.0, 0.0, 0.145+0.0725],   # gauss_seg2 (s=2/3)
+#     # [0.0, 0.0, 0.145+0.0725],   # gauss_seg3 (s=1.0)
+# ], dtype=float)  # (N,3)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Publisher Config  (used by old publisher; kept for compatibility)
@@ -110,8 +141,8 @@ DEFAULT_START = np.array(
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
 TAU_LIMIT  = 0.4   # [N·m] per motor
-SAVE_PLOT           = False
-SAVE_DATA           = False  # save raw arrays to .npz alongside the plot
+SAVE_PLOT           = True
+SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
 PLOT_Z              = True   # include z-axis subplot in saved plot
 PLOT_FORCE          = False  # include /force_shear subplot in saved plot
 PLOT_VIRTUAL_FORCES = True  # if True, Cell 4 in the GUI shows virtual forces instead of motor torques
@@ -162,7 +193,7 @@ SPRING_PARAM_INIT   = [t[1] for t in _spring_info]   # e.g. [230.0, 230.0]
 DAMPER_PARAM_INIT   = [t[1] for t in _damper_info]   # e.g. [5.0, 5.0]
 
 # ── Position-control graph ranges ─────────────────────────────────────────────
-XY_RANGE = (-0.3, 0.3)   # [m] both x and y axes
+XY_RANGE = (-0.5, 0.5)   # [m] both x and y axes
 Z_RANGE  = (0.0,  0.45)  # [m] z slider range
 
 # ── Torque-plot rolling window ─────────────────────────────────────────────────
