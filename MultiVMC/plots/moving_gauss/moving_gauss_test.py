@@ -25,7 +25,7 @@ from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 import numpy as np
 
-from GUI_MultiVMC_Config import DEFAULT_START, N_VC, DAMPER_PARAM_INIT
+from MultiVMC.plots.moving_gauss.GUI_MultiVMC_Config import DEFAULT_START, N_VC, DAMPER_PARAM_INIT
 
 # ── Test parameters ────────────────────────────────────────────────────────────
 CTRL_HZ        = 10.0    # [Hz]  timer rate

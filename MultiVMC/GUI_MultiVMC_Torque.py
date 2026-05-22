@@ -168,10 +168,9 @@ class VMCTorqueNode(Node):
                     f"{DAMPER_PARAM_NAMES[i]}={c_vals[i]:.3f}"
                 )
 
-        # Rebuild VMC so it picks up the mutated component objects.
-        # (Some VMC implementations cache Jacobians at construction time;
-        #  if yours does not, you can skip the rebuild.)
-        self._rebuild_vmc()
+        # No rebuild needed: VMC_Multi_Modular holds references to the same
+        # VirtualComponent objects, so mutated spring/damper attrs are visible
+        # immediately. J_funcs only depend on s_param (unchanged).
 
     def _cb_refpos(self, msg: Float64MultiArray):
         """Message layout: [x1,y1,z1, …, xN,yN,zN]"""

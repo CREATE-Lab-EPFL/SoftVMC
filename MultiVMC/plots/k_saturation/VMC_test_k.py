@@ -20,7 +20,7 @@ from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 import numpy as np
 
-from GUI_MultiVMC_Config import DEFAULT_START, N_VC, DAMPER_PARAM_INIT, SPRING_PARAM_INIT
+from MultiVMC.plots.k_saturation.GUI_MultiVMC_Config import DEFAULT_START, N_VC, DAMPER_PARAM_INIT, SPRING_PARAM_INIT
 
 # ── Test parameters ────────────────────────────────────────────────────────────
 K_START    = 5      # first stiffness value [N/m]
