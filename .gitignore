@@ -11,3 +11,4 @@ build/
 HumanManipulationVMC/
 MultiVMC/plots/not_used/
 settings.json
+.claude/

@@ -65,9 +65,13 @@ from GUI_MultiVMC_Config import (
 )
 
 # ── Perturbance config ─────────────────────────────────────────────────────────
-PERTURB_ENABLED = True          # master switch
-PERTURB_STD     = 0.12          # [N·m] std of additive Gaussian noise (mean=0)
-PERTURB_MOTORS  = list(range(9))  # motor indices to perturb (0-8, all by default)
+PERTURB_ENABLED      = True               # master switch
+PERTURB_STD          = 0.18                # [N·m] std of additive Gaussian noise (mean=0)
+PERTURB_MOTORS       = list(range(9))     # motor indices to perturb (0-8, all by default)
+PERIODIC_NOISE_TICKS = 300                # period: generate a new noise sample every N ticks
+SAME_NOISE_TICKS     = 10                 # hold each sample constant for this many ticks (≤ PERIODIC_NOISE_TICKS)
+NOISE_LIMIT          = TAU_LIMIT/2.0          # clip noise magnitude per motor
+PERTURB_SEED         = 0                  # int for reproducibility, or None for system entropy
 # ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -108,6 +112,9 @@ class VMCTorqueNode(Node):
         self._q_log          = []    # (9,) joint positions [rad], sampled at control-loop rate
         self._q_dot_log      = []    # (9,) joint velocities [rad/s], sampled at control-loop rate
         self._perturb_log    = []    # (9,) additive Gaussian noise applied per motor [N·m]
+        self._tick_count     = 0     # control-loop tick counter (for periodic noise)
+        self._current_noise  = np.zeros(9, dtype=float)  # held constant for SAME_NOISE_TICKS
+        self._rng            = np.random.default_rng(PERTURB_SEED)  # reproducible noise
 
         # ── Subscribers ───────────────────────────────────────────────────────
         self.create_subscription(
@@ -135,7 +142,10 @@ class VMCTorqueNode(Node):
         if PERTURB_ENABLED:
             self.get_logger().info(
                 f"Perturbance ON — N(0, {PERTURB_STD:.4f}) N·m "
-                f"on motors {PERTURB_MOTORS}"
+                f"on motors {PERTURB_MOTORS}, "
+                f"period={PERIODIC_NOISE_TICKS} tick(s), "
+                f"pulse width={SAME_NOISE_TICKS} tick(s), "
+                f"seed={PERTURB_SEED}"
             )
         else:
             self.get_logger().info("Perturbance OFF")
@@ -226,10 +236,26 @@ class VMCTorqueNode(Node):
         tau_cmd = np.clip(tau_raw, -TAU_LIMIT, TAU_LIMIT)
 
         # ── Additive perturbance (simulated external disturbance) ─────────────
+        # Pulse pattern: every PERIODIC_NOISE_TICKS we draw a fresh noise vector
+        # and hold it constant for SAME_NOISE_TICKS, zero in between.
         noise = np.zeros(9, dtype=float)
         if PERTURB_ENABLED:
-            noise[PERTURB_MOTORS] = np.random.normal(0.0, PERTURB_STD,
-                                                     len(PERTURB_MOTORS))
+            phase = self._tick_count % PERIODIC_NOISE_TICKS
+            if phase == 0:
+                new_noise = np.zeros(9, dtype=float)
+                new_noise[PERTURB_MOTORS] = self._rng.normal(
+                    0.0, PERTURB_STD, len(PERTURB_MOTORS))
+                self._current_noise = np.clip(new_noise, -NOISE_LIMIT, NOISE_LIMIT)
+                print(f"[PERTURB] new pulse @tick {self._tick_count}: {self._current_noise}")
+            if phase < SAME_NOISE_TICKS:
+                noise = self._current_noise
+
+        self._tick_count += 1
+        if np.any(np.abs(tau_cmd + noise) > TAU_LIMIT):
+            self.get_logger().warn(
+                f"Post-perturbation torque limit exceeded — clipping. "
+                f"tau_cmd + noise = {tau_cmd + noise}"
+            )
         tau_publish = np.clip(tau_cmd + noise, -TAU_LIMIT, TAU_LIMIT)
         # ─────────────────────────────────────────────────────────────────────
 
