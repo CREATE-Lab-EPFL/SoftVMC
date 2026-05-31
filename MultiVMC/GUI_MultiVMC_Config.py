@@ -21,6 +21,7 @@ rest_pos_seg3 = np.array([0.0, 0.0, 3 * 0.145], dtype=float)
 go_y          = np.array([0.0, 0.4,  0.3],        dtype=float)
 go_x          = np.array([1.5, 0.0,  0.3],        dtype=float)
 gauss_y       = np.array([0.0, 0.15, 0.2],         dtype=float)
+go_x_y        = np.array([0.2, 0.2,  0.3],        dtype=float)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Virtual Components + Goals
@@ -28,12 +29,12 @@ gauss_y       = np.array([0.0, 0.15, 0.2],         dtype=float)
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            spring=LinearSpring(15.0),
+            spring=ConstrainedLinearSpring(30.0,n=np.array([[1], [0], [1]])),
             damper=LinearDamper(5.0),
             s_param=1.0,
             name="lin_seg3",
         ),
-        goal=go_x,
+        goal=go_x_y,
     ),
     # dict(
     #     component=VirtualComponent(
@@ -135,7 +136,7 @@ DEFAULT_START = np.array(
 STEPS_M          = 0.001    # [m] per step  (0.001 m / 0.1 s = 0.01 m/s = 10 Hz movement)
 PUBLISH_PERIOD   = 0.1      # [s]  10 Hz (matches VMC_test_k.py CTRL_HZ)
 LOOP_BACK        = False
-MOVING_GOAL      = True
+MOVING_GOAL      = False
 SYNCHRONIZED_ARRIVAL = False
 
 # ─────────────────────────────────────────────────────────────────────────────
