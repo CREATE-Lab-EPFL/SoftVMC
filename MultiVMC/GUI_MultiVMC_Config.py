@@ -19,7 +19,7 @@ REQUIREMENT: len(COMPONENT_SPECS) == number of virtual components == number of g
 # ─────────────────────────────────────────────────────────────────────────────
 rest_pos_seg3 = np.array([0.0, 0.0, 3 * 0.145], dtype=float)
 go_y          = np.array([0.0, 0.4,  0.3],        dtype=float)
-go_x          = np.array([0.4, 0.0,  0.3],        dtype=float)
+go_x          = np.array([1.5, 0.0,  0.3],        dtype=float)
 gauss_y       = np.array([0.0, 0.15, 0.2],         dtype=float)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -28,7 +28,7 @@ gauss_y       = np.array([0.0, 0.15, 0.2],         dtype=float)
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            spring=LinearSpring(25.0),
+            spring=LinearSpring(15.0),
             damper=LinearDamper(5.0),
             s_param=1.0,
             name="lin_seg3",
