@@ -18,8 +18,8 @@ REQUIREMENT: len(COMPONENT_SPECS) == number of virtual components == number of g
 # Reference positions (keep existing)
 # ─────────────────────────────────────────────────────────────────────────────
 rest_pos_seg3 = np.array([0.0, 0.0, 3 * 0.145], dtype=float)
-go_y          = np.array([0.0, 0.3,  0.3],        dtype=float)
-go_x          = np.array([0.3, 0.0,  0.35],        dtype=float)
+go_y          = np.array([0.0, 0.4,  0.3],        dtype=float)
+go_x          = np.array([0.4, 0.0,  0.3],        dtype=float)
 gauss_y       = np.array([0.0, 0.15, 0.2],         dtype=float)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -28,12 +28,12 @@ gauss_y       = np.array([0.0, 0.15, 0.2],         dtype=float)
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            spring=LinearSpring(0.0),
-            damper=LinearDamper(0.0),
+            spring=LinearSpring(25.0),
+            damper=LinearDamper(5.0),
             s_param=1.0,
             name="lin_seg3",
         ),
-        goal=rest_pos_seg3,# GUI OVERRIDES THIS GOAL --- IGNORE ---
+        goal=go_x,
     ),
     # dict(
     #     component=VirtualComponent(
@@ -129,13 +129,14 @@ DEFAULT_START = np.array(
 # ], dtype=float)  # (N,3)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Publisher Config  (used by old publisher; kept for compatibility)
+# Publisher Config  (used by MultiVMC_MovingGoal_Pub.py)
+# Matched to VMC_test_k.py parameters: CTRL_HZ=10Hz, STEP=0.001m → speed=0.01 m/s
 # ─────────────────────────────────────────────────────────────────────────────
-# STEPS_M          = 0.0008   # [m] per step
-# PUBLISH_PERIOD   = 0.01     # [s]  100 Hz
-# LOOP_BACK        = False
-# MOVING_GOAL      = True
-# SYNCHRONIZED_ARRIVAL = False
+STEPS_M          = 0.001    # [m] per step  (0.001 m / 0.1 s = 0.01 m/s = 10 Hz movement)
+PUBLISH_PERIOD   = 0.1      # [s]  10 Hz (matches VMC_test_k.py CTRL_HZ)
+LOOP_BACK        = False
+MOVING_GOAL      = True
+SYNCHRONIZED_ARRIVAL = False
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Subscriber / Controller Config
