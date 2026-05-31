@@ -19,7 +19,7 @@ REQUIREMENT: len(COMPONENT_SPECS) == number of virtual components == number of g
 # ─────────────────────────────────────────────────────────────────────────────
 rest_pos_seg3 = np.array([0.0, 0.0, 3 * 0.145], dtype=float)
 go_y          = np.array([0.0, 0.4,  0.3],        dtype=float)
-go_x          = np.array([1.5, 0.0,  0.3],        dtype=float)
+go_x          = np.array([0.4, 0.0,  0.3],        dtype=float)
 gauss_y       = np.array([0.0, 0.15, 0.2],         dtype=float)
 go_x_y        = np.array([0.2, 0.2,  0.3],        dtype=float)
 
@@ -29,7 +29,8 @@ go_x_y        = np.array([0.2, 0.2,  0.3],        dtype=float)
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            spring=ConstrainedLinearSpring(30.0,n=np.array([[1], [0], [1]])),
+            # spring=TanhSpring(50.0,4.0),
+            spring = LinearSpring(50.0),
             damper=LinearDamper(5.0),
             s_param=1.0,
             name="lin_seg3",
@@ -146,7 +147,7 @@ TAU_LIMIT  = 0.7   # [N·m] per motor
 SAVE_PLOT           = True
 SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
 PLOT_Z              = True   # include z-axis subplot in saved plot
-PLOT_FORCE          = False  # include /force_shear subplot in saved plot
+PLOT_FORCE          = True  # include /force_shear subplot in saved plot
 PLOT_VIRTUAL_FORCES = True  # if True, Cell 4 in the GUI shows virtual forces instead of motor torques
 
 # ─────────────────────────────────────────────────────────────────────────────
