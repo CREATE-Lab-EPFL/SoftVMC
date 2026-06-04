@@ -1,0 +1,105 @@
+digraph SoftVMC_Control {
+    rankdir=LR;
+    fontname="Helvetica";
+    labelloc="t";
+    fontsize=20;
+    dpi=130;
+    nodesep=0.45;
+    ranksep=1.1;
+    splines=true;
+    label=<<B>SoftVMC — Control Architecture &amp; Node Interactions</B><BR/><FONT POINT-SIZE="11">Virtual Model Control of a 3-section tendon-driven soft arm (9 motors)</FONT>>;
+    node [fontname="Helvetica", fontsize=11];
+    edge [fontname="Helvetica", fontsize=9];
+
+    /* ============================ LEGEND ============================ */
+    subgraph cluster_legend {
+        label="LEGEND";
+        style="rounded,filled"; fillcolor="#fbfbfb"; color="#cccccc"; fontsize=12;
+        L_node  [label="ROS 2 node\n(a running process)",          shape=box, style="rounded,filled", fillcolor="#cfe6ff", color="#3a78c2"];
+        L_topic [label="/ros_topic\n(message channel)",            shape=ellipse, style="filled", fillcolor="#ffe9a8", color="#b8911f"];
+        L_hw    [label="Hardware / sensor",                        shape=box3d, style="filled", fillcolor="#ffd0c4", color="#c0533a"];
+        L_lib   [label="Helper module\n(imported, not a node)",    shape=note, style="filled", fillcolor="#e6e6e6", color="#888888"];
+        L_pub   [label="publishes", shape=plaintext];
+        L_sub   [label="subscribes", shape=plaintext];
+        L_use   [label="imports / uses", shape=plaintext];
+        L_pub -> L_sub [label="PUBLISH",   color="#1f9e54", penwidth=2, fontcolor="#1f9e54"];
+        L_sub -> L_use [label="SUBSCRIBE", color="#d9534f", penwidth=2, fontcolor="#d9534f"];
+        L_node -> L_lib [label="USES", color="#888888", style=dashed];
+    }
+
+    /* ============================ NODES (processes) ============================ */
+    node [shape=box, style="rounded,filled", fillcolor="#cfe6ff", color="#3a78c2"];
+
+    HW   [label="dynamixel_node\n«ros2_dynamixel/ros2_run.sh»\nTERMINAL 1 — torque-mode driver", shape=box3d, fillcolor="#ffd0c4", color="#c0533a"];
+    LC   [label="load-cell node\n«LoadCell/arduino_force.py»\n(optional contact sensor)", shape=box3d, fillcolor="#ffd0c4", color="#c0533a"];
+
+    VMC  [label="vmc_torque_node  ★ THE CONTROLLER\n«GUI_MultiVMC_Torque.py»\nTERMINAL 2 — VMC loop @ 330 Hz", fillcolor="#bcdcff", color="#1f4e96", penwidth=2];
+    GUI  [label="robot_gui_node\n«GUI_MultiVMC.py»\nTERMINAL 3 — operator GUI (drag goals, tune k/c, live plots)"];
+    MGP  [label="goal_pos_multi_publisher\n«MultiVMC_MovingGoal_Pub.py»\nautomated moving reference"];
+    EXP  [label="experiment scripts\n«VMC_test_k.py, Sequential_jump_tests.py, …»\nscripted references for the plots/ studies"];
+
+    /* ============================ TOPICS ============================ */
+    node [shape=ellipse, style="filled", fillcolor="#ffe9a8", color="#b8911f"];
+
+    T_param  [label="/VC_Param\n[k1..kN, c1..cN]"];
+    T_ref    [label="/VC_ref_pos\n[x,y,z per component]"];
+    T_jpos   [label="/joint_positions\n[deg] x9"];
+    T_jvel   [label="/joint_velocities\n[deg/s] x9"];
+    T_tau    [label="/goal_torque\n[N·m] x9"];
+    T_force  [label="/force_shear\n[N]"];
+    T_vforce [label="/virtual_forces\n[Fx,Fy,Fz]"];
+
+    /* ============================ HELPER LIBRARIES (other) ============================ */
+    node [shape=note, style="filled", fillcolor="#e6e6e6", color="#888888"];
+
+    CFG   [label="GUI_MultiVMC_Config.py\nshared config: components, goals,\ngains, tau_limit, control params"];
+    TASK  [label="MultiVMCTaskSpace.py\nVMC_Multi_Modular / VirtualComponent\nF_virtual → τ = Jᵀ·F"];
+    MODELS[label="VMC_utils/VirtualModels.py\nspring & damper models\n(Linear / Tanh / Gaussian / Constrained)"];
+    JAC   [label="JacobiansMulti.py\nsymbolic J = ∂pose/∂q_motor  (per s)\nused for Jᵀ mapping & grav-comp"];
+    FK    [label="FK_Multi.py\nforward kinematics  q_motor → pose(s)\n(actual Cartesian positions)"];
+    GRAV  [label="MultiGravityComp.py\ngravity-compensation torque\n(uses Jacobians)"];
+
+    /* ============================ PUBLISH edges (green) ============================ */
+    edge [color="#1f9e54", penwidth=2.0];
+    GUI  -> T_param;
+    GUI  -> T_ref;
+    MGP  -> T_ref;
+    EXP  -> T_ref;
+    EXP  -> T_param;
+    HW   -> T_jpos;
+    HW   -> T_jvel;
+    VMC  -> T_tau;
+    VMC  -> T_vforce;
+    LC   -> T_force;
+
+    /* ============================ SUBSCRIBE edges (red) ============================ */
+    edge [color="#d9534f", penwidth=2.0];
+    T_param  -> VMC;
+    T_ref    -> VMC;
+    T_jpos   -> VMC;
+    T_jvel   -> VMC;
+    T_force  -> VMC;
+    T_tau    -> HW;          /* controller commands the motors */
+    /* GUI monitoring subscriptions */
+    T_jpos   -> GUI;
+    T_tau    -> GUI;
+    T_force  -> GUI;
+    T_vforce -> GUI;
+
+    /* ============================ USES / IMPORTS edges (gray, dashed) ============================ */
+    edge [color="#888888", penwidth=1.0, style=dashed, arrowhead=open];
+    VMC  -> CFG;
+    VMC  -> TASK;
+    VMC  -> GRAV;
+    VMC  -> FK;
+    TASK -> MODELS;
+    TASK -> JAC;
+    GRAV -> JAC;
+    FK   -> JAC;
+    GUI  -> CFG;
+    GUI  -> FK;
+    MGP  -> CFG;
+
+    /* keep helper cluster tidy */
+    { rank=same; TASK; JAC; FK; GRAV; MODELS; CFG; }
+}
