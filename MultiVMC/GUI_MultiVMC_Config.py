@@ -36,24 +36,24 @@ COMPONENT_SPECS = [
         ),
         goal=go_x_y,
     ),
-    dict(
-        component=VirtualComponent(
-            spring=LinearSpring(100.0),
-            damper=LinearDamper(5.0),
-            s_param=2.0/3.0,
-            name="lin_seg2",
-        ),
-        goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
-    ),
-    dict(
-        component=VirtualComponent(
-            spring=LinearSpring(100.0),
-            damper=LinearDamper(5.0),
-            s_param=1.0/2.0,
-            name="lin_seg_middle",
-        ),
-        goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
-    ),
+    # dict(
+    #     component=VirtualComponent(
+    #         spring=LinearSpring(100.0),
+    #         damper=LinearDamper(5.0),
+    #         s_param=2.0/3.0,
+    #         name="lin_seg2",
+    #     ),
+    #     goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
+    # ),
+    # dict(
+    #     component=VirtualComponent(
+    #         spring=LinearSpring(100.0),
+    #         damper=LinearDamper(5.0),
+    #         s_param=1.0/2.0,
+    #         name="lin_seg_middle",
+    #     ),
+    #     goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
+    # ),
     # dict(
     #     component=VirtualComponent(
     #         spring=LinearSpring(230.0),
