@@ -428,7 +428,7 @@ class VMCTorqueNode(Node):
         ax_tau.legend(ncol=3, fontsize=8, loc="lower right")
 
         # ── Save plot ─────────────────────────────────────────────────────────
-        plots_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plots")
+        plots_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "experiments")
         os.makedirs(plots_dir, exist_ok=True)
         stamp    = datetime.now().strftime("%d_%H%M")
         out_path = os.path.join(plots_dir, f"z_{stamp}.png")

@@ -205,4 +205,4 @@ TAU_PLOT_WINDOW = 10.0   # [s] how many seconds are visible in the live torque c
 FK_S_SAMPLES = 4        # number of FK evaluations along the robot for the 3D line
 
 # ── Plotly output directory ───────────────────────────────────────────────────
-PLOTLY_OUTPUT_DIR = "plots"
+PLOTLY_OUTPUT_DIR = "experiments"
