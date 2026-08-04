@@ -2,7 +2,10 @@
 
 # Use LaTeX for text rendering
 text.usetex : True
-text.latex.preamble : \usepackage{amsmath} \usepackage{amssymb}
+# Preamble also declares raw-Unicode fallbacks (DeclareUnicodeCharacter) so that
+# labels/titles typed with literal Greek letters, arrows, etc. render instead of
+# raising a LaTeX compile error — avoids having to escape every plot string by hand.
+text.latex.preamble : \usepackage{amsmath} \usepackage{amssymb} \DeclareUnicodeCharacter{2192}{\ensuremath{\rightarrow}} \DeclareUnicodeCharacter{2190}{\ensuremath{\leftarrow}} \DeclareUnicodeCharacter{2713}{\ensuremath{\checkmark}} \DeclareUnicodeCharacter{00B7}{\ensuremath{\cdot}} \DeclareUnicodeCharacter{2500}{\textemdash} \DeclareUnicodeCharacter{2014}{\textemdash} \DeclareUnicodeCharacter{2550}{\textemdash} \DeclareUnicodeCharacter{00B1}{\ensuremath{\pm}} \DeclareUnicodeCharacter{25CB}{\ensuremath{\circ}} \DeclareUnicodeCharacter{25A1}{\ensuremath{\square}} \DeclareUnicodeCharacter{25C7}{\ensuremath{\Diamond}} \DeclareUnicodeCharacter{2248}{\ensuremath{\approx}} \DeclareUnicodeCharacter{03C3}{\ensuremath{\sigma}} \DeclareUnicodeCharacter{2211}{\ensuremath{\sum}} \DeclareUnicodeCharacter{00B2}{\ensuremath{^2}} \DeclareUnicodeCharacter{2212}{\ensuremath{-}} \DeclareUnicodeCharacter{222B}{\ensuremath{\int}} \DeclareUnicodeCharacter{03A3}{\ensuremath{\Sigma}} \DeclareUnicodeCharacter{03C4}{\ensuremath{\tau}} \DeclareUnicodeCharacter{2026}{\ldots} \DeclareUnicodeCharacter{0394}{\ensuremath{\Delta}}
 
 # Font sizes — all at 18 pt; change here to rescale everything at once
 font.size             : 18
