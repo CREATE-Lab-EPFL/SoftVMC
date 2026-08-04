@@ -92,11 +92,14 @@ The full arm FK chains three segment transforms:
 T_base  →  T₁(1)  →  T₂(1)  →  T₃(s_tip)  →  tip pose
 ```
 
-`FK_Multi(q_motor, s_param=1.0)` returns the tip position **and** intermediate
-frame positions at `s = {0.25, 0.5, 0.75, 1.0}` for each segment — useful for
-3-D visualization.
+`FK_Multi(q_motor, s_param)` returns the 6-DOF pose `[x, y, z, yaw, pitch, roll]`
+at arc-length fraction `s_param ∈ [0, 1]` measured along the **total** 3-segment
+backbone (`s_param` is required — 0 = base, 1/3 = end of segment 1, 2/3 = end of
+segment 2, 1 = tip). To sample multiple points along the arm for visualization,
+call it once per desired `s_param`.
 
-`FK_Multi_ee(q_motor)` returns only the end-effector 3-D position (faster).
+`FK_Multi_ee(q_motor)` is a convenience wrapper equivalent to `FK_Multi(q_motor, 1.0)`
+— it also returns the full 6-DOF end-effector pose, not just XYZ.
 
 ---
 
@@ -110,29 +113,37 @@ frame positions at `s = {0.25, 0.5, 0.75, 1.0}` for each segment — useful for
 | `SECTION_RADIUS` | float | Cross-section radius d = 0.030 m |
 | `REST_LENGTH` | float | Rest length L₀ = 0.145 m |
 | `A_INV1`, `A_INV2`, `A_INV3` | (3,3) ndarray | Precomputed A⁻¹ per segment |
-| `pcc2q_motor()` | → callable | Returns `J_pcc2q(pcc)`, the (9,9) Jacobian d(q)/d(pcc) |
-| `q_motor2pose(q0)` | → callable | Returns `J(q)`, the (3,9) task-space Jacobian (tip XYZ vs q) |
-| `q_motor2pose_ee(q0)` | → callable | Returns `J_ee(q)`, end-effector-only Jacobian |
+| `pcc2q_motor()` | → callable | Takes no args. Returns `J(Dx1,Dy1,Dl1,...,Dx3,Dy3,Dl3)`, a function of 9 scalars returning the (9,9) Jacobian d(q_motor)/d(pcc) |
+| `q_motor2pose(s_param)` | → callable | Takes the arc-length fraction `s_param ∈ [0,1]` (not a configuration). Returns `J(q11,q12,...,q33)`, a function of 9 scalars returning the (6,9) Jacobian d(pose)/d(q_motor) at that point along the arm |
+| `q_motor2pose_ee()` | → callable | Takes no args (implicitly `s_param=1`, the tip). Returns `J(q11,...,q33)`, the (6,9) end-effector Jacobian |
 
-**Usage pattern** — precompile once, call repeatedly:
+All three factory functions build the Jacobian **symbolically with sympy** and
+`lambdify` it into a fast numeric function — the factory call itself is slow
+(seconds), so compile once and reuse the returned function on every control step.
+
+**Usage pattern:**
 
 ```python
-from JacobiansMulti import q_motor2pose
-J_func = q_motor2pose(q_home)   # compile (slow, ~seconds with sympy)
-J = J_func(q_current)           # evaluate at runtime (fast)
+from JacobiansMulti import q_motor2pose, q_motor2pose_ee
+
+J_ee_func = q_motor2pose_ee()          # compile once (slow)
+J_ee = np.array(J_ee_func(*q_motor))   # evaluate at runtime (fast) -> (6, 9)
+
+J_func = q_motor2pose(0.6667)          # compile once, for a point at s=2/3 (tip of segment 2)
+J = np.array(J_func(*q_motor))         # -> (6, 9)
 ```
 
 ### `FK_Multi.py`
 
 ```python
 from FK_Multi import FK_Multi, FK_Multi_ee
+import numpy as np
 
-# Full arm curve (for visualization)
-positions = FK_Multi(q_motor, s_param=1.0)
-# returns list of (3,) arrays — 12 points (4 per segment)
+# Pose [x, y, z, yaw, pitch, roll] at an arbitrary point along the backbone
+pose = FK_Multi(q_motor, 0.6667)   # (6,) array, s=2/3 -> tip of segment 2
 
-# End-effector only
-pos_ee = FK_Multi_ee(q_motor)   # (3,) array
+# End-effector pose (s=1), convenience wrapper
+pose_ee = FK_Multi_ee(q_motor)     # (6,) array
 ```
 
 ---
