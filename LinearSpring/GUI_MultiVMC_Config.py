@@ -28,12 +28,12 @@ gauss_y       = np.array([0.0, 0.15, 0.2],         dtype=float)
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            spring=LinearSpring(100.0),
-            damper=LinearDamper(5.0),
+            spring=LinearSpring(0.0),
+            damper=LinearDamper(0.0),
             s_param=1.0,
             name="lin_seg3",
         ),
-        goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
+        goal=rest_pos_seg3,# GUI OVERRIDES THIS GOAL --- IGNORE ---
     ),
     # dict(
     #     component=VirtualComponent(
@@ -140,11 +140,11 @@ DEFAULT_START = np.array(
 # ─────────────────────────────────────────────────────────────────────────────
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
-TAU_LIMIT  = 0.4   # [N·m] per motor
+TAU_LIMIT  = 0.7   # [N·m] per motor
 SAVE_PLOT           = True
 SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
 PLOT_Z              = True   # include z-axis subplot in saved plot
-PLOT_FORCE          = True  # include /force_shear subplot in saved plot
+PLOT_FORCE          = False  # include /force_shear subplot in saved plot
 PLOT_VIRTUAL_FORCES = True  # if True, Cell 4 in the GUI shows virtual forces instead of motor torques
 
 # ─────────────────────────────────────────────────────────────────────────────
