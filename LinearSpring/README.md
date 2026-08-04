@@ -6,8 +6,16 @@ Experiments with linear spring and linear damper virtual elements.
 
 | Subfolder | Description | Paper figure |
 |---|---|---|
-| `outputs/k_saturation/` | Sweep stiffness k over [5, 10, 25, 50, 100, 200] N/m; records position and torque saturation | Fig. 4 |
+| `outputs/k_saturation/` | Sweep spring stiffness k; records position and torque saturation | Fig. 4 |
 | `outputs/disturbance_rejection/` | Step disturbance applied to end-effector; measures rejection bandwidth | Fig. 5 |
+
+`outputs/k_saturation/` was built up across several runs of `VMC_test_k.py`
+with different `K_START`/`K_MAX`/`K_STEP` values edited in the script (the
+saved filenames encode the range used, e.g. `k5_55.npz` = 5–55 N/m in steps of
+2, `k50_105.npz`, `k20_300_big.npz`). `plot_k_saturation.ipynb` combines the
+saved runs. `outputs/disturbance_rejection/` holds a similar pattern:
+`disturbance_k10_300.npz` (main sweep) plus `disturbance_k40_50.npz`
+(corrected re-run for two stiffness values).
 
 ## Scripts
 
