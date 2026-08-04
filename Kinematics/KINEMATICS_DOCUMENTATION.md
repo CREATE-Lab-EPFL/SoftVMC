@@ -159,21 +159,22 @@ from FK_Multi import FK_Multi_ee
 from JacobiansMulti import REST_LENGTH
 
 q_home = np.zeros(9)
-pos = FK_Multi_ee(q_home)
-print("EE at home:", pos)
+pose = FK_Multi_ee(q_home)
+print("EE pose at home:", pose)
 print("Expected z ≈", 3 * REST_LENGTH, "m")
 EOF
 ```
 
-Expected output: `EE at home: [0.  0.  0.435]`
+Expected output: `EE pose at home: [0.  0.  0.435  0. -0.  0.]` (x, y, z, yaw, pitch, roll)
 
 ---
 
 ## Important Notes
 
 - **Singularity**: the PCC model has a singularity at `D = 0` (straight segment).
-  The code guards against this with a small ε: `D = max(√(Dx² + Dy²), 1e-6)`.
-- **Motor sign convention**: positive motor angle = tendon shortens = segment bends.
+  The code guards against this with an additive epsilon inside the square root:
+  `D = √(Dx² + Dy² + 1e-12)`, applied consistently in `FK_Multi.py` and
+  `JacobiansMulti.py`.
 - **Frame convention**: z-axis points along the arm axis; x-y are lateral.
 - **Units**: all internal computations in **meters and radians**. Motor angles from
   the Dynamixel driver are received in radians.
