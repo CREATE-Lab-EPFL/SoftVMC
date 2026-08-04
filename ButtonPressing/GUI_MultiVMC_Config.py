@@ -53,7 +53,7 @@ COMPONENT_SPECS = [
     # ),
     # dict(  # "minimize" scenario -- swap in place of the block above
     #     component=VirtualComponent(
-    #         spring=TanhSpring(k=100.0, f_max=1.0),
+    #         spring=TanhSpring(stiffness=100.0, max_force=1.0),
     #         damper=LinearDamper(0.5),
     #         s_param=1.0,
     #         name="tanh_light_contact",
