@@ -23,6 +23,7 @@ Experiments involving physical contact and body shaping — multiple virtual ele
 | Notebook | Generates |
 |---|---|
 | `plot_three_spring_vs_one.ipynb` | Posture error comparison: 1 vs. 3 springs |
+| `plot_surface_tracking.ipynb` | XY/X-position trajectory comparisons, soft-vs-stiff energy comparison, and per-k Y-position tracking across the `outputs/surface_tracking/` k-sweep |
 
 ## Running
 
