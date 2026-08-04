@@ -1,8 +1,8 @@
-import numpy as np
-from MultiVMCTaskSpace import VirtualComponent
-
 import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import numpy as np
+from VMC.MultiVMCTaskSpace import VirtualComponent
 from VMC_utils.VirtualModels import (
     ConstrainedLinearSpring, LinearDamper, LinearSpring,
     TanhSpring, TanhDamper, GaussianSpring, DeadzoneLimitSpring
