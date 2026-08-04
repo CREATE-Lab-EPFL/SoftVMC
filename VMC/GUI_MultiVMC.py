@@ -6,6 +6,10 @@ Subscribes to /joint_positions and /goal_torque for live visualization.
 """
 
 import sys, os
+# Prepend the caller's cwd (not this script's own directory) so that running
+# `python3 ../VMC/GUI_MultiVMC.py` from inside an experiment folder picks up
+# THAT folder's GUI_MultiVMC_Config.py, not VMC/GUI_MultiVMC_Config.py.
+sys.path.insert(0, os.getcwd())
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _KINE = os.path.join(_ROOT, 'Kinematics')
 for _p in [_ROOT, _KINE]:

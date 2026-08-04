@@ -9,9 +9,9 @@ Uses Dynamixel SDK directly (no ROS node required) to:
 - optionally switch back to torque/current mode so ROS dynamixel_node can take over
 
 Usage:
-  python3 MultiVMC/MultiGoHome.py --read
-  python3 MultiVMC/MultiGoHome.py
-  python3 MultiVMC/MultiGoHome.py --no-torque-mode
+  python3 VMC/MultiGoHome.py --read
+  python3 VMC/MultiGoHome.py
+  python3 VMC/MultiGoHome.py --no-torque-mode
 """
 
 import argparse

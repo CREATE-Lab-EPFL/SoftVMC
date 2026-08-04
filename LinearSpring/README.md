@@ -26,11 +26,23 @@ Experiments with linear spring and linear damper virtual elements.
 
 ## Running
 
+`GUI_MultiVMC.py`/`GUI_MultiVMC_Torque.py` always import a module literally named
+`GUI_MultiVMC_Config` from the current directory — `GUI_MultiVMC_Config.py` (the
+k-saturation config, already correctly named) is used as-is; for the disturbance
+experiment, copy `GUI_MultiVMC_Config_disturbance.py` into place first:
+
 ```bash
 conda activate finger
 cd LinearSpring
+
+# k-saturation sweep (uses GUI_MultiVMC_Config.py directly):
 python3 ../VMC/GUI_MultiVMC_Torque.py &
 python3 ../VMC/GUI_MultiVMC.py
 # In a third terminal:
 python3 VMC_test_k.py   # automated sweep
+
+# Disturbance rejection (separate run):
+cp GUI_MultiVMC_Config_disturbance.py GUI_MultiVMC_Config.py
+python3 ../VMC/GUI_MultiVMC_Torque.py &
+python3 ../VMC/GUI_MultiVMC.py
 ```

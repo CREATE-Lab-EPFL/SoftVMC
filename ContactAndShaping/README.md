@@ -26,13 +26,22 @@ Experiments involving physical contact and body shaping — multiple virtual ele
 
 ## Running
 
+`GUI_MultiVMC.py`/`GUI_MultiVMC_Torque.py` always import a module literally named
+`GUI_MultiVMC_Config` from the current directory. Since this folder holds two
+named variants (no single unambiguous default), copy the one you want into
+place before launching:
+
 ```bash
 conda activate finger
 cd ContactAndShaping
 
 # Surface tracking:
+cp GUI_MultiVMC_Config_surface.py GUI_MultiVMC_Config.py
 python3 ../VMC/GUI_MultiVMC_Torque.py &
-python3 ../VMC/GUI_MultiVMC.py   # loads GUI_MultiVMC_Config_surface.py
-```
+python3 ../VMC/GUI_MultiVMC.py
 
-Note: change the import in `GUI_MultiVMC.py`'s config import line to select the right config, or symlink `GUI_MultiVMC_Config.py → GUI_MultiVMC_Config_surface.py`.
+# Three-spring vs. one comparison (separate run):
+cp GUI_MultiVMC_Config_three_springs.py GUI_MultiVMC_Config.py
+python3 ../VMC/GUI_MultiVMC_Torque.py &
+python3 ../VMC/GUI_MultiVMC.py
+```

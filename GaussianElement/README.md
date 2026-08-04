@@ -33,14 +33,24 @@ Key properties: zero force at large distance, peak force at distance σ from the
 
 ## Running
 
+`GUI_MultiVMC.py`/`GUI_MultiVMC_Torque.py` always import a module literally named
+`GUI_MultiVMC_Config` from the current directory. Since this folder holds two
+named variants (no single unambiguous default), copy the one you want into
+place before launching — the same pattern used to switch experiments in the
+original data collection:
+
 ```bash
 conda activate finger
 cd GaussianElement
 
 # Fixed obstacle:
+cp GUI_MultiVMC_Config_fixed.py GUI_MultiVMC_Config.py
 python3 ../VMC/GUI_MultiVMC_Torque.py &
 python3 ../VMC/GUI_MultiVMC.py
 
-# Moving obstacle (additional terminal):
-python3 moving_gauss_test.py
+# Moving obstacle (separate run):
+cp GUI_MultiVMC_Config_moving.py GUI_MultiVMC_Config.py
+python3 ../VMC/GUI_MultiVMC_Torque.py &
+python3 ../VMC/GUI_MultiVMC.py
+python3 moving_gauss_test.py   # additional terminal, drives the moving center
 ```

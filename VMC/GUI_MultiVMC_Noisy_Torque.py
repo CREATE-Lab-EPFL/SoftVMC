@@ -14,25 +14,25 @@ Publishes:
 
 
 TERMINAL 1
-cd ros2_dynamixel && colcon build && source install/setup.bash
-./ros2_run.sh
-# sudo echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
-# ros2 run dynamixel_interface dynamixel_node --ros-args -p baudrate:=1000000 -p motor_ids:=[11,12,13,14,15,16,17,18,19] -p control_mode:=torque
+bash start_arm.sh   # homes the arm, sets USB latency, starts dynamixel_node
 
-TERMINAL 2
-export PYTHONPATH="${PYTHONPATH}:$(pwd)"
-python3 GUI_MultiVMC_Torque.py
+TERMINAL 2 (run FROM the experiment directory, e.g. LinearSpring/)
+python3 ../VMC/GUI_MultiVMC_Noisy_Torque.py
 
-TERMINAL 3
-export PYTHONPATH="${PYTHONPATH}:$(pwd)"
-python3 GUI_MultiVMC.py
+TERMINAL 3 (also from the experiment directory)
+python3 ../VMC/GUI_MultiVMC.py
 
 TERMINAL 4
-python3 MultiGoHome.py --read (COPY OUTPUT TO MultiGoHome.py)
-python3 MultiGoHome.py
+python3 ../VMC/MultiGoHome.py --read   (copy the printed values into MultiGoHome.py)
+python3 ../VMC/MultiGoHome.py
 """
 
 import sys, os
+# Prepend the caller's cwd (not this script's own directory) so that running
+# `python3 ../VMC/GUI_MultiVMC_Noisy_Torque.py` from inside an experiment folder picks up
+# THAT folder's GUI_MultiVMC_Config.py, not VMC/GUI_MultiVMC_Config.py.
+_CWD = os.getcwd()
+sys.path.insert(0, _CWD)
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _KINE = os.path.join(_ROOT, 'Kinematics')
 for _p in [_ROOT, _KINE]:
@@ -433,7 +433,10 @@ class VMCTorqueNode(Node):
         ax_tau.legend(ncol=3, fontsize=8, loc="lower right")
 
         # ── Save plot ─────────────────────────────────────────────────────────
-        plots_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "experiments")
+        # Saved relative to the caller's cwd (the experiment directory), matching
+        # where GUI_MultiVMC_Config.py was loaded from -- NOT this script's own
+        # directory -- so output lands next to the experiment it belongs to.
+        plots_dir = os.path.join(_CWD, "experiments")
         os.makedirs(plots_dir, exist_ok=True)
         stamp    = datetime.now().strftime("%d_%H%M")
         out_path = os.path.join(plots_dir, f"z_{stamp}.png")

@@ -59,20 +59,32 @@ Virtual model classes live in `VMC_utils/VirtualModels.py`:
 
 **Prerequisites:** ROS 2 Humble, conda env `finger`, `ros2_dynamixel` built.
 
+`GUI_MultiVMC.py` and `GUI_MultiVMC_Torque.py` both do
+`from GUI_MultiVMC_Config import (...)`, which Python resolves against the
+**caller's current working directory** (both scripts prepend `os.getcwd()` to
+`sys.path` for exactly this reason) — so **both** terminals below must be
+launched from inside the *same* experiment directory, not from `VMC/`:
+
 ```bash
 # Terminal 1 — hardware driver
 bash start_arm.sh            # homes arm, sets latency, starts dynamixel_node
 
-# Terminal 2 — torque back-end (from repo root)
-cd VMC
-python3 GUI_MultiVMC_Torque.py   # or GUI_MultiVMC_Noisy_Torque.py
-
-# Terminal 3 — GUI (from the experiment directory, so it picks up the right config)
+# Terminal 2 and 3 — from the SAME experiment directory:
 cd LinearSpring               # or TanhSpring, ConstrainedSpring, etc.
+python3 ../VMC/GUI_MultiVMC_Torque.py   # or GUI_MultiVMC_Noisy_Torque.py
 python3 ../VMC/GUI_MultiVMC.py
 ```
 
-On exit the torque node saves a timestamped `.npz` + `.png` snapshot in the working directory.
+If an experiment directory holds more than one named config (e.g.
+`GaussianElement/GUI_MultiVMC_Config_fixed.py` and `_moving.py`), copy the one
+you want into place first — `cp GUI_MultiVMC_Config_fixed.py GUI_MultiVMC_Config.py`
+— since the import always looks for that exact module name. See the
+experiment's own README for which configs need this.
+
+On exit, the torque node saves a timestamped `.npz` + `.png` snapshot into an
+`experiments/` subfolder of **the directory you launched it from** (e.g.
+`LinearSpring/experiments/z_<DD_HHMM>.npz`) — move/rename it into the matching
+`outputs/<name>/` subfolder before re-running the plotting notebook.
 
 ---
 
@@ -101,20 +113,32 @@ All motor commands are clamped to `±TAU_LIMIT` (set per-experiment in `GUI_Mult
 
 ## Saving and Loading Data
 
-The torque node saves on shutdown:
+The torque node saves on shutdown (key names as written by `np.savez_compressed`
+in `GUI_MultiVMC_Torque.py`):
 
 ```
-<timestamp>_<experiment>.npz
-    q          (N, 9)   motor positions [rad]
-    dq         (N, 9)   motor velocities [rad/s]
-    tau        (N, 9)   commanded torques [N·m]
-    pos_ee     (N, 3)   end-effector position [m]
-    ref_pos    (N, 3M)  reference positions (M VCs) [m]
-    time       (N,)     timestamps [s]
+z_<DD_HHMM>.npz
+    t             (n,)          [s]     timestamps
+    tau           (n, 9)        [N·m]   commanded motor torques
+    tau_grav      (n, 9)        [N·m]   gravity-compensation torque component
+    goal          (n, N_VC, 3)  [m]     reference position per virtual component
+    comp_pos      (n, N_VC, 3)  [m]     measured (FK) position per virtual component
+    force         (n,)          [N]     measured shear force (load cell, if wired)
+    f_virtual     (n, 3)        [N]     task-space virtual force
+    k_params      (n, N_VC)             spring parameter per component over time
+    q_motor       (n, 9)        [rad]   motor positions
+    q_motor_dot   (n, 9)        [rad/s] motor velocities
+    comp_names    (N_VC,)               virtual component names
+    comp_s_params (N_VC,)               arc-length fraction per component
+    control_freq  (1,)          [Hz]    control loop frequency
+    tau_limit     (1,)          [N·m]   torque clamp used during the run
 ```
+
+`N_VC` is the number of virtual components in that experiment's config (`N_VC`
+in `GUI_MultiVMC_Config.py`) — not fixed across experiments.
 
 Load with:
 ```python
 data = np.load('outputs/<subfolder>/file.npz')
-q, tau, t = data['q'], data['tau'], data['time']
+q_motor, tau, t = data['q_motor'], data['tau'], data['t']
 ```
