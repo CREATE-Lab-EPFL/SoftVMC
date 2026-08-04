@@ -41,17 +41,25 @@ Each `VirtualComponent` (defined in `MultiVMCTaskSpace.py`) has:
 | `s_param` | float ∈ [0,1] | Arc fraction of attachment point |
 | `name` | str | Label for logging |
 
-Virtual model classes live in `VMC_utils/VirtualModels.py`:
+Virtual model classes live in `VMC_utils/VirtualModels.py`. Constructor keyword
+names below are exact (many differ from the `k`/`c` shorthand used in comments
+elsewhere in the codebase):
 
-| Class | Force law | Key params |
+| Class | Constructor | Description |
 |---|---|---|
-| `LinearSpring` | f = k·Δx | k [N/m] |
-| `LinearDamper` | f = c·ẋ | c [N·m·s/rad] |
-| `TanhSpring` | f = f_max · tanh(k·Δx / f_max) | k, f_max |
-| `TanhDamper` | f = c_max · tanh(c·ẋ / c_max) | c, c_max |
-| `ConstrainedLinearSpring` | linear spring projected onto a plane | k, normal |
-| `GaussianSpring` | f = k · exp(−‖Δx‖²/2σ²) · Δx | k, σ |
-| `DeadzoneLimitSpring` | zero inside deadzone, linear outside | k, deadzone |
+| `LinearSpring` | `stiffness` | f = stiffness · Δx |
+| `TanhSpring` | `stiffness, max_force` | f = max_force · tanh(stiffness·Δx / max_force) |
+| `ConstrainedLinearSpring` | `stiffness, n` | linear spring projected onto plane with normal `n` |
+| `ConstrainedTanhSpring` | `stiffness, max_force, n` | tanh spring projected onto plane with normal `n` |
+| `GaussianSpring` | `strength, sigma` | f = strength · exp(−‖Δx‖²/2σ²) · Δx |
+| `ConstrainedGaussianSpring` | `strength, sigma, n` | Gaussian spring projected onto plane with normal `n` |
+| `SigmoidSpring` | `kmin, kmax, threshold, alpha` | stiffness sigmoid-blends from kmin to kmax around `threshold` |
+| `PolynomialSpring` | `stiffness, order, dist_norm` | f = stiffness · (Δx / dist_norm)^order |
+| `DeadzoneLimitSpring` | `stiffness, angle_lower, angle_upper` | zero inside [angle_lower, angle_upper], linear outside |
+| `LinearDamper` | `damping` | f = damping · ẋ |
+| `TanhDamper` | `damping, max_force` | f = max_force · tanh(damping·ẋ / max_force) |
+| `ConstrainedLinearDamper` | `damping, n` | linear damper projected onto plane with normal `n` |
+| `ConstrainedTanhDamper` | `damping, max_force, n` | tanh damper projected onto plane with normal `n` |
 
 ---
 

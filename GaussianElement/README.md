@@ -21,8 +21,7 @@ Key properties: zero force at large distance, peak force at distance σ from the
 |---|---|
 | `GUI_MultiVMC_Config_fixed.py` | VMC config for fixed-obstacle experiment |
 | `GUI_MultiVMC_Config_moving.py` | VMC config for moving-obstacle experiment |
-| `gauss_test.py` | Automated obstacle motion publisher |
-| `moving_gauss_test.py` | Moving-obstacle trajectory publisher |
+| `moving_gauss_test.py` | Moving-obstacle trajectory publisher (no separate runner exists for the fixed-obstacle case — it uses `GUI_MultiVMC.py` directly) |
 
 ## Notebooks
 

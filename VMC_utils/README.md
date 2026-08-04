@@ -6,7 +6,7 @@ Reusable building blocks shared across all VMC experiments.
 
 | File | Contents |
 |---|---|
-| `VirtualModels.py` | `LinearSpring`, `LinearDamper`, `TanhSpring`, `TanhDamper`, `ConstrainedLinearSpring`, `GaussianSpring`, `DeadzoneLimitSpring` |
+| `VirtualModels.py` | Spring classes: `LinearSpring`, `TanhSpring`, `SigmoidSpring`, `PolynomialSpring`, `GaussianSpring`, `DeadzoneLimitSpring`, plus plane-constrained variants `ConstrainedLinearSpring`, `ConstrainedTanhSpring`, `ConstrainedGaussianSpring`. Damper classes: `LinearDamper`, `TanhDamper`, `ConstrainedLinearDamper`, `ConstrainedTanhDamper` |
 | `GravityCompensation.py` | Gravity torque estimate for the arm |
 
 ## Import pattern
