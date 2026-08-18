@@ -30,13 +30,13 @@ digraph SoftVMC_Control {
     /* ============================ NODES (processes) ============================ */
     node [shape=box, style="rounded,filled", fillcolor="#cfe6ff", color="#3a78c2"];
 
-    HW   [label="dynamixel_node\n«ros2_dynamixel/ros2_run.sh»\nTERMINAL 1 — torque-mode driver", shape=box3d, fillcolor="#ffd0c4", color="#c0533a"];
+    HW   [label="dynamixel_node\n«start_arm.sh»\nTERMINAL 1 — torque-mode driver", shape=box3d, fillcolor="#ffd0c4", color="#c0533a"];
     LC   [label="load-cell node\n«LoadCell/arduino_force.py»\n(optional contact sensor)", shape=box3d, fillcolor="#ffd0c4", color="#c0533a"];
 
     VMC  [label="vmc_torque_node  ★ THE CONTROLLER\n«GUI_MultiVMC_Torque.py»\nTERMINAL 2 — VMC loop @ 330 Hz", fillcolor="#bcdcff", color="#1f4e96", penwidth=2];
     GUI  [label="robot_gui_node\n«GUI_MultiVMC.py»\nTERMINAL 3 — operator GUI (drag goals, tune k/c, live plots)"];
     MGP  [label="goal_pos_multi_publisher\n«MultiVMC_MovingGoal_Pub.py»\nautomated moving reference"];
-    EXP  [label="experiment scripts\n«VMC_test_k.py, Sequential_jump_tests.py, …»\nscripted references for the plots/ studies"];
+    EXP  [label="experiment scripts\n«VMC_test_k.py, Sequential_jump_tests.py, …»\nscripted references for the outputs/ studies"];
 
     /* ============================ TOPICS ============================ */
     node [shape=ellipse, style="filled", fillcolor="#ffe9a8", color="#b8911f"];

@@ -92,7 +92,7 @@
 <polyline fill="none" stroke="#c0533a" points="204,-614 204,-574 "/>
 <polyline fill="none" stroke="#c0533a" points="204,-614 208,-618 "/>
 <text text-anchor="middle" x="104" y="-605.2" font-family="Helvetica,sans-Serif" font-size="11.00">dynamixel_node</text>
-<text text-anchor="middle" x="104" y="-593.2" font-family="Helvetica,sans-Serif" font-size="11.00">«ros2_dynamixel/ros2_run.sh»</text>
+<text text-anchor="middle" x="104" y="-593.2" font-family="Helvetica,sans-Serif" font-size="11.00">«start_arm.sh»</text>
 <text text-anchor="middle" x="104" y="-581.2" font-family="Helvetica,sans-Serif" font-size="11.00">TERMINAL 1 — torque&#45;mode driver</text>
 </g>
 <!-- T_jpos -->
@@ -315,7 +315,7 @@
 <path fill="#cfe6ff" stroke="#3a78c2" d="M1436.6,-427C1436.6,-427 1184.6,-427 1184.6,-427 1178.6,-427 1172.6,-421 1172.6,-415 1172.6,-415 1172.6,-395 1172.6,-395 1172.6,-389 1178.6,-383 1184.6,-383 1184.6,-383 1436.6,-383 1436.6,-383 1442.6,-383 1448.6,-389 1448.6,-395 1448.6,-395 1448.6,-415 1448.6,-415 1448.6,-421 1442.6,-427 1436.6,-427"/>
 <text text-anchor="middle" x="1310.6" y="-414.2" font-family="Helvetica,sans-Serif" font-size="11.00">experiment scripts</text>
 <text text-anchor="middle" x="1310.6" y="-402.2" font-family="Helvetica,sans-Serif" font-size="11.00">«VMC_test_k.py, Sequential_jump_tests.py, …»</text>
-<text text-anchor="middle" x="1310.6" y="-390.2" font-family="Helvetica,sans-Serif" font-size="11.00">scripted references for the plots/ studies</text>
+<text text-anchor="middle" x="1310.6" y="-390.2" font-family="Helvetica,sans-Serif" font-size="11.00">scripted references for the outputs/ studies</text>
 </g>
 <!-- EXP&#45;&gt;T_param -->
 <g id="edge8" class="edge">
