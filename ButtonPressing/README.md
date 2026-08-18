@@ -1,5 +1,7 @@
 # ButtonPressing Experiments
 
+Covers both remaining planned experiments: the quantitative button-pressing study and the person-interaction demo. Neither has been run yet — no data exists in this folder.
+
 Button-pressing experiments demonstrating three distinct interaction strategies:
 
 | Scenario | VMC element | Behavior |
