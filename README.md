@@ -75,7 +75,7 @@ The startup script launches the node with the current motor calibration:
 
 ```bash
 -p use_kt:=true
--p kt:=0.354
+-p kt:=0.000354
 ```
 
 ---
@@ -132,5 +132,5 @@ set_font_size(18)
 ## Notes
 
 - **ROS 2 version:** ROS 2 Humble (check `ros2_dynamixel` build if switching to Jazzy).
-- **Motor kT:** the node launches with `use_kt:=true` and `kt:=0.354` by default. This is the current motor calibration used by the external Dynamixel package.
+- **Motor kT:** the node launches with `use_kt:=true` and `kt:=0.000354` by default. This is the current motor calibration used by the external Dynamixel package.
 - **Latency timer:** set to 1 ms for real-time performance (`start_arm.sh` does this automatically).

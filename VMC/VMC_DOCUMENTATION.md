@@ -115,7 +115,7 @@ On exit, the torque node saves a timestamped `.npz` + `.png` snapshot into an
 
 ## Torque Limit
 
-All motor commands are clamped to `±TAU_LIMIT` (set per-experiment in `GUI_MultiVMC_Config.py`) before being sent to the hardware. The default is 1.5 N·m per motor.
+All motor commands are clamped to `±TAU_LIMIT` (set per-experiment in `GUI_MultiVMC_Config.py`) before being sent to the hardware. The default is 2.1 N·m per motor.
 
 ---
 
