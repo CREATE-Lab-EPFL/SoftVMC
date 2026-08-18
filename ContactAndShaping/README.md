@@ -6,9 +6,9 @@ Experiments involving physical contact and body shaping — multiple virtual ele
 
 | Subfolder | Description |
 |---|---|
-| `outputs/sponge/` | End-effector pressed against a sponge; sweep contact stiffness k |
+| `outputs/sponge/` | End-effector pressed against a sponge; sweep contact stiffness k. Only raw `.npz` + auto-generated `GUI_MultiVMC_Torque.py` per-run snapshot PNGs exist here — **no analysis notebook in the repo processes this data into a comparison figure**. |
 | `outputs/surface_tracking/` | Arm slides along a rigid surface with a constrained spring |
-| `outputs/body_shaping/` | Whole-body shaping: spring elements attached at multiple arc fractions. Only the raw `.npz` + its auto-generated `GUI_MultiVMC_Torque.py` diagnostic snapshot (`whole_body_shaping.png`, position/torque time series) exist here — unlike the other subfolders above, **no analysis notebook in the repo processes this data into a comparison figure**. `old/` holds a discarded earlier run (`whole_body_shaping_bad`). |
+| `outputs/body_shaping/` | Whole-body shaping: spring elements attached at multiple arc fractions. Same situation as `sponge/` above — only the raw `.npz` + its auto-generated diagnostic snapshot (`whole_body_shaping.png`, position/torque time series) exist, **no analysis notebook**. `old/` holds a discarded earlier run (`whole_body_shaping_bad`). |
 | `outputs/three_spring_vs_one/` | Comparison: 1 end-effector spring vs. 3 distributed springs for posture |
 
 ## Scripts
