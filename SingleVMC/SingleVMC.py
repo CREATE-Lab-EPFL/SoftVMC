@@ -8,7 +8,7 @@ Usage (from SoftVMC root):
     # from terminal 1 in SingleVMC folder
     cd ros2_dynamixel && colcon build && source install/setup.bash
     sudo echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
-    ros2 run dynamixel_interface dynamixel_node --ros-args -p baudrate:=1000000 -p motor_ids:=[1,2,3] -p control_mode:=torque
+    ros2 run dynamixel_interface dynamixel_node --ros-args -p baudrate:=1000000 -p motor_ids:=[1,2,3] -p control_mode:=torque -p use_kt:=true -p kt:=0.000354
     
     # terminal 2 in SingleVMC folder
     export PYTHONPATH="${PYTHONPATH}:$(pwd)/SingleVMC"
@@ -59,18 +59,18 @@ waypoint_index = 0
 stable_count   = -50             # negative to allow some initial settling time before the first switch
 STABLE_STEPS   = 50              # must be stable for this many steps before switching
 MOTOR_STOPPED_THRESHOLD = 0.2    # [rad/s] if motor velocity below this, consider it stopped
-TAU_LIMIT      = 0.1             # [N·m] Safety limit for torques 
+TAU_LIMIT      = 0.3             # [N·m] Safety limit for torques
 
 # ------------------- VMC Springs and Dampers ------------------ 
 
-# Springs 
-lin_spring   = LinearSpring(400.0)       # spring const [N/m] 
-tahn_spring  = TanhSpring(200.0, 1.5)    # spring const [N/m],  max force [N] 
-gauss_spring = GaussianSpring(800, 0.03) # force amplitude [N], sigma [m]
+# Springs
+lin_spring   = LinearSpring(1200.0)       # spring const [N/m]
+tahn_spring  = TanhSpring(600.0, 4.5)     # spring const [N/m],  max force [N]
+gauss_spring = GaussianSpring(2400, 0.03) # force amplitude [N], sigma [m]
 
 # Dampers
-lin_damper  = LinearDamper(1.0)      # damping const [N·s/m] 
-tahn_damper = TanhDamper(1.0, 1.5)   # damping const [N·s/m], max force [N]
+lin_damper  = LinearDamper(3.0)      # damping const [N·s/m]
+tahn_damper = TanhDamper(3.0, 4.5)   # damping const [N·s/m], max force [N]
 
 # vmc_ee = VMC_Single_EE(lin_spring, lin_damper) # VMC_EE DEPRICATED USE VMC WITH S PARAM = 1.0 instead
 vmc = VMC_Single(lin_spring, lin_damper, s_param=1.0)

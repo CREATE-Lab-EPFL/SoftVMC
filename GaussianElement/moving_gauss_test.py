@@ -25,13 +25,13 @@ from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 import numpy as np
 
-from MultiVMC.plots.moving_gauss.GUI_MultiVMC_Config import DEFAULT_START, N_VC, DAMPER_PARAM_INIT
+from GUI_MultiVMC_Config import DEFAULT_START, N_VC, DAMPER_PARAM_INIT
 
 # ── Test parameters ────────────────────────────────────────────────────────────
 CTRL_HZ        = 10.0    # [Hz]  timer rate
 
-K_LIN          = 5.0     # linear spring stiffness
-K_GAUSS        = 400.0   # gaussian strength once enabled
+K_LIN          = 15.0    # linear spring stiffness
+K_GAUSS        = 1200.0  # gaussian strength once enabled
 
 GAUSS_FAR_X    = -0.40   # [m] far start position (strength disabled here)
 CIRCLE_X       = -0.10   # [m] x entry point for circle

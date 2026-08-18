@@ -36,8 +36,8 @@ import numpy as np
 from GUI_MultiVMC_Config import DEFAULT_START, DAMPER_PARAM_INIT, SPRING_PARAM_INIT
 
 # ── Test parameters ────────────────────────────────────────────────────────────
-K_TEST     = 30.0    # stiffness for main jumps [N/m]
-K_RETURN   = 200.0   # stiffness to snap back to x=0 [N/m]
+K_TEST     = 90.0    # stiffness for main jumps [N/m]
+K_RETURN   = 600.0   # stiffness to snap back to x=0 [N/m]
 C_VALUES   = list(DAMPER_PARAM_INIT)
 
 CTRL_HZ     = 10.0    # timer rate [Hz]

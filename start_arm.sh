@@ -25,7 +25,7 @@ ros2 run dynamixel_interface dynamixel_node \
     -p motor_ids:=[11,12,13,14,15,16,17,18,19] \
     -p control_mode:=torque \
     -p use_kt:=true \
-    -p kt:=0.354 &
+    -p kt:=0.000354 &
 NODE_PID=$!
 
 echo ""

@@ -29,8 +29,8 @@ go_x_y        = np.array([0.2, 0.2,  0.3],        dtype=float)
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            spring=TanhSpring(50.0,5.0),
-            damper=LinearDamper(5.0),
+            spring=TanhSpring(150.0,15.0),
+            damper=LinearDamper(15.0),
             s_param=1.0,
             name="lin_seg3",
         ),
@@ -142,7 +142,7 @@ SYNCHRONIZED_ARRIVAL = False
 # ─────────────────────────────────────────────────────────────────────────────
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
-TAU_LIMIT  = 0.7   # [N·m] per motor
+TAU_LIMIT  = 2.1   # [N·m] per motor
 SAVE_PLOT           = True
 SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
 PLOT_Z              = True   # include z-axis subplot in saved plot

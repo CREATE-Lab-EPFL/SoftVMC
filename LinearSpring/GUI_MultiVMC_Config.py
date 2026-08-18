@@ -140,7 +140,7 @@ DEFAULT_START = np.array(
 # ─────────────────────────────────────────────────────────────────────────────
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
-TAU_LIMIT  = 0.7   # [N·m] per motor
+TAU_LIMIT  = 2.1   # [N·m] per motor
 SAVE_PLOT           = True
 SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
 PLOT_Z              = True   # include z-axis subplot in saved plot

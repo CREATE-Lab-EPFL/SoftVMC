@@ -28,8 +28,8 @@ gauss_y       = np.array([0.0, 0.15, 0.2],         dtype=float)
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            spring=LinearSpring(100.0),
-            damper=LinearDamper(5.0),
+            spring=LinearSpring(300.0),
+            damper=LinearDamper(15.0),
             s_param=1.0,
             name="lin_seg3",
         ),
@@ -92,8 +92,8 @@ COMPONENT_SPECS = [
             # Gaussian spring produces max force when sigma = delta_x so when initializing on the robot it could produce very large forces
             # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
             # once the reference is moved we can increase the strength to a nonzero force
-            spring=GaussianSpring(strength=0.0, sigma=0.06), 
-            damper=LinearDamper(5.0),
+            spring=GaussianSpring(strength=0.0, sigma=0.06),
+            damper=LinearDamper(15.0),
             s_param=1.0,
             name="gauss_seg3",
         ),
@@ -140,7 +140,7 @@ DEFAULT_START = np.array(
 # ─────────────────────────────────────────────────────────────────────────────
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
-TAU_LIMIT  = 0.4   # [N·m] per motor
+TAU_LIMIT  = 1.2   # [N·m] per motor
 SAVE_PLOT           = True
 SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
 PLOT_Z              = True   # include z-axis subplot in saved plot
