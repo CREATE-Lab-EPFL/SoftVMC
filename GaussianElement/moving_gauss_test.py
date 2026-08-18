@@ -12,9 +12,9 @@ Sequence:
   3. CIRCLING      : full circle, log every 90°, then stay (done)
 
 TERMINAL 2 (torque backend must already be running):
-    cd SoftVMC/MultiVMC
-    export PYTHONPATH="${PYTHONPATH}:$(pwd)"
-    python3 plots/moving_gauss/moving_gauss_test.py
+    cd GaussianElement
+    export PYTHONPATH="${PYTHONPATH}:$(pwd)/.."
+    python3 moving_gauss_test.py
 """
 
 import sys, os
