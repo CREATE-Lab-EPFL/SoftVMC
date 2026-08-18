@@ -1,6 +1,6 @@
-0. Run GUI_MultiVMC_Torque.py and ./ros2_run.sh
-1. Run moving_gauss_test.py with k = 5 
-2. Run moving_gauss_test.py with k = 50 
+0. Run GUI_MultiVMC_Torque.py and bash start_arm.sh
+1. Run moving_gauss_test.py with k = 15 
+2. Run moving_gauss_test.py with k = 150 
 
 use moving_gauss.ipynb to generate plots 
 
@@ -13,7 +13,7 @@ Configuration:
             # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
             # once the reference is moved we can increase the strength to a nonzero force
             spring=GaussianSpring(strength=0.0, sigma=0.06), 
-            damper=LinearDamper(5.0),
+            damper=LinearDamper(15.0),
             s_param=1.0,
             name="gauss_seg3",
         ),
