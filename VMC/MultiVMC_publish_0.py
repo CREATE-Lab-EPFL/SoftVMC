@@ -1,14 +1,13 @@
 """
-MutliVMC_publish_0.py
+MultiVMC_publish_0.py
 ─────────────────────
 Continuously publishes DEFAULT_START to /VC_ref_pos so the robot holds its
 home pose while you test external perturbances (e.g. via `ros2 topic pub`
 on /goal_torque).
 
-TERMINAL 2 (torque backend must already be running):
-    cd SoftVMC/MultiVMC
-    export PYTHONPATH="${PYTHONPATH}:$(pwd)"
-    python3 MutliVMC_publish_0.py
+TERMINAL 2 (torque backend must already be running, run from the experiment directory):
+    export PYTHONPATH="${PYTHONPATH}:$(pwd)/.."
+    python3 ../VMC/MultiVMC_publish_0.py
 """
 
 import sys, os
