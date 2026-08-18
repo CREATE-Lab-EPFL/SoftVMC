@@ -40,12 +40,18 @@ SoftVMC/
 │
 ├── SingleVMC/           1-segment VMC (reference / simulation only)
 ├── LoadCell/            Load cell interface utilities
+├── AdditionalMedia/     Raw setup photos/videos, organized by sub-experiment
+│                        (per-experiment media/ folders hold what each README embeds;
+│                        some of those are copies of files also here — see each
+│                        experiment's own README for whether that's the case)
 │
 ├── plot_config.mplstyle  Matplotlib style (LaTeX, NPG colors, 18 pt)
 ├── plot_config.py        Plotting helpers (COLORS, FIG_W_*, set_font_size)
 ├── start_arm.sh          Full startup script (home → latency → dynamixel_node)
 └── README.md            Project overview and setup
 ```
+
+Each experiment directory follows the same internal layout: `GUI_MultiVMC_Config*.py` (VMC config, one per sub-experiment variant), `outputs/<name>/` (recorded `.npz` runs + generated plots), `media/` (images embedded in that experiment's own README — not general documentation), and `plot_*.ipynb` (the analysis notebook(s) that turn `outputs/` into figures). See each experiment's own `README.md` for which notebook produces which output, and which config file is active by default.
 
 The ROS 2 Dynamixel driver is maintained in the sibling workspace:
 
@@ -119,12 +125,14 @@ All elements are in `VMC_utils/VirtualModels.py`.  See [VMC/VMC_DOCUMENTATION.md
 
 ## Plotting Style
 
-All notebooks use the shared NPG color palette and LaTeX rendering.  Import at the top of each notebook:
+All notebooks use the shared NPG color palette and LaTeX rendering, no grid lines by default, and every figure saves as both PDF and SVG automatically (patched into `Figure.savefig` by `plot_config.py`). Axes for magnitude-vs-parameter curves (force, energy, displacement — anywhere zero is a meaningful reference) are explicitly anchored at 0 rather than left to matplotlib's auto-padding; spatial/XY-trajectory and signed plots are not forced through zero. Import at the top of each notebook:
 
 ```python
 import sys; sys.path.insert(0, '..')
 from plot_config import COLORS, FIG_W_SINGLE, FIG_W_DOUBLE, set_font_size
-set_font_size(18)
+GRID = False
+FONT_SIZE = 18
+set_font_size(FONT_SIZE)
 ```
 
 ---

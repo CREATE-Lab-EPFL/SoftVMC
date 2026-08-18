@@ -4,10 +4,10 @@ Experiments with linear spring and linear damper virtual elements.
 
 ## Experiments
 
-| Subfolder | Description | Paper figure |
-|---|---|---|
-| `outputs/k_saturation/` | Sweep spring stiffness k; records position and torque saturation | Fig. 4 |
-| `outputs/disturbance_rejection/` | Step disturbance applied to end-effector; measures rejection bandwidth | Fig. 5 |
+| Subfolder | Description |
+|---|---|
+| `outputs/k_saturation/` | Sweep spring stiffness k; records position and torque saturation |
+| `outputs/disturbance_rejection/` | Step/impulse disturbance applied to end-effector; measures rejection (peak overshoot, settling time) |
 
 `outputs/k_saturation/` was built up across several runs of `VMC_test_k.py`
 with different `K_START`/`K_MAX`/`K_STEP` values edited in the script (the
