@@ -191,8 +191,8 @@ _damper_info = [_first_attr(c.damper, "c",  1.0) for c in VIRTUAL_COMPONENTS]
 
 SPRING_PARAM_NAMES  = [t[0] for t in _spring_info]   # e.g. ["k", "k"]
 DAMPER_PARAM_NAMES  = [t[0] for t in _damper_info]   # e.g. ["c", "c"]
-SPRING_PARAM_INIT   = [t[1] for t in _spring_info]   # e.g. [230.0, 230.0]
-DAMPER_PARAM_INIT   = [t[1] for t in _damper_info]   # e.g. [5.0, 5.0]
+SPRING_PARAM_INIT   = [t[1] for t in _spring_info]   # e.g. [690.0, 690.0]
+DAMPER_PARAM_INIT   = [t[1] for t in _damper_info]   # e.g. [15.0, 15.0]
 
 # ── Position-control graph ranges ─────────────────────────────────────────────
 XY_RANGE = (-0.6, 0.6)   # [m] both x and y axes
