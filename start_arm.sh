@@ -3,11 +3,15 @@
 # =======================
 # 1. Move all 9 arm motors to home position
 # 2. Set USB latency timer for maximum throughput
-# 3. Start dynamixel node: motors 11–19 in torque mode
+# 3. Launch the externally built Dynamixel node: motors 11–19 in torque mode
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROS2_DYNAMIXEL_WS="${ROS2_DYNAMIXEL_WS:-$HOME/github/ros2_dynamixel}"
+
+source /opt/ros/humble/setup.bash
+source "$ROS2_DYNAMIXEL_WS/install/setup.bash"
 
 echo "=== [1/3] Moving arm to home position ==="
 python3 "$SCRIPT_DIR/VMC/MultiGoHome.py"
@@ -15,12 +19,13 @@ python3 "$SCRIPT_DIR/VMC/MultiGoHome.py"
 echo "=== [2/3] Setting USB latency timer ==="
 sudo bash -c 'echo 1 > /sys/bus/usb-serial/devices/ttyUSB0/latency_timer'
 
-echo "=== [3/3] Building and launching dynamixel node (torque mode) ==="
-(cd "$SCRIPT_DIR/ros2_dynamixel" && colcon build && source install/setup.bash && \
- ros2 run dynamixel_interface dynamixel_node \
-     --ros-args -p baudrate:=1000000 \
-     -p motor_ids:=[11,12,13,14,15,16,17,18,19] \
-     -p control_mode:=torque) &
+echo "=== [3/3] Launching external dynamixel node (torque mode) ==="
+ros2 run dynamixel_interface dynamixel_node \
+    --ros-args -p baudrate:=1000000 \
+    -p motor_ids:=[11,12,13,14,15,16,17,18,19] \
+    -p control_mode:=torque \
+    -p use_kt:=true \
+    -p kt:=0.354 &
 NODE_PID=$!
 
 echo ""

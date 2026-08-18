@@ -4,6 +4,23 @@ Virtual Model Control (VMC) of a 3-segment soft continuum manipulator (Helyx).  
 
 > **Philosophy:** the robot receives *suggestions* rather than rigid commands, exploiting its inherent compliance to interact safely with the environment and adapt its posture through contact.
 
+## ROS 2 environment
+
+Use the external ROS 2 workspace that contains the Dynamixel package:
+
+```bash
+source /opt/ros/humble/setup.bash
+source "$HOME/github/ros2_dynamixel/install/setup.bash"
+```
+
+If the external package changed and needs rebuilding, do it there, not inside this repo:
+
+```bash
+cd "$HOME/github/ros2_dynamixel"
+colcon build --packages-select dynamixel_interface
+source install/setup.bash
+```
+
 ---
 
 ## Repository Structure
@@ -22,12 +39,18 @@ SoftVMC/
 ├── ButtonPressing/      Experiments: avoid / exploit / minimize (new, in progress)
 │
 ├── SingleVMC/           1-segment VMC (reference / simulation only)
-├── ros2_dynamixel/      ROS 2 Dynamixel driver package
 ├── LoadCell/            Load cell interface utilities
 │
 ├── plot_config.mplstyle  Matplotlib style (LaTeX, NPG colors, 18 pt)
 ├── plot_config.py        Plotting helpers (COLORS, FIG_W_*, set_font_size)
-└── start_arm.sh          Full startup script (home → latency → dynamixel_node)
+├── start_arm.sh          Full startup script (home → latency → dynamixel_node)
+└── README.md            Project overview and setup
+```
+
+The ROS 2 Dynamixel driver is maintained in the sibling workspace:
+
+```bash
+$HOME/github/ros2_dynamixel
 ```
 
 ---
@@ -40,12 +63,19 @@ SoftVMC/
 conda activate finger
 ```
 
-**ROS 2 driver** (build once):
+**ROS 2 driver** (build once in the external workspace):
 
 ```bash
-cd ros2_dynamixel
-colcon build
+cd "$HOME/github/ros2_dynamixel"
+colcon build --packages-select dynamixel_interface
 source install/setup.bash
+```
+
+The startup script launches the node with the current motor calibration:
+
+```bash
+-p use_kt:=true
+-p kt:=0.354
 ```
 
 ---
@@ -102,5 +132,5 @@ set_font_size(18)
 ## Notes
 
 - **ROS 2 version:** ROS 2 Humble (check `ros2_dynamixel` build if switching to Jazzy).
-- **Motor kT:** updated for the current Dynamixel series — verify `MOTOR_RADIUS` in `Kinematics/JacobiansMulti.py` if motors are replaced.
+- **Motor kT:** the node launches with `use_kt:=true` and `kt:=0.354` by default. This is the current motor calibration used by the external Dynamixel package.
 - **Latency timer:** set to 1 ms for real-time performance (`start_arm.sh` does this automatically).
