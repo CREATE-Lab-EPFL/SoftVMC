@@ -37,6 +37,7 @@ SoftVMC/
 ├── Kinematics/          FK and analytical Jacobians (PCC, 3 segments, 9 motors)
 ├── VMC/                 Core VMC controller + ROS 2 nodes (GUI, torque, go-home)
 ├── VMC_utils/           Shared building blocks (virtual models, gravity comp)
+├── ConnectivityTest/    Run this first: connect + move sanity check, nothing saved
 │
 ├── LinearSpring/        Experiments: k-saturation, disturbance rejection
 ├── TanhSpring/          Experiments: force-limited spring (sequential jump tests)
