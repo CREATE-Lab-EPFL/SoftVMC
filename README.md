@@ -100,7 +100,14 @@ The startup script launches the node with the current motor calibration:
 # 1. Start the arm (homes motors + starts ROS 2 driver)
 bash start_arm.sh
 
-# 2. From an experiment directory — pick up its VMC config automatically
+# 2. First time in a session, or after any change to the hardware/software
+#    chain: verify it actually works before trusting it with an experiment.
+#    Nothing is saved here.
+cd ConnectivityTest
+python3 ../VMC/GUI_MultiVMC_Torque.py &
+python3 ../VMC/MultiVMC_MovingGoal_Pub.py
+
+# 3. From an experiment directory — pick up its VMC config automatically
 cd LinearSpring
 python3 ../VMC/GUI_MultiVMC_Torque.py &   # torque computation node
 python3 ../VMC/GUI_MultiVMC.py            # visualization + control GUI
@@ -150,3 +157,4 @@ set_font_size(FONT_SIZE)
 - **ROS 2 version:** ROS 2 Humble (check `ros2_dynamixel` build if switching to Jazzy).
 - **Motor kT:** the node launches with `use_kt:=true` and `kt:=0.000354` by default. This is the current motor calibration used by the external Dynamixel package.
 - **Latency timer:** set to 1 ms for real-time performance (`start_arm.sh` does this automatically).
+- **`COLLECTED_DATA`:** every experiment config sets this flag (see `GUI_MultiVMC_Torque.py`). `True` means real data is already collected for that config — reruns (demos, sanity checks) will never overwrite it. Currently `True` everywhere except `ButtonPressing/`, which is still being recorded. `ConnectivityTest/` has no such flag since it never saves anything regardless.

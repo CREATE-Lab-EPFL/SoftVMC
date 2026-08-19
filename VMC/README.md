@@ -13,6 +13,8 @@ See [VMC_DOCUMENTATION.md](VMC_DOCUMENTATION.md) for the full architecture descr
 | `GUI_MultiVMC.py` | tkinter GUI + publisher |
 | `MultiGoHome.py` | Homing routine (run first) |
 | `MultiController.py` | Low-level PD motor controller |
+| `MultiVMC_MovingGoal_Pub.py` | Scripted alternative to `GUI_MultiVMC.py`: ramps `/VC_ref_pos` from `DEFAULT_START` to `DEFAULT_GOALS` (and back, if `LOOP_BACK=True`) using whichever config is active in the caller's directory — no dragging required. Used directly by `ConnectivityTest/`. |
+| `MultiVMC_publish_0.py` | Publishes a fixed `DEFAULT_START` so the arm holds home pose while testing external perturbations |
 
 ## Running
 
