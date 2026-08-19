@@ -145,6 +145,7 @@ SYNCHRONIZED_ARRIVAL = False
 TAU_LIMIT  = 2.1   # [N·m] per motor
 SAVE_PLOT           = True
 SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
+COLLECTED_DATA      = True  # real data already collected -- reruns will NOT overwrite it (see GUI_MultiVMC_Torque.py)
 PLOT_Z              = True   # include z-axis subplot in saved plot
 PLOT_FORCE          = False  # include /force_shear subplot in saved plot
 PLOT_VIRTUAL_FORCES = True  # if True, Cell 4 in the GUI shows virtual forces instead of motor torques
