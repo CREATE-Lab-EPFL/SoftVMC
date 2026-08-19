@@ -6,7 +6,14 @@ Virtual Model Control (VMC) of a 3-segment soft continuum manipulator (Helyx).  
 
 ## ROS 2 environment
 
-Use the external ROS 2 workspace that contains the Dynamixel package:
+Uses the external ROS 2 workspace that contains the Dynamixel package. Clone it once, alongside this repo:
+
+```bash
+cd "$HOME/github"
+git clone git@github.com:CREATE-Lab-EPFL/ros2_dynamixel.git
+```
+
+Then, for every session:
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -69,7 +76,7 @@ $HOME/github/ros2_dynamixel
 conda activate finger
 ```
 
-**ROS 2 driver** (build once in the external workspace):
+**ROS 2 driver** (clone once — see "ROS 2 environment" above — then build once in the external workspace):
 
 ```bash
 cd "$HOME/github/ros2_dynamixel"
