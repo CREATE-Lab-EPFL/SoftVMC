@@ -18,10 +18,17 @@ button_pos, tau = J1^T@F1 + J2^T@F2:
                    max_force, so that value IS the calibrated full-contact
                    force target (bounded/safe regardless of the Gaussian below).
     gauss_repel  — GaussianSpring: repels the tip away from button_pos. Sweeping
-                   its strength (live, via the GUI slider) from 0 (full contact,
-                   press's max_force is felt directly) up to a value that fully
-                   cancels the approach (no contact) produces the force family
-                   for Fig 9 -- e.g. 4 runs: no-contact / middle / middle / contact.
+                   its strength from 0 (full contact, press's max_force is felt
+                   directly) up to a value that fully cancels the approach
+                   (no contact) produces the force family for Fig 9 -- e.g. 4
+                   runs: no-contact / middle / middle / contact.
+
+NOTE on what is actually live-tunable: GUI_MultiVMC_Torque.py's /VC_Param
+handler only setattr()s each spring's FIRST constructor argument (see
+_first_attr below). That means press.stiffness and gauss_repel.strength
+ARE live/GUI-slider-tunable at runtime, but press.max_force and
+gauss_repel.sigma are NOT -- those two only change by editing the
+constructor calls below and restarting the torque node.
 
 Both components' goals must stay coincident at button_pos in the GUI (each has
 its own draggable marker) -- only the gauss_repel strength slider should move
@@ -41,9 +48,9 @@ button_pos = np.array([0.05, 0.0, 0.38], dtype=float)  # measured on the real ro
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            # UNTESTED placeholder stiffness/max_force -- start low and raise live
-            # via the GUI while watching /force_shear; max_force becomes the
-            # reported full-contact force target once calibrated.
+            # UNTESTED placeholders. stiffness is live/GUI-tunable -- start low
+            # and raise while watching /force_shear. max_force is NOT live --
+            # edit it here and restart once you know the target contact force.
             spring=TanhSpring(stiffness=20.0, max_force=1.0),
             damper=LinearDamper(0.5),
             s_param=1.0,

@@ -412,7 +412,7 @@ class VMCTorqueNode(Node):
                 goal         = goal_3d,         # (n, N_VC, 3) [m]  reference
                 comp_pos     = comp_pos_3d,     # (n, N_VC, 3) [m]  FK actual
                 # ── force ─────────────────────────────────────────────────────
-                force        = force_arr,       # (n,)        [N]   shear
+                force        = force_arr,       # (n,)        [g]   shear, raw load-cell units -- multiply by 9.80665e-3 for N (see LinearSpring/plot_k_saturation.ipynb)
                 f_virtual    = f_virtual_arr,   # (n, 3)      [N]   task-space virtual force
                 k_params     = k_arr,           # (n, N_VC)   spring param per component over time
                 q_motor      = q_arr,           # (n, 9)      [rad] joint positions
