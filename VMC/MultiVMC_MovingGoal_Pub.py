@@ -1,3 +1,12 @@
+import sys, os
+# Prepend the caller's cwd (not this script's own directory) so that running
+# `python3 ../VMC/MultiVMC_MovingGoal_Pub.py` from inside an experiment folder
+# picks up THAT folder's GUI_MultiVMC_Config.py, not VMC/GUI_MultiVMC_Config.py
+# (same fix as GUI_MultiVMC_Torque.py -- this script previously had no such
+# handling and would silently load VMC/'s own config when run cross-directory).
+_CWD = os.getcwd()
+sys.path.insert(0, _CWD)
+
 import numpy as np
 import rclpy
 from rclpy.node import Node
@@ -14,8 +23,9 @@ from GUI_MultiVMC_Config import (
     MOVING_GOAL,
 )
 
-# TERMINAL 3 (ONLY AFTER running GUI_MultiVMC_Torque.py)
-# python3 MultiVMC_MovingGoal_Pub.py
+# TERMINAL 3 (ONLY AFTER running GUI_MultiVMC_Torque.py, from the SAME
+# experiment directory)
+# python3 ../VMC/MultiVMC_MovingGoal_Pub.py
 
 class MultiGoalPublisher(Node):
     """
