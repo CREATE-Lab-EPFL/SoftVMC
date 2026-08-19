@@ -68,6 +68,13 @@ from GUI_MultiVMC_Config import (
     PRETENSION_THRESHOLD,
     PRETENSION_ENABLED,
 )
+try:
+    # True = real data already collected for this config -- never let a rerun
+    # (demo, sanity check, accidental restart) overwrite it. Configs that don't
+    # define it (e.g. connectivity-test folders) behave as before: False.
+    from GUI_MultiVMC_Config import COLLECTED_DATA
+except ImportError:
+    COLLECTED_DATA = False
 
 # ── Perturbance config ─────────────────────────────────────────────────────────
 PERTURB_ENABLED      = True               # master switch
@@ -499,8 +506,11 @@ def main():
         except Exception as e:
             print(f"[WARN] rclpy.shutdown: {e}")
 
-        if SAVE_PLOT:
+        if SAVE_PLOT and not COLLECTED_DATA:
             node.save_plot()
+        elif COLLECTED_DATA:
+            print("[INFO] COLLECTED_DATA=True -- not saving (data already collected; "
+                  "set COLLECTED_DATA=False in GUI_MultiVMC_Config.py to record a new run).")
 
 
 if __name__ == "__main__":
