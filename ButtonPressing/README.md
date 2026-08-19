@@ -51,7 +51,16 @@ applies as the safety bound regardless.
 | `_press_repel_driver.py` | Shared headless ROS 2 driver (approach → ramp gauss strength → hold state machine) used by both scripts below. Not run directly. |
 | `button_pressing.py` | Fig 9 entry point — hardcoded target (`button_pos`), `--gauss-strength` required per run. |
 | `person_avoiding.py` | Fig 10 entry point — hardcoded/placeholder `PERSON_TARGET` (override with `--target X Y Z`), `--gauss-strength` required per run, extra safety notes in its docstring. |
-| `plot_button_and_person.ipynb` | Single analysis notebook for both figures (not yet runnable — no data exists yet). |
+| `plot_button_and_person.ipynb` | Single analysis notebook for both figures — see below. Loading/plotting code is smoke-tested against synthetic fixtures (correct shapes, renders cleanly) but **has not seen real data yet**. |
+
+## Notebook
+
+`plot_button_and_person.ipynb` makes exactly two figures for Fig 9 (Fig 10 stays photo/video-only, no plot):
+
+| Figure | Shows |
+|---|---|
+| `fig9_force_vs_time.pdf` | Contact force (N) vs. time, all 4 sweep conditions overlaid — the paper's required quantitative result. |
+| `fig9_pose.pdf` | FK backbone (X-Z) at steady state per condition, plus the button position — shows spatially how far the tip is held back as `gauss_repel` strength increases. |
 
 ## Running
 
