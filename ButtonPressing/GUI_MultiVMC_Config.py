@@ -12,11 +12,20 @@ from VMC_utils.VirtualModels import (
 Config for button-pressing VMC experiments — shared by GUI_MultiVMC_Torque.py
 and GUI_MultiVMC.py.
 
-Three interaction strategies (edit COMPONENT_SPECS below to switch):
-    avoid    — GaussianSpring: end-effector is repelled from the button
-    exploit  — LinearSpring:   end-effector presses into the button with a
-                                calibrated, unbounded force
-    minimize — TanhSpring:     light contact, force saturates at F_max
+Two components summed at the same body point (s_param=1.0), both targeting
+button_pos, tau = J1^T@F1 + J2^T@F2:
+    press        — TanhSpring: drives the tip into the button; saturates at
+                   max_force, so that value IS the calibrated full-contact
+                   force target (bounded/safe regardless of the Gaussian below).
+    gauss_repel  — GaussianSpring: repels the tip away from button_pos. Sweeping
+                   its strength (live, via the GUI slider) from 0 (full contact,
+                   press's max_force is felt directly) up to a value that fully
+                   cancels the approach (no contact) produces the force family
+                   for Fig 9 -- e.g. 4 runs: no-contact / middle / middle / contact.
+
+Both components' goals must stay coincident at button_pos in the GUI (each has
+its own draggable marker) -- only the gauss_repel strength slider should move
+between runs, not either goal marker.
 
 REQUIREMENT: len(COMPONENT_SPECS) == number of virtual components == number of goals.
 """
@@ -27,9 +36,21 @@ REQUIREMENT: len(COMPONENT_SPECS) == number of virtual components == number of g
 button_pos = np.array([0.05, 0.0, 0.38], dtype=float)  # measured on the real robot
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Virtual Components + Goals — currently set to the "avoid" scenario
+# Virtual Components + Goals
 # ─────────────────────────────────────────────────────────────────────────────
 COMPONENT_SPECS = [
+    dict(
+        component=VirtualComponent(
+            # UNTESTED placeholder stiffness/max_force -- start low and raise live
+            # via the GUI while watching /force_shear; max_force becomes the
+            # reported full-contact force target once calibrated.
+            spring=TanhSpring(stiffness=20.0, max_force=1.0),
+            damper=LinearDamper(0.5),
+            s_param=1.0,
+            name="press",
+        ),
+        goal=button_pos,  # GUI OVERRIDES THIS GOAL --- IGNORE ---
+    ),
     dict(
         component=VirtualComponent(
             # GaussianSpring produces max force when sigma == delta_x, so it can
@@ -42,24 +63,6 @@ COMPONENT_SPECS = [
         ),
         goal=button_pos,  # GUI OVERRIDES THIS GOAL --- IGNORE ---
     ),
-    # dict(  # "exploit" scenario -- swap in place of the block above
-    #     component=VirtualComponent(
-    #         spring=LinearSpring(100.0),
-    #         damper=LinearDamper(5.0),
-    #         s_param=1.0,
-    #         name="lin_press",
-    #     ),
-    #     goal=button_pos,
-    # ),
-    # dict(  # "minimize" scenario -- swap in place of the block above
-    #     component=VirtualComponent(
-    #         spring=TanhSpring(stiffness=100.0, max_force=1.0),
-    #         damper=LinearDamper(0.5),
-    #         s_param=1.0,
-    #         name="tanh_light_contact",
-    #     ),
-    #     goal=button_pos,
-    # ),
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
