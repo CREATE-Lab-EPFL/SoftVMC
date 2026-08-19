@@ -31,9 +31,6 @@ lock those numbers into the commands above for the recorded/reported runs.
 """
 
 import argparse
-import sys, os
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from GUI_MultiVMC_Config import button_pos
 from _press_repel_driver import run_press_repel
