@@ -13,7 +13,7 @@ Configuration:
             # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
             # once the reference is moved we can increase the strength to a nonzero force
             spring=GaussianSpring(strength=0.0, sigma=0.06), 
-            damper=LinearDamper(5.0),
+            damper=LinearDamper(1.5),
             s_param=1.0,
             name="gauss_seg3",
         ),

@@ -11,10 +11,10 @@ dict(
         component=VirtualComponent(
             # Gaussian spring produces max force when sigma = delta_x so when initializing on the robot it could produce very large forces
             # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
-            # once the reference is moved we can increase the strength to a nonzero force Typically stregnth = 400 is quite good
+            # once the reference is moved we can increase the strength to a nonzero force Typically stregnth = 130 is quite good
             # the max force produced by the gauss spring is when delta_x = sigma 
             spring=GaussianSpring(strength=0.0, sigma=0.06), 
-            damper=LinearDamper(5.0),
+            damper=LinearDamper(1.5),
             s_param=1.0 / 3.0,
             name="gauss_seg1",
         ),
@@ -26,7 +26,7 @@ dict(
             # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
             # once the reference is moved we can increase the strength to a nonzero force
             spring=GaussianSpring(strength=0.0, sigma=0.06), 
-            damper=LinearDamper(5.0),
+            damper=LinearDamper(1.5),
             s_param=2.0 / 3.0,
             name="gauss_seg2",
         ),

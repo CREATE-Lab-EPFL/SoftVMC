@@ -59,18 +59,18 @@ waypoint_index = 0
 stable_count   = -50             # negative to allow some initial settling time before the first switch
 STABLE_STEPS   = 50              # must be stable for this many steps before switching
 MOTOR_STOPPED_THRESHOLD = 0.2    # [rad/s] if motor velocity below this, consider it stopped
-TAU_LIMIT      = 0.1             # [N·m] Safety limit for torques
+TAU_LIMIT      = 0.03            # [N·m] Safety limit for torques
 
 # ------------------- VMC Springs and Dampers ------------------ 
 
 # Springs
-lin_spring   = LinearSpring(400.0)       # spring const [N/m]
-tahn_spring  = TanhSpring(200.0, 1.5)     # spring const [N/m],  max force [N]
-gauss_spring = GaussianSpring(800, 0.03) # force amplitude [N], sigma [m]
+lin_spring   = LinearSpring(130.0)       # spring const [N/m]
+tahn_spring  = TanhSpring(65.0, 0.5)     # spring const [N/m],  max force [N]
+gauss_spring = GaussianSpring(265, 0.03) # force amplitude [N], sigma [m]
 
 # Dampers
-lin_damper  = LinearDamper(1.0)      # damping const [N·s/m]
-tahn_damper = TanhDamper(1.0, 1.5)   # damping const [N·s/m], max force [N]
+lin_damper  = LinearDamper(0.33)     # damping const [N·s/m]
+tahn_damper = TanhDamper(0.33, 0.5)   # damping const [N·s/m], max force [N]
 
 # vmc_ee = VMC_Single_EE(lin_spring, lin_damper) # VMC_EE DEPRICATED USE VMC WITH S PARAM = 1.0 instead
 vmc = VMC_Single(lin_spring, lin_damper, s_param=1.0)
