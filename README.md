@@ -49,9 +49,8 @@ SoftVMC/
 ├── SingleVMC/           1-segment VMC (reference / simulation only)
 ├── LoadCell/            Load cell interface utilities
 ├── AdditionalMedia/     Raw setup photos/videos, organized by sub-experiment
-│                        (per-experiment media/ folders hold what each README embeds;
-│                        some of those are copies of files also here — see each
-│                        experiment's own README for whether that's the case)
+│                        (per-experiment media/ folders hold setup imagery only;
+│                        generated graphs always live in that experiment's outputs/)
 │
 ├── plot_config.mplstyle  Matplotlib style (LaTeX, NPG colors, 18 pt)
 ├── plot_config.py        Plotting helpers (COLORS, FIG_W_*, set_font_size)
@@ -59,7 +58,7 @@ SoftVMC/
 └── README.md            Project overview and setup
 ```
 
-Each experiment directory follows the same internal layout: `GUI_MultiVMC_Config*.py` (VMC config, one per sub-experiment variant), `outputs/<name>/` (recorded `.npz` runs + generated plots), `media/` (images embedded in that experiment's own README — not general documentation), and `plot_*.ipynb` (the analysis notebook(s) that turn `outputs/` into figures). See each experiment's own `README.md` for which notebook produces which output, and which config file is active by default.
+Each experiment directory follows the same internal layout: `GUI_MultiVMC_Config*.py` (VMC config, one per sub-experiment variant), `outputs/<name>/` (recorded `.npz` runs + generated plots), `media/` (setup photos and screenshots only — **never** generated graphs, which belong in `outputs/`), and `plot_*.ipynb` (the analysis notebook(s) that turn `outputs/` into figures). See each experiment's own `README.md` for which notebook produces which output, and which config file is active by default.
 
 The ROS 2 Dynamixel driver is maintained in the sibling workspace:
 

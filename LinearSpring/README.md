@@ -14,7 +14,7 @@ with different `K_START`/`K_MAX`/`K_STEP` values edited in the script (the
 saved filenames encode the original range, e.g. `k2_18.npz` spans 1.7–18.3 N/m in steps of
 0.7, `k20_35.npz`, `k7_100_big.npz`). `plot_k_saturation.ipynb` combines the
 saved runs. `outputs/disturbance_rejection/` holds a similar pattern:
-`disturbance_k3_100.npz` (main sweep) plus `disturbance_k13_17.npz`
+`disturbance_k3_100.npz` (main sweep) plus `disturbance_k13_20.npz`
 (re-run for two stiffness values).
 
 ## Scripts
