@@ -2,7 +2,7 @@
 Sequential_jump_tests.py
 ─────────────────────────
 Test tanh spring saturation with a rectangular reference profile.
-For k=90, instantaneously jump x to progressively larger displacements
+For k=30, instantaneously jump x to progressively larger displacements
 (-5cm, -10cm, ..., -30cm), HOLD at each, then jump back to x=0 (with high
 k=600) and HOLD, before jumping to the next deeper target.
 
