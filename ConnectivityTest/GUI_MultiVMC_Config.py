@@ -3,27 +3,41 @@ from MultiVMCTaskSpace import VirtualComponent
 
 import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from VMC_utils.VirtualModels import LinearDamper, LinearSpring
+from VMC_utils.VirtualModels import ConstrainedLinearSpring, LinearDamper
 
 """
 Config for the connectivity sanity check — shared by GUI_MultiVMC_Torque.py
-and MultiVMC_MovingGoal_Pub.py (or GUI_MultiVMC.py, if you'd rather drag the
-goal by hand). Purpose: confirm the hardware/software chain works end to end
--- motors respond, kinematics look right, no crashes -- BEFORE trusting it
-for any real experiment. Not tied to any paper figure. Nothing is ever saved
+and GUI_MultiVMC.py (drag the goal by hand) or MultiVMC_MovingGoal_Pub.py
+(scripted). Purpose: confirm the hardware/software chain works end to end --
+motors respond, kinematics look right, no crashes -- BEFORE trusting it for
+any real experiment. Not tied to any paper figure. Nothing is ever saved
 (SAVE_PLOT/SAVE_DATA=False below), so there's no COLLECTED_DATA flag here --
 see the other experiment folders' configs for that.
 
-One component, gentle stiffness, small/safe motion -- edit TEST_GOAL freely,
-it isn't measured against anything physical.
+The single component below, its goal, TAU_LIMIT, and the slider ranges are
+copied EXACTLY from VMC/GUI_MultiVMC_Config.py's own "lin_seg3" component --
+not reinvented. That file is this arm's actual proven-working reference
+config (student's own setup), and its current values (k=90, c=15,
+TAU_LIMIT=2.1) are already correctly adapted for the current kt=0.000354
+calibration -- confirmed by git history: commit 017a76c (7 min after the kt
+fix in dc29273) changed k 30->90, c 5->15, TAU_LIMIT 0.7->2.1, a matched x3
+scale-up of exactly these three values together (not kt itself, which
+changed x1000 for an unrelated reason). Cross-checked against the
+`backup-today-backup` branch, captured earlier the same day before either
+fix: it still shows k=30, c=5, TAU_LIMIT=0.7 there, confirming 90/15/2.1 is
+the corrected, current, working state -- not a guess.
+
+An earlier version of this file used untested placeholder values (k=40, c=3,
+TAU_LIMIT=1.0) which caused visible oscillation on real hardware -- replaced
+with the values above for exactly that reason.
 
 REQUIREMENT: len(COMPONENT_SPECS) == number of virtual components == number of goals.
 """
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Reference positions
+# Reference positions -- identical to VMC/GUI_MultiVMC_Config.py's go_x_y
 # ─────────────────────────────────────────────────────────────────────────────
-TEST_GOAL = np.array([0.03, 0.03, 0.40], dtype=float)  # small, safe nudge -- edit freely
+go_x_y = np.array([0.2, 0.2, 0.3], dtype=float)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Virtual Components + Goals
@@ -31,17 +45,14 @@ TEST_GOAL = np.array([0.03, 0.03, 0.40], dtype=float)  # small, safe nudge -- ed
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            # k=20, c=15 -- matches the damping VMC/GUI_MultiVMC_Config.py's own
-            # lin_seg3 component uses (proven on this arm). Original placeholders
-            # here (k=40, c=3) were untested and underdamped -- caused visible
-            # oscillation on real hardware, compounded by TAU_LIMIT=1.0 clipping
-            # the command and stripping out the damping term when it mattered most.
-            spring=LinearSpring(20.0),
+            # Constrained to X only, exactly like VMC/GUI_MultiVMC_Config.py's
+            # lin_seg3 -- the spring force ignores the goal's Y/Z components.
+            spring=ConstrainedLinearSpring(90.0, n=np.array([[1], [0], [0]])),
             damper=LinearDamper(15.0),
             s_param=1.0,
             name="test",
         ),
-        goal=TEST_GOAL,  # GUI OVERRIDES THIS GOAL --- IGNORE ---
+        goal=go_x_y,  # GUI OVERRIDES THIS GOAL --- IGNORE ---
     ),
 ]
 
@@ -71,6 +82,7 @@ DEFAULT_START = np.array(
 # ─────────────────────────────────────────────────────────────────────────────
 # MultiVMC_MovingGoal_Pub.py config -- moves DEFAULT_START -> DEFAULT_GOALS and
 # (with LOOP_BACK) back again, continuously, so you can just watch it track.
+# Only used if you run that script instead of GUI_MultiVMC.py.
 # ─────────────────────────────────────────────────────────────────────────────
 STEPS_M              = 0.001   # [m] per step (0.001 m / 0.1 s = 0.01 m/s)
 PUBLISH_PERIOD        = 0.1    # [s] 10 Hz
@@ -79,9 +91,9 @@ MOVING_GOAL           = True
 SYNCHRONIZED_ARRIVAL  = False  # irrelevant with a single component
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Subscriber / Controller Config
+# Subscriber / Controller Config -- matches VMC/GUI_MultiVMC_Config.py exactly
 # ─────────────────────────────────────────────────────────────────────────────
-TAU_LIMIT           = 1.0   # [N·m] per motor -- conservative, this is just a motion check
+TAU_LIMIT           = 2.1   # [N·m] per motor
 SAVE_PLOT           = False  # never save anything from this folder
 SAVE_DATA           = False
 PLOT_Z              = True
@@ -119,9 +131,9 @@ DAMPER_PARAM_NAMES = [t[0] for t in _damper_info]
 SPRING_PARAM_INIT  = [t[1] for t in _spring_info]
 DAMPER_PARAM_INIT  = [t[1] for t in _damper_info]
 
-# ── Position-control graph ranges ─────────────────────────────────────────────
-XY_RANGE = (-0.15, 0.15)   # [m] both x and y axes
-Z_RANGE  = (0.2, 0.55)     # [m] z slider range
+# ── Position-control graph ranges -- matches VMC/GUI_MultiVMC_Config.py ───────
+XY_RANGE = (-0.6, 0.6)   # [m] both x and y axes
+Z_RANGE  = (0.0, 0.45)   # [m] z slider range
 
 # ── Torque-plot rolling window ─────────────────────────────────────────────────
 TAU_PLOT_WINDOW = 10.0     # [s] how many seconds are visible in the live torque chart
