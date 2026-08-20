@@ -1,6 +1,6 @@
 0. Run GUI_MultiVMC_Torque.py and bash start_arm.sh
-1. Run moving_gauss_test.py with k = 15 
-2. Run moving_gauss_test.py with k = 150 
+1. Run moving_gauss_test.py with k = 1.7 
+2. Run moving_gauss_test.py with k = 16.7 
 
 use moving_gauss.ipynb to generate plots 
 

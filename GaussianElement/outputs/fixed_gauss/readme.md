@@ -1,7 +1,7 @@
 Run the GUI interface:
 0. Run GUI_MultiVMC_Torque.py and bash start_arm.sh and GUI_MultiVMC.py
 1. put gauss_seg1 and gauss_seg2 to x = -17cm
-2. set lin_seg3 = 90 (stiffness), gauss_seg1 = 2100 , gauss_seg2 = 1800 (strength)
+2. set lin_seg3 = 33 (stiffness), gauss_seg1 = 233 , gauss_seg2 = 200 (strength)
 3. Select lin_seg3 and move it to x = -50cm 
 4. Once reached steady state, set gauss_seg1 and gauss_seg2 = 0 (strength)
 

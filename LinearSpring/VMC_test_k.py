@@ -23,10 +23,10 @@ import numpy as np
 from GUI_MultiVMC_Config import DEFAULT_START, N_VC, DAMPER_PARAM_INIT, SPRING_PARAM_INIT
 
 # ── Test parameters ────────────────────────────────────────────────────────────
-K_START    = 1.5     # first stiffness value [N/m]
-K_MAX      = 18      # last stiffness value  [N/m]
+K_START    = 1.7     # first stiffness value [N/m]
+K_MAX      = 18.3    # last stiffness value  [N/m]
 K_STEP     = 0.7     # stiffness increment per cycle
-K_RETURN   = 65.0    # stiffness used to snap back to x=0
+K_RETURN   = 66.7    # stiffness used to snap back to x=0
 C_VALUES   = list(DAMPER_PARAM_INIT)
 
 CTRL_HZ    = 10.0    # timer rate [Hz]
