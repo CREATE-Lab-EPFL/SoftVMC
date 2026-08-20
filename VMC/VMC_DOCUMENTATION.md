@@ -107,7 +107,7 @@ On exit, the torque node saves a timestamped `.npz` + `.png` snapshot into an
 | `GUI_MultiVMC.py` | tkinter GUI + ROS 2 bridge |
 | `GUI_MultiVMC_Torque.py` | Main torque computation node |
 | `GUI_MultiVMC_Noisy_Torque.py` | Torque node with configurable sensor noise injection |
-| `MultiVMC_MovingGoal_Pub.py` | Ramps `/VC_ref_pos` step-by-step from `DEFAULT_START` to `DEFAULT_GOALS` (and back, if `LOOP_BACK=True`) — not a sinusoid |
+| `MultiVMC_MovingGoal_Pub.py` | Ramps `/VC_ref_pos` step-by-step from `DEFAULT_START` to `DEFAULT_GOALS` (and back, if `LOOP_BACK=True`) |
 | `MultiVMC_publish_0.py` | Publishes zero reference (park position) |
 | `read_npz.py` | Quick CLI viewer for saved `.npz` experiment files |
 
