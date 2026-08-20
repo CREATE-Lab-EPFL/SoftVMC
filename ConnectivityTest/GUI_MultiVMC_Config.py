@@ -52,7 +52,12 @@ COMPONENT_SPECS = [
             # stiffness=0.0: spring starts fully inert (no active drive, cannot
             # oscillate) -- raise it live via the GUI slider once connected.
             spring=ConstrainedLinearSpring(0.0, n=np.array([[1], [0], [0]])),
-            damper=LinearDamper(15.0),  # pure damping only -- dissipates, cannot destabilize
+            # c=1.0, not 15 -- confirmed on real hardware that c=15 itself was
+            # the source of the oscillation (likely noisy velocity feedback
+            # amplified by a high damping gain into a jittery current command,
+            # worse post-kt-fix since current is far more sensitive to torque
+            # now). Raise cautiously from here if more damping is ever needed.
+            damper=LinearDamper(1.0),
             s_param=1.0,
             name="test",
         ),
