@@ -29,12 +29,15 @@ go_x_y        = np.array([0.2, 0.2,  0.3],        dtype=float)
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            spring=ConstrainedLinearSpring(90.0,n=np.array([[1], [0], [0]])),
-            # c=1.0, not 15 -- confirmed on real hardware (2026-08-20) that
-            # c=15 causes oscillation, likely noisy velocity feedback
-            # amplified by a high damping gain into a jittery current command
-            # via dynamixel_node's current = torque / kt conversion. Raise
-            # cautiously and only while watching real behavior.
+            # k=15, c=1 -- not the original k=90, c=15. Both caused visible
+            # oscillation on real hardware (2026-08-20). Rederived from
+            # BimanualHelyxVMC's tip segment (k=45, c=2, stable for ~2 months
+            # against its hardcoded kt=0.00115), divided by ~3.25 to account
+            # for SoftVMC's kt=0.000354 being that much smaller -- current[mA]
+            # = torque/kt in dynamixel_node.cpp, no clamp, so a smaller kt
+            # delivers proportionally more actual torque for the same k/c.
+            # See ConnectivityTest/GUI_MultiVMC_Config.py for the full derivation.
+            spring=ConstrainedLinearSpring(15.0,n=np.array([[1], [0], [0]])),
             damper=LinearDamper(1.0),
             s_param=1.0,
             name="lin_seg3",

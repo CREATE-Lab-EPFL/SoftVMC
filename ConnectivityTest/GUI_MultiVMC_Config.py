@@ -14,24 +14,24 @@ any real experiment. Not tied to any paper figure. Nothing is ever saved
 (SAVE_PLOT/SAVE_DATA=False below), so there's no COLLECTED_DATA flag here --
 see the other experiment folders' configs for that.
 
-RETRACTED: an earlier version of this comment claimed k=90/c=15/TAU_LIMIT=2.1
-(copied from VMC/GUI_MultiVMC_Config.py's "lin_seg3", via a x3 change in
-commit 017a76c) were "confirmed" correctly adapted for kt=0.000354. That was
-wrong -- it inferred causation from a 7-minute timing gap next to the kt fix,
-without verifying the actual torque->current relationship. Checked since:
-ros2_dynamixel's dynamixel_node.cpp computes current[mA] = torque[N*m] / kt
-and writes it straight to the motor's current register, no clamp. A x3 gain
-bump cannot meaningfully compensate a kt change of that pipeline's scale, so
-90/15/2.1 should NOT be trusted as pre-verified either -- both attempts
-caused visible oscillation on real hardware.
-
-Starting from k=0 instead (spring fully inert, arm holds under gravity comp
-alone -- cannot oscillate, there is no active position feedback to go
-unstable). Raise `stiffness` from 0 live via the GUI slider in small steps,
-watching for oscillation at each step, before adding damping or raising
-TAU_LIMIT back toward anything in VMC/GUI_MultiVMC_Config.py.
-kt=0.000354 itself is NOT in question here -- it was already verified in an
-earlier session; only these VMC-layer gains are unverified.
+k=15, c=1 below are NOT the VMC/GUI_MultiVMC_Config.py "lin_seg3" values
+(k=90, c=15) -- those caused visible oscillation on real hardware and should
+not be trusted; see that file's own history for why. These are instead
+derived from BimanualHelyxVMC (same XL330-M288 motors, same Helyx arm
+design), whose ControllerBimanual/VMC_Bimanual.py tip segment runs
+k=45, c=2 stably, hardcoded against kt=0.00115 -- confirmed unchanged across
+~2 months of active commits, so genuinely validated together, not stale.
+current[mA] = torque[N*m] / kt (confirmed directly in dynamixel_node.cpp,
+no clamp), so delivered torque for a fixed k/c scales with 1/kt. SoftVMC's
+kt=0.000354 is ~3.25x smaller than BimanualHelyxVMC's 0.00115, so the same
+k/c would deliver ~3.25x more actual torque here -- consistent with why
+90/15 oscillated. Dividing BimanualHelyxVMC's tip values by that same 3.25
+(k=45/3.25≈13.8, c=2/3.25≈0.62) and rounding gives k=15, c=1 -- also
+matching c=1 already confirmed stable on this arm independently.
+kt=0.000354 itself is NOT in question -- verified in an earlier session;
+only the k/c gains were the unverified part. Still: raise further live via
+the GUI, watching for oscillation, before trusting these beyond a sanity
+check, and before raising TAU_LIMIT back toward VMC/GUI_MultiVMC_Config.py.
 
 REQUIREMENT: len(COMPONENT_SPECS) == number of virtual components == number of goals.
 """
@@ -49,14 +49,9 @@ COMPONENT_SPECS = [
         component=VirtualComponent(
             # Constrained to X only, exactly like VMC/GUI_MultiVMC_Config.py's
             # lin_seg3 -- the spring force ignores the goal's Y/Z components.
-            # stiffness=0.0: spring starts fully inert (no active drive, cannot
-            # oscillate) -- raise it live via the GUI slider once connected.
-            spring=ConstrainedLinearSpring(0.0, n=np.array([[1], [0], [0]])),
-            # c=1.0, not 15 -- confirmed on real hardware that c=15 itself was
-            # the source of the oscillation (likely noisy velocity feedback
-            # amplified by a high damping gain into a jittery current command,
-            # worse post-kt-fix since current is far more sensitive to torque
-            # now). Raise cautiously from here if more damping is ever needed.
+            # k=15, c=1 -- BimanualHelyxVMC's tip values (k=45, c=2), divided
+            # by ~3.25 to account for SoftVMC's smaller kt -- see docstring.
+            spring=ConstrainedLinearSpring(15.0, n=np.array([[1], [0], [0]])),
             damper=LinearDamper(1.0),
             s_param=1.0,
             name="test",
