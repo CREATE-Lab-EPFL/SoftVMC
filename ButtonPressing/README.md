@@ -117,10 +117,7 @@ Saved `.npz` files go to `outputs/button_pressing/` and `outputs/person_avoiding
 something descriptive right after saving — e.g. `no_contact.npz` /
 `middle_1.npz` / `middle_2.npz` / `full_contact.npz` — so
 `plot_button_and_person.ipynb` can find them by name. The `force` field is the
-raw load-cell reading in **grams**; multiply by `9.80665e-3` to get Newtons
-(see `LinearSpring/plot_k_saturation.ipynb` for the verified precedent —
-`GUI_MultiVMC_Torque.py`'s own inline comment was wrong about this until it
-was corrected alongside this experiment).
+raw load-cell reading in **grams**; multiply by `9.80665e-3` to get Newtons.
 
 `GUI_MultiVMC_Config.py` has `COLLECTED_DATA = False` — the one exception in
 this repo, since real data hasn't been recorded here yet (see root
