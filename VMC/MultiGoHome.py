@@ -45,8 +45,8 @@ PROFILE_VELOCITY   = 40   # ~9 rpm (slow/safe)
 # --- HOME POSITION (ABSOLUTE ticks) -----------------------------------------
 # Update: put robot in desired home pose, run with --read, copy values here.
 HOME_POSITION = {
- 11: 3250,
- 12: 3750,
+ 11: 300,
+ 12: 3045,
  13: 2071,
  14: 2454,
  15: 2547,
