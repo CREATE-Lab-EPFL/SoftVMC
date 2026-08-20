@@ -31,8 +31,13 @@ TEST_GOAL = np.array([0.03, 0.03, 0.40], dtype=float)  # small, safe nudge -- ed
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            spring=LinearSpring(40.0),
-            damper=LinearDamper(3.0),
+            # k=20, c=15 -- matches the damping VMC/GUI_MultiVMC_Config.py's own
+            # lin_seg3 component uses (proven on this arm). Original placeholders
+            # here (k=40, c=3) were untested and underdamped -- caused visible
+            # oscillation on real hardware, compounded by TAU_LIMIT=1.0 clipping
+            # the command and stripping out the damping term when it mattered most.
+            spring=LinearSpring(20.0),
+            damper=LinearDamper(15.0),
             s_param=1.0,
             name="test",
         ),
