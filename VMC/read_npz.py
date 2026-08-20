@@ -70,7 +70,7 @@ def plot(d: dict, t_min: float = None, t_max: float = None,
     tau_grav = d["tau_grav"]     # (n, 9)
     goal     = d["goal"]         # (n, N_VC, 3)
     comp_pos = d["comp_pos"]     # (n, N_VC, 3)
-    force    = d["force"]        # (n,)
+    force    = d["force"] * 9.80665e-3  # (n,) -- raw load-cell reading is grams, convert to N
 
     has_vforce = "f_virtual" in d and PLOT_VFORCE
     f_virtual  = d["f_virtual"] if has_vforce else None   # (n, 3) or None

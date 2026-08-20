@@ -121,8 +121,13 @@ All motor commands are clamped to `±TAU_LIMIT` (set per-experiment in `GUI_Mult
 
 ## Saving and Loading Data
 
-The torque node saves on shutdown (key names as written by `np.savez_compressed`
-in `GUI_MultiVMC_Torque.py`):
+The torque node saves on shutdown, gated by two flags in `GUI_MultiVMC_Config.py`:
+`SAVE_PLOT`/`SAVE_DATA` (whether this config saves at all) and `COLLECTED_DATA`
+(`True` = real data already collected for this config -- skip saving even if
+`SAVE_PLOT` is `True`, so a rerun/demo/sanity-check can never overwrite it).
+When a save is skipped this way, the node prints `[INFO] COLLECTED_DATA=True --
+not saving` instead. Key names as written by `np.savez_compressed` in
+`GUI_MultiVMC_Torque.py`:
 
 ```
 z_<DD_HHMM>.npz
@@ -131,7 +136,8 @@ z_<DD_HHMM>.npz
     tau_grav      (n, 9)        [N·m]   gravity-compensation torque component
     goal          (n, N_VC, 3)  [m]     reference position per virtual component
     comp_pos      (n, N_VC, 3)  [m]     measured (FK) position per virtual component
-    force         (n,)          [N]     measured shear force (load cell, if wired)
+    force         (n,)          [g]     measured shear force, RAW load-cell units --
+                                          multiply by 9.80665e-3 for N (load cell if wired)
     f_virtual     (n, 3)        [N]     task-space virtual force
     k_params      (n, N_VC)             spring parameter per component over time
     q_motor       (n, 9)        [rad]   motor positions
