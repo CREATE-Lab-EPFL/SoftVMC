@@ -2,20 +2,20 @@
 read_npz.py  —  Recreate plots from a saved .npz data file.
 
 # Save a PNG next to the .npz
-python3 read_npz.py plots/k20_300_big.npz
+python3 read_npz.py plots/k7_100_big.npz
 
 # Open interactive window (pan/zoom)
-python3 read_npz.py plots/k20_300_big.npz --show
+python3 read_npz.py plots/k7_100_big.npz --show
 
 # Crop the plot to a time window (e.g. seconds 5-40)
-python3 read_npz.py plots/k20_300_big.npz --t 5 40
+python3 read_npz.py plots/k7_100_big.npz --t 5 40
 
 # Specify output PNG path explicitly
-python3 read_npz.py plots/k20_300_big.npz --out /tmp/my_plot.png
+python3 read_npz.py plots/k7_100_big.npz --out /tmp/my_plot.png
 
 # Crop to a time window and save a new .npz (e.g. seconds 5-40)
-python3 read_npz.py plots/k20_300_big.npz --n 5 40
-#   → writes plots/k20_300_big_t5-40.npz with only the samples in [5, 40] s
+python3 read_npz.py plots/k7_100_big.npz --n 5 40
+#   → writes plots/k7_100_big_t5-40.npz with only the samples in [5, 40] s
 #   → all time-indexed arrays are cropped; scalars (tau_limit, etc.) are kept
 """
 

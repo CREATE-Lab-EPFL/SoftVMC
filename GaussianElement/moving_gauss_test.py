@@ -30,8 +30,8 @@ from GUI_MultiVMC_Config import DEFAULT_START, N_VC, DAMPER_PARAM_INIT
 # ── Test parameters ────────────────────────────────────────────────────────────
 CTRL_HZ        = 10.0    # [Hz]  timer rate
 
-K_LIN          = 1.7     # linear spring stiffness
-K_GAUSS        = 133.3   # gaussian strength once enabled
+K_LIN          = 2.0     # linear spring stiffness
+K_GAUSS        = 140.0   # gaussian strength once enabled
 
 GAUSS_FAR_X    = -0.40   # [m] far start position (strength disabled here)
 CIRCLE_X       = -0.10   # [m] x entry point for circle

@@ -4,7 +4,7 @@ Sequential_jump_tests.py
 Test tanh spring saturation with a rectangular reference profile.
 For k=10, instantaneously jump x to progressively larger displacements
 (-5cm, -10cm, ..., -30cm), HOLD at each, then jump back to x=0 (with high
-k=66.7) and HOLD, before jumping to the next deeper target.
+k=70) and HOLD, before jumping to the next deeper target.
 
 Reference profile (everything is an instantaneous jump, no ramping):
 
@@ -37,7 +37,7 @@ from GUI_MultiVMC_Config import DEFAULT_START, DAMPER_PARAM_INIT, SPRING_PARAM_I
 
 # ── Test parameters ────────────────────────────────────────────────────────────
 K_TEST     = 10.0    # stiffness for main jumps [N/m]
-K_RETURN   = 66.7    # stiffness to snap back to x=0 [N/m]
+K_RETURN   = 70.0    # stiffness to snap back to x=0 [N/m]
 C_VALUES   = list(DAMPER_PARAM_INIT)
 
 CTRL_HZ     = 10.0    # timer rate [Hz]

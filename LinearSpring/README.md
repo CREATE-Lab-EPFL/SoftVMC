@@ -11,10 +11,10 @@ Experiments with linear spring and linear damper virtual elements.
 
 `outputs/k_saturation/` was built up across several runs of `VMC_test_k.py`
 with different `K_START`/`K_MAX`/`K_STEP` values edited in the script (the
-saved filenames encode the original range, e.g. `k5_55.npz` spans 1.7–18.3 N/m in steps of
-0.7, `k50_105.npz`, `k20_300_big.npz`). `plot_k_saturation.ipynb` combines the
+saved filenames encode the original range, e.g. `k2_18.npz` spans 1.7–18.3 N/m in steps of
+0.7, `k20_35.npz`, `k7_100_big.npz`). `plot_k_saturation.ipynb` combines the
 saved runs. `outputs/disturbance_rejection/` holds a similar pattern:
-`disturbance_k10_300.npz` (main sweep) plus `disturbance_k40_50.npz`
+`disturbance_k3_100.npz` (main sweep) plus `disturbance_k13_17.npz`
 (re-run for two stiffness values).
 
 ## Scripts
