@@ -14,22 +14,24 @@ any real experiment. Not tied to any paper figure. Nothing is ever saved
 (SAVE_PLOT/SAVE_DATA=False below), so there's no COLLECTED_DATA flag here --
 see the other experiment folders' configs for that.
 
-The single component below, its goal, TAU_LIMIT, and the slider ranges are
-copied EXACTLY from VMC/GUI_MultiVMC_Config.py's own "lin_seg3" component --
-not reinvented. That file is this arm's actual proven-working reference
-config (student's own setup), and its current values (k=90, c=15,
-TAU_LIMIT=2.1) are already correctly adapted for the current kt=0.000354
-calibration -- confirmed by git history: commit 017a76c (7 min after the kt
-fix in dc29273) changed k 30->90, c 5->15, TAU_LIMIT 0.7->2.1, a matched x3
-scale-up of exactly these three values together (not kt itself, which
-changed x1000 for an unrelated reason). Cross-checked against the
-`backup-today-backup` branch, captured earlier the same day before either
-fix: it still shows k=30, c=5, TAU_LIMIT=0.7 there, confirming 90/15/2.1 is
-the corrected, current, working state -- not a guess.
+RETRACTED: an earlier version of this comment claimed k=90/c=15/TAU_LIMIT=2.1
+(copied from VMC/GUI_MultiVMC_Config.py's "lin_seg3", via a x3 change in
+commit 017a76c) were "confirmed" correctly adapted for kt=0.000354. That was
+wrong -- it inferred causation from a 7-minute timing gap next to the kt fix,
+without verifying the actual torque->current relationship. Checked since:
+ros2_dynamixel's dynamixel_node.cpp computes current[mA] = torque[N*m] / kt
+and writes it straight to the motor's current register, no clamp. A x3 gain
+bump cannot meaningfully compensate a kt change of that pipeline's scale, so
+90/15/2.1 should NOT be trusted as pre-verified either -- both attempts
+caused visible oscillation on real hardware.
 
-An earlier version of this file used untested placeholder values (k=40, c=3,
-TAU_LIMIT=1.0) which caused visible oscillation on real hardware -- replaced
-with the values above for exactly that reason.
+Starting from k=0 instead (spring fully inert, arm holds under gravity comp
+alone -- cannot oscillate, there is no active position feedback to go
+unstable). Raise `stiffness` from 0 live via the GUI slider in small steps,
+watching for oscillation at each step, before adding damping or raising
+TAU_LIMIT back toward anything in VMC/GUI_MultiVMC_Config.py.
+kt=0.000354 itself is NOT in question here -- it was already verified in an
+earlier session; only these VMC-layer gains are unverified.
 
 REQUIREMENT: len(COMPONENT_SPECS) == number of virtual components == number of goals.
 """
@@ -47,8 +49,10 @@ COMPONENT_SPECS = [
         component=VirtualComponent(
             # Constrained to X only, exactly like VMC/GUI_MultiVMC_Config.py's
             # lin_seg3 -- the spring force ignores the goal's Y/Z components.
-            spring=ConstrainedLinearSpring(90.0, n=np.array([[1], [0], [0]])),
-            damper=LinearDamper(15.0),
+            # stiffness=0.0: spring starts fully inert (no active drive, cannot
+            # oscillate) -- raise it live via the GUI slider once connected.
+            spring=ConstrainedLinearSpring(0.0, n=np.array([[1], [0], [0]])),
+            damper=LinearDamper(15.0),  # pure damping only -- dissipates, cannot destabilize
             s_param=1.0,
             name="test",
         ),
@@ -91,9 +95,11 @@ MOVING_GOAL           = True
 SYNCHRONIZED_ARRIVAL  = False  # irrelevant with a single component
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Subscriber / Controller Config -- matches VMC/GUI_MultiVMC_Config.py exactly
+# Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
-TAU_LIMIT           = 2.1   # [N·m] per motor
+TAU_LIMIT           = 0.5   # [N·m] per motor -- low hard ceiling while raising
+                             # stiffness live from 0; raise this only once you've
+                             # confirmed low-stiffness behavior is stable
 SAVE_PLOT           = False  # never save anything from this folder
 SAVE_DATA           = False
 PLOT_Z              = True
