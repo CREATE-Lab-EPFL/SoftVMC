@@ -75,7 +75,7 @@ cd ButtonPressing
 bash ../start_arm.sh
 
 # Terminal 2 -- torque node
-python3 ../VMC/GUI_MultiVMC_Torque.py &
+python3 ../VMC/GUI_MultiVMC_Torque.py
 
 # Terminal 3 -- GUI
 python3 ../VMC/GUI_MultiVMC.py
@@ -95,7 +95,7 @@ cd ButtonPressing
 bash ../start_arm.sh
 
 # Terminal 2 -- torque node
-python3 ../VMC/GUI_MultiVMC_Torque.py &
+python3 ../VMC/GUI_MultiVMC_Torque.py
 
 # Terminal 3 -- replaces GUI_MultiVMC.py
 python3 button_pressing.py --gauss-strength 0        # full contact

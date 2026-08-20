@@ -24,7 +24,7 @@ cd ConnectivityTest
 bash ../start_arm.sh
 
 # Terminal 2 -- torque node
-python3 ../VMC/GUI_MultiVMC_Torque.py &
+python3 ../VMC/GUI_MultiVMC_Torque.py
 
 # Terminal 3 -- moving-target publisher (same mechanism used everywhere else,
 # e.g. GaussianElement/moving_gauss_test.py, ButtonPressing's driver scripts)
