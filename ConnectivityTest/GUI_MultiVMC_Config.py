@@ -14,24 +14,10 @@ any real experiment. Not tied to any paper figure. Nothing is ever saved
 (SAVE_PLOT/SAVE_DATA=False below), so there's no COLLECTED_DATA flag here --
 see the other experiment folders' configs for that.
 
-k=15, c=1 below are NOT the VMC/GUI_MultiVMC_Config.py "lin_seg3" values
-(k=90, c=15) -- those caused visible oscillation on real hardware and should
-not be trusted; see that file's own history for why. These are instead
-derived from BimanualHelyxVMC (same XL330-M288 motors, same Helyx arm
-design), whose ControllerBimanual/VMC_Bimanual.py tip segment runs
-k=45, c=2 stably, hardcoded against kt=0.00115 -- confirmed unchanged across
-~2 months of active commits, so genuinely validated together, not stale.
-current[mA] = torque[N*m] / kt (confirmed directly in dynamixel_node.cpp,
-no clamp), so delivered torque for a fixed k/c scales with 1/kt. SoftVMC's
-kt=0.000354 is ~3.25x smaller than BimanualHelyxVMC's 0.00115, so the same
-k/c would deliver ~3.25x more actual torque here -- consistent with why
-90/15 oscillated. Dividing BimanualHelyxVMC's tip values by that same 3.25
-(k=45/3.25≈13.8, c=2/3.25≈0.62) and rounding gives k=15, c=1 -- also
-matching c=1 already confirmed stable on this arm independently.
-kt=0.000354 itself is NOT in question -- verified in an earlier session;
-only the k/c gains were the unverified part. Still: raise further live via
-the GUI, watching for oscillation, before trusting these beyond a sanity
-check, and before raising TAU_LIMIT back toward VMC/GUI_MultiVMC_Config.py.
+The gains below (k=10, c=1) and TAU_LIMIT are intentionally conservative --
+this folder only needs enough authority to confirm the arm responds, not to
+perform a task. Raise them live via the GUI sliders if you need more, and
+keep TAU_LIMIT low while doing so.
 
 REQUIREMENT: len(COMPONENT_SPECS) == number of virtual components == number of goals.
 """
@@ -47,11 +33,9 @@ go_x_y = np.array([0.2, 0.2, 0.3], dtype=float)
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            # Constrained to X only, exactly like VMC/GUI_MultiVMC_Config.py's
-            # lin_seg3 -- the spring force ignores the goal's Y/Z components.
-            # k=15, c=1 -- BimanualHelyxVMC's tip values (k=45, c=2), divided
-            # by ~3.25 to account for SoftVMC's smaller kt -- see docstring.
-            spring=ConstrainedLinearSpring(15.0, n=np.array([[1], [0], [0]])),
+            # Constrained to X only -- the spring force ignores the goal's
+            # Y/Z components.
+            spring=ConstrainedLinearSpring(10.0, n=np.array([[1], [0], [0]])),
             damper=LinearDamper(1.0),
             s_param=1.0,
             name="test",

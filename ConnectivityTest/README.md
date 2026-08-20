@@ -7,15 +7,11 @@ demo. Nothing is ever saved here (`SAVE_PLOT`/`SAVE_DATA` are `False` in
 `GUI_MultiVMC_Config.py`), so there's no `COLLECTED_DATA` flag to manage in
 this folder.
 
-The single component, its goal, `TAU_LIMIT`, and the slider ranges in
-`GUI_MultiVMC_Config.py` are copied **exactly** from `VMC/GUI_MultiVMC_Config.py`'s
-own `lin_seg3` component — the student's own proven-working reference setup,
-not reinvented numbers. Those values (`k=90`, `c=15`, `TAU_LIMIT=2.1`) are
-confirmed to already be correctly adapted for the current `kt=0.000354`
-motor calibration (see the comment block at the top of the config file for
-the git-history trail proving this). An earlier version of this file used
-untested placeholder values and visibly oscillated on real hardware — that's
-why it's pinned to the verified values now instead.
+`GUI_MultiVMC_Config.py` defines a single X-constrained spring at the arm tip
+with intentionally conservative gains (`k=10`, `c=1`) and a low `TAU_LIMIT` —
+enough authority to confirm the arm responds, without needing much. Raise
+them live via the GUI sliders if you want more, and keep `TAU_LIMIT` low
+while doing so.
 
 ## Running
 

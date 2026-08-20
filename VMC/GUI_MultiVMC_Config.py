@@ -29,15 +29,7 @@ go_x_y        = np.array([0.2, 0.2,  0.3],        dtype=float)
 COMPONENT_SPECS = [
     dict(
         component=VirtualComponent(
-            # k=15, c=1 -- not the original k=90, c=15. Both caused visible
-            # oscillation on real hardware (2026-08-20). Rederived from
-            # BimanualHelyxVMC's tip segment (k=45, c=2, stable for ~2 months
-            # against its hardcoded kt=0.00115), divided by ~3.25 to account
-            # for SoftVMC's kt=0.000354 being that much smaller -- current[mA]
-            # = torque/kt in dynamixel_node.cpp, no clamp, so a smaller kt
-            # delivers proportionally more actual torque for the same k/c.
-            # See ConnectivityTest/GUI_MultiVMC_Config.py for the full derivation.
-            spring=ConstrainedLinearSpring(15.0,n=np.array([[1], [0], [0]])),
+            spring=ConstrainedLinearSpring(10.0,n=np.array([[1], [0], [0]])),
             damper=LinearDamper(1.0),
             s_param=1.0,
             name="lin_seg3",
@@ -46,7 +38,7 @@ COMPONENT_SPECS = [
     ),
     # dict(
     #     component=VirtualComponent(
-    #         spring=LinearSpring(300.0),
+    #         spring=LinearSpring(100.0),
     #         damper=LinearDamper(1.0),
     #         s_param=2.0/3.0,
     #         name="lin_seg2",
@@ -55,7 +47,7 @@ COMPONENT_SPECS = [
     # ),
     # dict(
     #     component=VirtualComponent(
-    #         spring=LinearSpring(300.0),
+    #         spring=LinearSpring(100.0),
     #         damper=LinearDamper(1.0),
     #         s_param=1.0/2.0,
     #         name="lin_seg_middle",
@@ -64,7 +56,7 @@ COMPONENT_SPECS = [
     # ),
     # dict(
     #     component=VirtualComponent(
-    #         spring=LinearSpring(690.0),
+    #         spring=LinearSpring(230.0),
     #         damper=LinearDamper(1.0),
     #         s_param=1.0,
     #         name="lin_x",
@@ -75,14 +67,9 @@ COMPONENT_SPECS = [
         component=VirtualComponent(
             # Gaussian spring produces max force when sigma = delta_x so when initializing on the robot it could produce very large forces
             # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
-            # once the reference is moved we can increase the strength to a nonzero force Typically stregnth = 1200 is quite good
+            # once the reference is moved we can increase the strength to a nonzero force Typically stregnth = 400 is quite good
             # the max force produced by the gauss spring is when delta_x = sigma 
             spring=GaussianSpring(strength=0.0, sigma=0.06),
-            # c=1.0, not 15 -- confirmed on real hardware (2026-08-20) that
-            # c=15 causes oscillation, likely noisy velocity feedback
-            # amplified by a high damping gain into a jittery current command
-            # via dynamixel_node's current = torque / kt conversion. Raise
-            # cautiously and only while watching real behavior.
             damper=LinearDamper(1.0),
             s_param=1.0 / 3.0,
             name="gauss_seg1",
@@ -155,7 +142,7 @@ SYNCHRONIZED_ARRIVAL = False
 # ─────────────────────────────────────────────────────────────────────────────
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
-TAU_LIMIT  = 2.1   # [N·m] per motor
+TAU_LIMIT  = 0.7   # [N·m] per motor
 SAVE_PLOT           = True
 SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
 COLLECTED_DATA      = True  # real data already collected -- reruns will NOT overwrite it (see GUI_MultiVMC_Torque.py)
