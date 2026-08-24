@@ -44,7 +44,7 @@ SoftVMC/
 ├── ConstrainedSpring/   Experiments: surface-sliding (constrained/cart spring)
 ├── GaussianElement/     Experiments: obstacle avoidance (fixed & moving Gaussian)
 ├── ContactAndShaping/   Experiments: contact, whole-body shaping, surface tracking
-├── ButtonPressing/      Experiments: contact-force sweep (press vs. Gaussian repulsion) + person demo (in progress)
+├── ButtonPressing/      Experiments: tip reaching spring vs. two body Gaussians (button + person, in progress)
 │
 ├── SingleVMC/           1-segment VMC (reference / simulation only)
 ├── LoadCell/            Load cell interface utilities

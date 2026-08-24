@@ -1,75 +1,74 @@
 """
-person_avoiding.py
-────────────────────
-Headless driver for the Fig 10 person-interaction demo (qualitative
-photo/video only, per the paper's softer "C. Demo" section -- not a
-data-analysis target). Same press+gauss_repel mechanism as
-button_pressing.py -- see _press_repel_driver.py for the actual
-approach/ramp/hold state machine -- pointed at a person instead of the
-load-cell button:
+Headless runner for GUI_MultiVMC_Config_person.py.
 
-  --gauss-strength HIGH  -> arm reaches toward the person but is repelled
-                            before contact ("avoid")
-  --gauss-strength LOW   -> arm makes gentle, bounded contact ("gentle touch"),
-                            still capped by press's max_force in
-                            GUI_MultiVMC_Config.py and by TAU_LIMIT
+    cp GUI_MultiVMC_Config_person.py GUI_MultiVMC_Config.py
 
-SAFETY -- read before running:
-  - PERSON_TARGET below is a PLACEHOLDER, not a measurement. Measure the
-    real target position (or pass --target X Y Z) before running anything
-    near an actual person.
-  - Always run --gauss-strength HIGH ("avoid") first and confirm the arm
-    stops well clear of the person before ever trying a lower value.
-  - Have a second person at the e-stop / ready to Ctrl+C the torque node
-    for every run, not just the "gentle touch" ones.
-  - No numeric default is provided for --gauss-strength -- choose it
-    deliberately every run.
+TERMINAL 1  bash ../start_arm.sh
+TERMINAL 2  python3 ../VMC/GUI_MultiVMC_Torque.py
+TERMINAL 3  python3 person_avoiding.py --condition strong
 
-TERMINAL 1
-bash ../start_arm.sh
+No load cell here. One condition per run -- the torque node saves once, on
+exit. After each run Ctrl+C the torque node, then:
 
-TERMINAL 2 (from ButtonPressing/)
-python3 ../VMC/GUI_MultiVMC_Torque.py
+    python3 collect_run.py person_avoiding strong
 
-TERMINAL 3 (from ButtonPressing/, replaces GUI_MultiVMC.py)
-python3 person_avoiding.py --gauss-strength 1500 --target 0.10 0.0 0.35   # avoid -- run this first
-python3 person_avoiding.py --gauss-strength 200   --target 0.10 0.0 0.35  # gentle touch -- UNVERIFIED strength
+Before going anywhere near a person:
+  - PERSON_TARGET in the config is a placeholder. Measure it and edit it.
+  - `--dry-run` first, then run --condition strong and confirm the arm stops
+    clear before trying anything lower.
+  - Someone on the e-stop, ready to Ctrl+C the torque node, every run.
 """
 
 import argparse
+import sys
 
-import numpy as np
-
-from _press_repel_driver import run_press_repel
-
-PERSON_TARGET = np.array([0.10, 0.0, 0.35], dtype=float)  # PLACEHOLDER -- measure on the real setup
+try:
+    import GUI_MultiVMC_Config as cfg
+except ModuleNotFoundError:
+    sys.exit('no GUI_MultiVMC_Config.py in this directory -- run:\n'
+             '  cp GUI_MultiVMC_Config_person.py GUI_MultiVMC_Config.py')
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--gauss-strength", type=float, required=True,
-                    help="gauss_repel strength for this run. High = avoid (no contact), "
-                         "low = gentle touch. No default -- choose deliberately, and run "
-                         "a high (avoid) value first.")
-    p.add_argument("--target", type=float, nargs=3, default=None, metavar=("X", "Y", "Z"),
-                    help="override PERSON_TARGET, e.g. after live-measuring the person's position")
-    p.add_argument("--press-stiffness", type=float, default=None,
-                    help="override press.stiffness (default: GUI_MultiVMC_Config's initial value)")
+    p = argparse.ArgumentParser(description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--condition", choices=sorted(cfg.GAUSS_CONDITIONS),
+                   help="hardcoded Gaussian strength to use for this run")
+    p.add_argument("--gauss-strength", type=float, default=None,
+                   help="override the condition with an explicit strength (tuning only)")
     p.add_argument("--hold-time", type=float, default=15.0,
-                    help="seconds to hold at final strength before signalling done (default: 15)")
+                   help="seconds to hold at steady state (default: 15)")
+    p.add_argument("--dry-run", action="store_true",
+                   help="print the offline force/torque check and exit, no ROS")
     return p.parse_args()
 
 
 def main():
     args = parse_args()
-    target = np.array(args.target, dtype=float) if args.target is not None else PERSON_TARGET
-    run_press_repel(
-        target_pos=target,
-        gauss_strength=args.gauss_strength,
-        press_stiffness=args.press_stiffness,
-        hold_time=args.hold_time,
-        label="person_avoiding",
-    )
+
+    if cfg.CONFIG_NAME != "person":
+        sys.exit(f"active GUI_MultiVMC_Config.py is '{cfg.CONFIG_NAME}', expected 'person' -- "
+                 f"run: cp GUI_MultiVMC_Config_person.py GUI_MultiVMC_Config.py")
+
+    if args.dry_run:
+        from _geometry_check import report
+        report()
+        return
+
+    if args.gauss_strength is not None:
+        strength, label = args.gauss_strength, "tuning"
+    elif args.condition is not None:
+        strength, label = cfg.GAUSS_CONDITIONS[args.condition], args.condition
+    else:
+        sys.exit("give --condition {" + ",".join(sorted(cfg.GAUSS_CONDITIONS)) + "} or --gauss-strength")
+
+    if label != cfg.SAFE_FIRST_CONDITION:
+        print(f"NOTE: '{cfg.SAFE_FIRST_CONDITION}' should have been recorded and verified first.")
+
+    print(f"condition '{label}': gauss strength {strength}")
+    from _reach_avoid_driver import run_reach_avoid
+    run_reach_avoid(strength, hold_time=args.hold_time, label="person_avoiding")
+    print(f"\nnext: Ctrl+C the torque node, then\n  python3 collect_run.py person_avoiding {label}")
 
 
 if __name__ == "__main__":
