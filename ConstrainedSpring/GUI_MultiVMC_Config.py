@@ -143,6 +143,7 @@ SYNCHRONIZED_ARRIVAL = False
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
 TAU_LIMIT  = 0.25  # [N·m] per motor
+OUTPUT_FOLDER       = "constrained_spring"   # --run NAME lands in outputs/constrained_spring/NAME.*
 SAVE_PLOT           = True
 SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
 COLLECTED_DATA      = True  # real data already collected -- reruns will NOT overwrite it (see GUI_MultiVMC_Torque.py)

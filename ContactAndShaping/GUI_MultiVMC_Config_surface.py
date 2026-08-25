@@ -142,6 +142,7 @@ SYNCHRONIZED_ARRIVAL = False
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
 TAU_LIMIT  = 0.25  # [N·m] per motor
+OUTPUT_FOLDER       = "surface_tracking"   # --run NAME lands in outputs/surface_tracking/NAME.*
 SAVE_PLOT           = True
 SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
 COLLECTED_DATA      = True  # real data already collected -- reruns will NOT overwrite it (see GUI_MultiVMC_Torque.py)

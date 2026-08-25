@@ -22,6 +22,24 @@ The tanh spring provides **bounded interaction forces** while preserving the res
 
 `plot_tanh_spring.ipynb` — torque saturation and trajectory tracking comparison.
 
+## Run names
+
+What is recorded here, and the name `--run` needs to write each one:
+
+| run | `--run` names |
+|---|---|
+| `outputs/tanh_spring/` (default config) | `linear_k10` · `tanh_k10` |
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --run <name>
+```
+
+That writes `outputs/<folder>/<name>.{npz,png}` on Ctrl+C, overwriting the run
+of that name — the folder comes from `OUTPUT_FOLDER` in the config. These configs
+ship `COLLECTED_DATA = True`, so nothing is written at all until you set it
+`False`; that flag is what keeps the recorded data safe. Names starting `old_`
+are discarded runs.
+
 ## Gravity direction
 
 This folder's config does not set `GRAVITY_DIR`, so the torque node compensates

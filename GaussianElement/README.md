@@ -30,6 +30,25 @@ Key properties: zero force at large distance, peak force at distance σ from the
 | `plot_gauss_fixed_gauss.ipynb` | Force field and arm trajectory for fixed obstacle |
 | `plot_gauss_moving_gauss.ipynb` | Dynamic avoidance trajectory |
 
+## Run names
+
+What is recorded here, and the name `--run` needs to write each one:
+
+| run | `--run` names |
+|---|---|
+| `outputs/fixed_gauss/` (`--config _fixed`) | `fixed_gauss1_no_q` · `fixed_gauss2_no_q` · `fixed_gauss3` · `fixed_gauss4` · `fixed_gauss5` |
+| `outputs/moving_gauss/` (`--config _moving`) | `k20_moving_gauss` · `k2_moving_gauss` |
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --run <name>
+```
+
+That writes `outputs/<folder>/<name>.{npz,png}` on Ctrl+C, overwriting the run
+of that name — the folder comes from `OUTPUT_FOLDER` in the config. These configs
+ship `COLLECTED_DATA = True`, so nothing is written at all until you set it
+`False`; that flag is what keeps the recorded data safe. Names starting `old_`
+are discarded runs.
+
 ## Gravity direction
 
 This folder's config does not set `GRAVITY_DIR`, so the torque node compensates

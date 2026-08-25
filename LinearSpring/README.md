@@ -32,6 +32,25 @@ saved runs. `outputs/disturbance_rejection/` holds a similar pattern:
 | `plot_k_saturation.ipynb` | Force vs. position curves by k; saves to `outputs/k_saturation/` |
 | `plot_disturbance.ipynb` | Disturbance response plot |
 
+## Run names
+
+What is recorded here, and the name `--run` needs to write each one:
+
+| run | `--run` names |
+|---|---|
+| `outputs/k_saturation/` (default config) | `k20_35` · `k2_18` · `k7_100_big` |
+| `outputs/disturbance_rejection/` (`--config _disturbance`) | `disturbance_k13_20` · `disturbance_k3_100` |
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --run <name>
+```
+
+That writes `outputs/<folder>/<name>.{npz,png}` on Ctrl+C, overwriting the run
+of that name — the folder comes from `OUTPUT_FOLDER` in the config. These configs
+ship `COLLECTED_DATA = True`, so nothing is written at all until you set it
+`False`; that flag is what keeps the recorded data safe. Names starting `old_`
+are discarded runs.
+
 ## Gravity direction
 
 This folder's config does not set `GRAVITY_DIR`, so the torque node compensates

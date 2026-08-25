@@ -140,6 +140,7 @@ DEFAULT_START = np.array([
 # Subscriber / Controller Config
 # ─────────────────────────────────────────────────────────────────────────────
 TAU_LIMIT  = 0.15  # [N·m] per motor
+OUTPUT_FOLDER       = "fixed_gauss"   # --run NAME lands in outputs/fixed_gauss/NAME.*
 SAVE_PLOT           = True
 SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
 COLLECTED_DATA      = True  # real data already collected -- reruns will NOT overwrite it (see GUI_MultiVMC_Torque.py)

@@ -21,6 +21,24 @@ This element implements **sliding contact**: the arm can move freely parallel to
 
 `plot_constrained_spring.ipynb` — position traces and normal/tangential force decomposition.
 
+## Run names
+
+What is recorded here, and the name `--run` needs to write each one:
+
+| run | `--run` names |
+|---|---|
+| `outputs/constrained_spring/` (default config) | `constrained_k10` · `linear_k10` · `old_constrained_k10` · `old_linear_k10` |
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --run <name>
+```
+
+That writes `outputs/<folder>/<name>.{npz,png}` on Ctrl+C, overwriting the run
+of that name — the folder comes from `OUTPUT_FOLDER` in the config. These configs
+ship `COLLECTED_DATA = True`, so nothing is written at all until you set it
+`False`; that flag is what keeps the recorded data safe. Names starting `old_`
+are discarded runs.
+
 ## Gravity direction
 
 This folder's config does not set `GRAVITY_DIR`, so the torque node compensates

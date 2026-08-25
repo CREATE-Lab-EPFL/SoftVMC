@@ -55,6 +55,35 @@ Set in the config; the spring and damper values are also live sliders in the GUI
 person variant may never be stiffer than the button one — it keeps the lower
 `TAU_LIMIT` as its extra margin.
 
+## Run names
+
+Nothing is recorded here yet. Use these, so the config, this README and the
+notebook agree on what a run is called:
+
+| `--run` | Gaussian strength | |
+|---|---|---|
+| `no_gauss` | 0 | baseline — reach only |
+| `mid_1` | ≈24 | just past the reach/repulsion balance |
+| `mid_2` | ≈48 | repulsion clearly winning |
+| `strong` | ≈80 | strongest of the set |
+
+For `_person`: `no_gauss` (0) · `mid` (≈25) · `strong` (≈50) — **record
+`strong` first** and confirm the arm stops clear before running anything
+weaker.
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run mid_1
+```
+
+Those strengths are indicative, not settings: you dial them in on the GUI
+sliders. They come from the torque balance at the straight-arm rest pose, where
+reach and repulsion crossed at **19.3 N/m** for the geometry they were sized
+against — and with the obstacle now placed by hand, that balance point moves
+with it. Read it off the live torque plot instead.
+
+Anything not in the table is a scratch name. `--run tuning` overwrites itself
+every time, which is exactly what you want while feeling out gains.
+
 ## Gravity direction
 
 The arm is **rotated onto its side** for both experiments, so gravity pulls
