@@ -115,26 +115,26 @@ configs are headless, so they carry no GUI slider metadata at all.
 | `GUI_MultiVMC_Config_person.py` | config, softer reach and lower torque limit |
 | `_reach_avoid_driver.py` | shared state machine; not run directly |
 | `_geometry_check.py` | offline force/torque check behind `--dry-run` |
-| `button_pressing.py` | runner for the button config |
-| `person_avoiding.py` | runner for the person config |
+| `button_pressing.py` | the runner — takes the variant as its first argument (`_button`, `_person`) |
+| `person_avoiding.py` | alias for `button_pressing.py _person` |
 | `collect_run.py` | moves the newest auto-saved run into `outputs/` under its condition name |
 | `plot_button_and_person.ipynb` | analysis for both |
 
 ## Running an experiment
 
-`GUI_MultiVMC_Torque.py` always imports a module literally named
-`GUI_MultiVMC_Config` from the current directory, so the variant gets copied
-into place first. The runners check `CONFIG_NAME` and refuse to start against
-the wrong one.
+Both commands that matter name the variant — `_button` or `_person` — so
+nothing is copied into place and there is no editing between runs. The two must
+agree: `button_pressing.py` aborts if the torque node is running a different
+config, rather than quietly using one config's strengths against another's
+torque limit.
 
 ### Pre-flight — once, before the first condition
 
 ```bash
 conda activate finger
 cd ButtonPressing
-cp GUI_MultiVMC_Config_button.py GUI_MultiVMC_Config.py   # or _person
 
-python3 button_pressing.py --dry-run     # offline, no hardware, ~30 s
+python3 button_pressing.py _button --dry-run    # offline, no hardware, ~30 s
 ```
 
 Check, in this order:
@@ -161,19 +161,24 @@ bash ../start_arm.sh
 python3 ../LoadCell/arduino_force.py
 
 # Terminal 3 — torque node
-python3 ../VMC/GUI_MultiVMC_Torque.py
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _button
 
 # Terminal 4 — the run
-python3 button_pressing.py --condition no_gauss
+python3 button_pressing.py _button --condition no_gauss
 ```
 
-On startup, terminal 3 logs the gravity direction it is compensating for:
+Swap both `_button` for `_person` to run the other variant (and skip terminal
+2 — no load cell there).
+
+On startup, terminal 3 logs what it loaded:
 
 ```
+[INFO] config: GUI_MultiVMC_Config_button
 [INFO] gravity compensation: gravity pulls along -y in the robot frame
 ```
 
-Confirm that matches how the arm is actually mounted before going further.
+Confirm the config is the variant you meant and the gravity direction matches
+how the arm is actually mounted before going further.
 
 Then terminal 4 walks the sequence, roughly 45 s of motion plus however long
 you take to answer:
@@ -209,8 +214,8 @@ Work through every condition in `GAUSS_CONDITIONS` — `no_gauss`, `mid_1`,
 the person. `collect_run.py` refuses to overwrite an existing file without
 `--force`, so a forgotten Ctrl+C shows up as an error rather than a lost run.
 
-For the person config: `cp GUI_MultiVMC_Config_person.py GUI_MultiVMC_Config.py`,
-drop the load-cell terminal, and use `python3 person_avoiding.py` in terminal 4.
+`python3 person_avoiding.py …` still works as an alias for
+`button_pressing.py _person`.
 
 ### After the last condition
 
@@ -231,7 +236,8 @@ condition.
 | symptom | cause |
 |---|---|
 | `no subscriber on /VC_ref_pos -- aborting` | terminal 3 is not running, or was started from another directory |
-| `active GUI_MultiVMC_Config.py is 'person', expected 'button'` | wrong variant copied into place |
+| `torque node is running …_person, this run needs …_button` | the two terminals name different variants; restart terminal 3 with the right `--config` |
+| `no GUI_MultiVMC_Config_x.py in …` | typo in the variant name; the error lists what is available |
 | `Torque limit exceeded — clipping` spam | strength too high for `TAU_LIMIT`; check the dry-run's `worst nominal \|tau\|` |
 | arm sags or drifts to one side | `GRAVITY_DIR` does not match the real mounting |
 | `no z_*.npz in .../experiments` | `COLLECTED_DATA = True`, or the torque node was launched from elsewhere, or killed rather than Ctrl+C'd |

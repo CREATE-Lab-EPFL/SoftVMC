@@ -1,13 +1,13 @@
 """
-Reaching for the button with a person in the way. Copy into place before
-launching:
-    cp GUI_MultiVMC_Config_person.py GUI_MultiVMC_Config.py
+Reaching for the button with a person in the way. Select it with the `_person`
+variant argument -- `python3 button_pressing.py _person`, and
+`python3 ../VMC/GUI_MultiVMC_Torque.py --config _person` for the torque node.
 
 Same structure and the same target as GUI_MultiVMC_Config_button.py: lin_tip
 (s=1.0) reaches for the button, gauss_seg1 (s=1/3) and gauss_seg2 (s=2/3) are
 repelled by OBSTACLE_POS. What changes is what the obstacle IS -- here it is a
 person's arm, not a fixture -- so the reach is softer, the torque limit lower,
-and there is no load cell. Driven headlessly by person_avoiding.py.
+and there is no load cell. Driven headlessly by button_pressing.py.
 """
 
 import sys, os
@@ -65,7 +65,7 @@ COMPONENT_SPECS = [
 
 # ── Conditions ───────────────────────────────────────────────────────────────
 # Strength of the repulsion from the person. Re-check where it balances the
-# reach with `person_avoiding.py --dry-run` after any geometry edit.
+# reach with `button_pressing.py _person --dry-run` after any geometry edit.
 GAUSS_CONDITIONS = {
     "no_gauss": 0.0,
     "mid":      40.0,

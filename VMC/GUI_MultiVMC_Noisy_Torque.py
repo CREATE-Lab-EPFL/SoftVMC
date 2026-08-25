@@ -66,7 +66,7 @@ _CONFIG_BASE = "GUI_MultiVMC_Config"
 
 
 def _config_module(value):
-    """"button" and "_button" both name GUI_MultiVMC_Config_button."""
+    """Both "button" and "_button" name GUI_MultiVMC_Config_button."""
     return _CONFIG_BASE + "_" + value.lstrip("_")
 
 

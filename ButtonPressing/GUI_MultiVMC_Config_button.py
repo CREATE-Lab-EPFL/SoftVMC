@@ -1,6 +1,7 @@
 """
-Button pressing against the load cell. Copy into place before launching:
-    cp GUI_MultiVMC_Config_button.py GUI_MultiVMC_Config.py
+Button pressing against the load cell. Select it with the `_button` variant
+argument -- `python3 button_pressing.py _button`, and
+`python3 ../VMC/GUI_MultiVMC_Torque.py --config _button` for the torque node.
 
 lin_tip (s=1.0) reaches for PRESS_TARGET with a moving reference; gauss_seg1
 (s=1/3) and gauss_seg2 (s=2/3) are repelled by OBSTACLE_POS. Everything the run
@@ -56,7 +57,7 @@ COMPONENT_SPECS = [
 # ── Conditions ───────────────────────────────────────────────────────────────
 # Both Gaussians share one strength. |tau_gauss| matches |tau_reach| at ~70 N/m
 # for the geometry above, so these straddle the crossover (ratios 0 / 0.87 /
-# 1.74 / 2.90). Re-check with `button_pressing.py --dry-run` after any edit.
+# 1.74 / 2.90). Re-check with `button_pressing.py _button --dry-run` after any edit.
 GAUSS_CONDITIONS = {
     "no_gauss": 0.0,
     "mid_1":    60.0,
