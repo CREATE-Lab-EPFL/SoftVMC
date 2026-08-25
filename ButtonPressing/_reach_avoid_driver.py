@@ -2,8 +2,9 @@
 Shared headless driver for button_pressing.py and person_avoiding.py.
 Publishes /VC_Param and /VC_ref_pos for GUI_MultiVMC_Torque.py. Not run directly.
 
-Reads whichever GUI_MultiVMC_Config.py is currently copied into place, so the
-target, obstacle and stiffness always match the torque node's own config.
+The config module is passed in by the runner, so the target, obstacle, stiffness
+and timing always come from the same file the torque node was launched against
+-- nothing has to be copied into place.
 
 Phases, all time-based and identical across conditions:
   RAMP_GAUSS  strength 0 -> gauss_strength over GAUSS_RAMP_S, tip goal at rest
@@ -26,38 +27,34 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 
-from GUI_MultiVMC_Config import (
-    DEFAULT_START, N_VC, DAMPER_PARAM_INIT, K_REACH, OBSTACLE_POS, PRESS_TARGET,
-    CTRL_HZ, APPROACH_V, GAUSS_RAMP_S, HOLD_TIME, CONFIRM_BEFORE_RETURN,
-)
-
-STEP        = APPROACH_V / CTRL_HZ   # [m/tick]
 POS_TOL     = 1e-4   # [m] convergence epsilon of the reference walk
 FLUSH_TICKS = 10     # ticks of zero-strength publishing before exit
 
 
 class ReachAvoidDriver(Node):
 
-    def __init__(self, gauss_strength, hold_time=HOLD_TIME, label="reach_avoid"):
+    def __init__(self, cfg, gauss_strength, hold_time=None, label="reach_avoid"):
         super().__init__(f"{label}_driver")
-        if N_VC != 3:
+        if cfg.N_VC != 3:
             raise RuntimeError(
-                f"expected 3 components (lin_tip, gauss_seg1, gauss_seg2), got N_VC={N_VC}"
+                f"expected 3 components (lin_tip, gauss_seg1, gauss_seg2), got N_VC={cfg.N_VC}"
             )
 
+        self._cfg            = cfg
         self._k_gauss_target = float(gauss_strength)
-        self._hold_time      = float(hold_time)
-        self._rest_tip       = DEFAULT_START[0].copy()
+        self._hold_time      = float(cfg.HOLD_TIME if hold_time is None else hold_time)
+        self._rest_tip       = cfg.DEFAULT_START[0].copy()
+        self._step           = cfg.APPROACH_V / cfg.CTRL_HZ   # [m/tick]
 
-        self._ref    = DEFAULT_START.copy()
-        self._ref[1] = OBSTACLE_POS
-        self._ref[2] = OBSTACLE_POS
-        self._k      = [float(K_REACH), 0.0, 0.0]
+        self._ref    = cfg.DEFAULT_START.copy()
+        self._ref[1] = cfg.OBSTACLE_POS
+        self._ref[2] = cfg.OBSTACLE_POS
+        self._k      = [float(cfg.K_REACH), 0.0, 0.0]
 
         self._pub_param  = self.create_publisher(Float64MultiArray, "/VC_Param",   10)
         self._pub_refpos = self.create_publisher(Float64MultiArray, "/VC_ref_pos", 10)
 
-        self._ramp_ticks = max(1, int(round(GAUSS_RAMP_S * CTRL_HZ)))
+        self._ramp_ticks = max(1, int(round(cfg.GAUSS_RAMP_S * cfg.CTRL_HZ)))
         self._tick_n     = 0
         self._hold_start = None
         self._state      = "RAMP_GAUSS"
@@ -67,19 +64,19 @@ class ReachAvoidDriver(Node):
         self._publish()
 
         self.get_logger().info(
-            f"[{label}] strength -> {self._k_gauss_target:.1f}, k_reach={K_REACH:.1f}, "
-            f"target={np.round(PRESS_TARGET, 3).tolist()}, obstacle={np.round(OBSTACLE_POS, 3).tolist()}, "
-            f"hold={self._hold_time:.0f}s"
+            f"[{label}] config={cfg.CONFIG_NAME}, strength -> {self._k_gauss_target:.1f}, "
+            f"k_reach={cfg.K_REACH:.1f}, target={np.round(cfg.PRESS_TARGET, 3).tolist()}, "
+            f"obstacle={np.round(cfg.OBSTACLE_POS, 3).tolist()}, hold={self._hold_time:.0f}s"
         )
 
     def start(self):
         """Begin the sequence. Kept out of __init__ so that waiting for the
         torque node cannot advance the state machine while it spins."""
-        self._timer = self.create_timer(1.0 / CTRL_HZ, self._tick)
+        self._timer = self.create_timer(1.0 / self._cfg.CTRL_HZ, self._tick)
 
     def _publish(self):
         p = Float64MultiArray()
-        p.data = list(self._k) + list(DAMPER_PARAM_INIT)
+        p.data = list(self._k) + list(self._cfg.DAMPER_PARAM_INIT)
         self._pub_param.publish(p)
 
         r = Float64MultiArray()
@@ -87,13 +84,13 @@ class ReachAvoidDriver(Node):
         self._pub_refpos.publish(r)
 
     def _step_tip_toward(self, goal):
-        """Move the tip reference one STEP toward goal. True once it is there."""
+        """Move the tip reference one step toward goal. True once it is there."""
         delta = goal - self._ref[0]
         dist  = float(np.linalg.norm(delta))
         if dist <= POS_TOL:
             self._ref[0] = goal.copy()
             return True
-        self._ref[0] = self._ref[0] + delta * min(1.0, STEP / dist)
+        self._ref[0] = self._ref[0] + delta * min(1.0, self._step / dist)
         return False
 
     def _tick(self):
@@ -109,14 +106,14 @@ class ReachAvoidDriver(Node):
                 self.get_logger().info("gauss at target strength -- approaching")
 
         elif self._state == "APPROACH":
-            if self._step_tip_toward(PRESS_TARGET):
+            if self._step_tip_toward(self._cfg.PRESS_TARGET):
                 self._state      = "HOLD"
                 self._hold_start = time.time()
                 self.get_logger().info(f"tip reference at target -- holding {self._hold_time:.0f}s")
 
         elif self._state == "HOLD":
             if time.time() - self._hold_start >= self._hold_time:
-                if CONFIRM_BEFORE_RETURN:
+                if self._cfg.CONFIRM_BEFORE_RETURN:
                     self._state = "CONFIRM"
                     print("\n  hold complete -- did it touch? "
                           "press ENTER to return home ", end="", flush=True)
@@ -168,12 +165,13 @@ def _wait_for_torque_node(node, timeout=10.0):
     return False
 
 
-def run_reach_avoid(gauss_strength, hold_time=HOLD_TIME, label="reach_avoid"):
+def run_reach_avoid(cfg, gauss_strength, hold_time=None, label="reach_avoid"):
     rclpy.init()
-    node = ReachAvoidDriver(gauss_strength, hold_time, label)
+    node = ReachAvoidDriver(cfg, gauss_strength, hold_time, label)
     if not _wait_for_torque_node(node):
         node.get_logger().error(
-            "no subscriber on /VC_ref_pos -- is GUI_MultiVMC_Torque.py running? aborting."
+            "no subscriber on /VC_ref_pos -- is GUI_MultiVMC_Torque.py running "
+            f"(with --config {cfg.CONFIG_NAME})? aborting."
         )
         node.destroy_node()
         rclpy.shutdown()

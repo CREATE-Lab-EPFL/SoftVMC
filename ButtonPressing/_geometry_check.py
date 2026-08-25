@@ -17,8 +17,6 @@ import numpy as np
 from FK_Multi import FK_Multi
 from JacobiansMulti import q_motor2pose
 
-import GUI_MultiVMC_Config as cfg
-
 
 def _bisect_crossover(tau_gauss, tau_reach, lo=1e-3, hi=1e4):
     if tau_gauss(hi) < tau_reach:
@@ -29,7 +27,7 @@ def _bisect_crossover(tau_gauss, tau_reach, lo=1e-3, hi=1e4):
     return 0.5 * (lo + hi)
 
 
-def report():
+def report(cfg):
     q0 = np.zeros(9)
     comps = cfg.VIRTUAL_COMPONENTS
     s_tip = comps[0].s_param

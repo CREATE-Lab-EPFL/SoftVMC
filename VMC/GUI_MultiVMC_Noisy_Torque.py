@@ -40,6 +40,7 @@ for _p in [_ROOT, _KINE]:
 
 import argparse
 import copy
+import importlib
 import time
 from datetime import datetime
 
@@ -55,37 +56,59 @@ from MultiVMCTaskSpace import VMC_Multi_Modular  # multi_torques_and_forces used
 from MultiGravityComp import MultiGravComp
 from FK_Multi import FK_Multi
 from VMC_utils.GravityCompensation import GRAVITY_DIR_CHOICES, rotation_for_gravity_dir
-from GUI_MultiVMC_Config import (
-    VIRTUAL_COMPONENTS,
-    DEFAULT_START,
-    N_VC,
-    TAU_LIMIT,
-    SPRING_PARAM_NAMES,
-    DAMPER_PARAM_NAMES,
-    SAVE_PLOT,
-    SAVE_DATA,
-    PLOT_Z,
-    PLOT_FORCE,
-    PRETENSION_WEIGHTS,
-    PRETENSION_THRESHOLD,
-    PRETENSION_ENABLED,
-)
-try:
-    # True = real data already collected for this config -- never let a rerun
-    # (demo, sanity check, accidental restart) overwrite it. Configs that don't
-    # define it (e.g. connectivity-test folders) behave as before: False.
-    from GUI_MultiVMC_Config import COLLECTED_DATA
-except ImportError:
-    COLLECTED_DATA = False
 
-try:
-    # Direction gravity pulls in the ROBOT frame. "-z" (the default) is the arm
-    # standing straight up; a config for a rotated mount overrides it, e.g. the
-    # arm laid on its side pulls along "-y". Configs that don't define it keep
-    # the upright behaviour.
-    from GUI_MultiVMC_Config import GRAVITY_DIR
-except ImportError:
-    GRAVITY_DIR = "-z"
+_CONFIG_BASE = "GUI_MultiVMC_Config"
+
+
+def _load_config():
+    """
+    Import the experiment config from the working directory.
+
+    Default is the plain GUI_MultiVMC_Config, so a folder holding a single
+    config needs nothing. `--config button` loads GUI_MultiVMC_Config_button
+    instead: that is how a folder with several variants picks one, without
+    copying a file into place first.
+    """
+    name, argv = _CONFIG_BASE, sys.argv[1:]
+    for i, a in enumerate(argv):
+        if a == "--config" and i + 1 < len(argv):
+            name = f"{_CONFIG_BASE}_{argv[i + 1]}"
+        elif a.startswith("--config="):
+            name = f"{_CONFIG_BASE}_{a.split('=', 1)[1]}"
+    try:
+        return importlib.import_module(name)
+    except ModuleNotFoundError:
+        variants = sorted(f[len(_CONFIG_BASE) + 1:-3] for f in os.listdir(_CWD)
+                          if f.startswith(_CONFIG_BASE + "_") and f.endswith(".py"))
+        sys.exit(f"[FATAL] no {name}.py in {_CWD}"
+                 + (f" -- try --config {{{','.join(variants)}}}" if variants else ""))
+
+
+_cfg = _load_config()
+
+VIRTUAL_COMPONENTS   = _cfg.VIRTUAL_COMPONENTS
+DEFAULT_START        = _cfg.DEFAULT_START
+N_VC                 = _cfg.N_VC
+TAU_LIMIT            = _cfg.TAU_LIMIT
+SPRING_PARAM_NAMES   = _cfg.SPRING_PARAM_NAMES
+DAMPER_PARAM_NAMES   = _cfg.DAMPER_PARAM_NAMES
+SAVE_PLOT            = _cfg.SAVE_PLOT
+SAVE_DATA            = _cfg.SAVE_DATA
+PLOT_Z               = _cfg.PLOT_Z
+PLOT_FORCE           = _cfg.PLOT_FORCE
+PRETENSION_WEIGHTS   = _cfg.PRETENSION_WEIGHTS
+PRETENSION_THRESHOLD = _cfg.PRETENSION_THRESHOLD
+PRETENSION_ENABLED   = _cfg.PRETENSION_ENABLED
+
+# True = real data already collected for this config -- never let a rerun
+# (demo, sanity check, accidental restart) overwrite it. Configs that don't
+# define it (e.g. connectivity-test folders) behave as before: False.
+COLLECTED_DATA = getattr(_cfg, "COLLECTED_DATA", False)
+
+# Direction gravity pulls in the ROBOT frame. "-z" (the default) is the arm
+# standing straight up; a config for a rotated mount overrides it, e.g. the arm
+# laid on its side pulls along "-y".
+GRAVITY_DIR = getattr(_cfg, "GRAVITY_DIR", "-z")
 
 # ── Perturbance config ─────────────────────────────────────────────────────────
 PERTURB_ENABLED      = True               # master switch
@@ -118,6 +141,7 @@ class VMCTorqueNode(Node):
         self._grav_comp = MultiGravComp(
             R_world_to_system=rotation_for_gravity_dir(gravity_dir)
         )
+        self.get_logger().info(f"config: {_cfg.__name__}")
         self.get_logger().info(f"gravity compensation: gravity pulls along "
                                f"{gravity_dir} in the robot frame")
 
@@ -523,6 +547,9 @@ def _glue_signed_values(argv, flags=("--gravity-dir",)):
 def _parse_args():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--config", metavar="NAME", default=None,
+                   help=f"load GUI_MultiVMC_Config_NAME.py from this directory "
+                        f"instead of GUI_MultiVMC_Config.py (loaded: {_cfg.__name__})")
     p.add_argument("--gravity-dir", default=GRAVITY_DIR, metavar="DIR",
                    choices=GRAVITY_DIR_CHOICES,
                    help="direction gravity pulls in the robot frame "

@@ -19,11 +19,7 @@ and restart the torque node for the next condition.
 import argparse
 import sys
 
-try:
-    import GUI_MultiVMC_Config as cfg
-except ModuleNotFoundError:
-    sys.exit('no GUI_MultiVMC_Config.py in this directory -- run:\n'
-             '  cp GUI_MultiVMC_Config_button.py GUI_MultiVMC_Config.py')
+import GUI_MultiVMC_Config_button as cfg   # this runner's config, no copying
 
 
 def parse_args():
@@ -49,7 +45,7 @@ def main():
 
     if args.dry_run:
         from _geometry_check import report
-        report()
+        report(cfg)
         return
 
     if args.gauss_strength is not None:
@@ -61,7 +57,7 @@ def main():
 
     print(f"condition '{label}': gauss strength {strength}")
     from _reach_avoid_driver import run_reach_avoid
-    run_reach_avoid(strength, hold_time=args.hold_time, label="button_pressing")
+    run_reach_avoid(cfg, strength, hold_time=args.hold_time, label="button_pressing")
     print(f"\nnext: Ctrl+C the torque node, then\n  python3 collect_run.py button_pressing {label}")
 
 
