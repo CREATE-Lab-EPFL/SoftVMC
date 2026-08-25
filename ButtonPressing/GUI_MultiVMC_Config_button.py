@@ -53,9 +53,9 @@ VIRTUAL_COMPONENTS = [
 # are still live if you want to move off it.
 GAUSS_CONDITIONS = {
     "no_gauss": 0.0,
-    "mid_1":    5.0,
-    "mid_2":    10.0,
-    "strong":   20.0,
+    "mid_1":    1000.0,
+    "mid_2":    2000.0,
+    "strong":   5000.0,
 }
 CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
 
