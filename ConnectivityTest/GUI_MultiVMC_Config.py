@@ -103,8 +103,7 @@ PLOT_VIRTUAL_FORCES = True
 # ─────────────────────────────────────────────────────────────────────────────
 # Pretension config
 # ─────────────────────────────────────────────────────────────────────────────
-PRETENSION_WEIGHTS   = np.full(9, 0.03, dtype=float)  # [N·m/rad] x 9
-PRETENSION_THRESHOLD = np.deg2rad(30.0)               # [rad] same threshold for all motors
+PRETENSION_WEIGHTS   = np.full(9, 0.002, dtype=float)   # [N·m/rad] x 9 -- always on, no threshold
 PRETENSION_ENABLED   = True
 
 # ─────────────────────────────────────────────────────────────────────────────

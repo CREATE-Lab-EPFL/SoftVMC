@@ -63,10 +63,9 @@ CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
 TAU_LIMIT   = 0.25   # [N·m] per motor
 GRAVITY_DIR = "-y"   # arm rotated onto its side: gravity pulls along -y, not -z
 
-# tau_pretension[i] = PRETENSION_WEIGHTS[i] * q_motor[i], only above the threshold
+# tau_pretension[i] = PRETENSION_WEIGHTS[i] * q_motor[i], always applied
 PRETENSION_ENABLED   = True
-PRETENSION_WEIGHTS   = np.full(9, 0.03, dtype=float)  # [N·m/rad] x 9
-PRETENSION_THRESHOLD = np.deg2rad(30.0)               # [rad]
+PRETENSION_WEIGHTS   = np.full(9, 0.002, dtype=float)   # [N·m/rad] x 9 -- always on, no threshold
 
 # ── Output ───────────────────────────────────────────────────────────────────
 OUTPUT_FOLDER  = "button_pressing"   # --run NAME lands in outputs/<folder>/NAME.*

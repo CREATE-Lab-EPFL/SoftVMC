@@ -152,15 +152,11 @@ PLOT_VIRTUAL_FORCES = True  # if True, Cell 4 in the GUI shows virtual forces in
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Pretension config
-# tau_pretension[i] = PRETENSION_WEIGHTS[i] * q_motor[i]
-#   applied only when q_motor[i] > PRETENSION_THRESHOLD (per motor).
+# tau_pretension[i] = PRETENSION_WEIGHTS[i] * q_motor[i] -- always applied
 # Set weights to 0.0 to disable pretension for a motor.
 # ─────────────────────────────────────────────────────────────────────────────
-SCALE = 6
-PRETENSION_WEIGHTS    = SCALE*np.array([0.005, 0.005, 0.005, 0.005, 0.005, 0.005,
-                                   0.005, 0.005, 0.005], dtype=float)  # [N·m/rad] x 9
-PRETENSION_THRESHOLD  = np.deg2rad(30.0)   # [rad]  same threshold for all motors
-PRETENSION_ENABLED    = True              # master switch for pretension (can still set weights/threshold above)
+PRETENSION_WEIGHTS   = np.full(9, 0.002, dtype=float)   # [N·m/rad] x 9 -- always on, no threshold
+PRETENSION_ENABLED    = True              # master switch for pretension (can still set weights above)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ── GUI metadata ─────────────────────────────────────────────────────────

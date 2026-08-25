@@ -78,7 +78,6 @@ SAVE_DATA            = _cfg.SAVE_DATA
 PLOT_Z               = _cfg.PLOT_Z
 PLOT_FORCE           = _cfg.PLOT_FORCE
 PRETENSION_WEIGHTS   = _cfg.PRETENSION_WEIGHTS
-PRETENSION_THRESHOLD = _cfg.PRETENSION_THRESHOLD
 PRETENSION_ENABLED   = _cfg.PRETENSION_ENABLED
 
 # True = real data already collected for this config -- never let a rerun
@@ -188,11 +187,16 @@ class VMCTorqueNode(Node):
         self._vmc = VMC_Multi_Modular(self._components)
 
     def _pretension_torque(self, q_motor: np.ndarray) -> np.ndarray:
-        """tau_pretension[i] = W[i] * q[i]  if q[i] > threshold, else 0."""
-        tau = np.where(q_motor > PRETENSION_THRESHOLD,
-                       PRETENSION_WEIGHTS * q_motor,
-                       0.0)
-        return tau
+        """
+        tau_pretension[i] = W[i] * q[i] -- always on, continuous through zero.
+
+        This used to switch on only above a 30 deg threshold, which put a step
+        of W*threshold into the torque law exactly where a motor crossed it.
+        At W = 0.03 that step was 0.0157 N.m, more than twice the whole VMC
+        torque it was meant to sit underneath. Now it is a small continuous
+        bias with nothing to chatter against.
+        """
+        return PRETENSION_WEIGHTS * q_motor
 
     # ── Callbacks ─────────────────────────────────────────────────────────────
 
