@@ -1,11 +1,13 @@
 """
-Reaching toward a person's arm. Copy into place before launching:
+Reaching for the button with a person in the way. Copy into place before
+launching:
     cp GUI_MultiVMC_Config_person.py GUI_MultiVMC_Config.py
 
-Same structure as GUI_MultiVMC_Config_button.py -- lin_tip (s=1.0) reaching for
-PRESS_TARGET, gauss_seg1 (s=1/3) and gauss_seg2 (s=2/3) repelled by
-OBSTACLE_POS -- with a softer reach, a lower torque limit, and no load cell.
-Driven headlessly by person_avoiding.py.
+Same structure and the same target as GUI_MultiVMC_Config_button.py: lin_tip
+(s=1.0) reaches for the button, gauss_seg1 (s=1/3) and gauss_seg2 (s=2/3) are
+repelled by OBSTACLE_POS. What changes is what the obstacle IS -- here it is a
+person's arm, not a fixture -- so the reach is softer, the torque limit lower,
+and there is no load cell. Driven headlessly by person_avoiding.py.
 """
 
 import sys, os
@@ -19,18 +21,27 @@ from VMC_utils.ConfigHelpers import rest_pose, default_start, param_info
 CONFIG_NAME = "person"   # guards against running a script against the wrong config
 
 # ── Geometry ─────────────────────────────────────────────────────────────────
-# PLACEHOLDER, not a measurement -- set this before running near a person.
-PERSON_TARGET = np.array([0.10, 0.0, 0.35], dtype=float)   # [m]
-OBSTACLE_POS  = np.array([0.07, 0.0, 0.22], dtype=float)   # [m]
+# Same values as GUI_MultiVMC_Config_button.py -- the target is always the
+# button; only what sits in the way changes. Keep the two configs in step.
+BUTTON_POS = np.array([-0.20, 0.0, 0.38], dtype=float)   # [m] target
 
-# Aim past the contact surface: at the surface the steady-state spring error,
-# and the touch force with it, would go to zero once the tip arrives.
-PRESS_DEPTH = 0.03   # [m] -> nominal touch force = K_REACH * PRESS_DEPTH = 0.45 N
+# The PERSON is the obstacle: their arm is what the body has to avoid while the
+# tip still reaches the button. Defaults to the button config's obstacle
+# position -- a PLACEHOLDER. Measure where the person's arm actually is and set
+# this before running near anyone.
+PERSON_POS   = np.array([-0.05, 0.0, 0.20], dtype=float)   # [m] obstacle
+OBSTACLE_POS = PERSON_POS
 
-_APPROACH_U  = PERSON_TARGET - rest_pose(1.0)
-PRESS_TARGET = PERSON_TARGET + PRESS_DEPTH * _APPROACH_U / np.linalg.norm(_APPROACH_U)
+# Aim past the button: at its surface the steady-state spring error, and the
+# contact force with it, would go to zero once the tip arrives.
+PRESS_DEPTH = 0.02   # [m] -> nominal press force = K_REACH * PRESS_DEPTH = 0.30 N
+
+_APPROACH_U  = BUTTON_POS - rest_pose(1.0)
+PRESS_TARGET = BUTTON_POS + PRESS_DEPTH * _APPROACH_U / np.linalg.norm(_APPROACH_U)
 
 # ── Virtual elements ─────────────────────────────────────────────────────────
+# Deliberately softer than the button config (25 N/m): this one runs near a
+# person. Same for TAU_LIMIT below.
 K_REACH = 15.0   # [N/m]
 SIGMA   = 0.06   # [m]
 C_DAMP  = 1.0    # [N.s/m]
@@ -53,8 +64,8 @@ COMPONENT_SPECS = [
 ]
 
 # ── Conditions ───────────────────────────────────────────────────────────────
-# |tau_gauss| matches |tau_reach| at ~28 N/m for the geometry above, so these
-# straddle the crossover. Re-check with `person_avoiding.py --dry-run`.
+# Strength of the repulsion from the person. Re-check where it balances the
+# reach with `person_avoiding.py --dry-run` after any geometry edit.
 GAUSS_CONDITIONS = {
     "no_gauss": 0.0,
     "mid":      40.0,

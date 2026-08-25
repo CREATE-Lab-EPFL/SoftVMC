@@ -13,7 +13,8 @@ exit. After each run Ctrl+C the torque node, then:
     python3 collect_run.py person_avoiding strong
 
 Before going anywhere near a person:
-  - PERSON_TARGET in the config is a placeholder. Measure it and edit it.
+  - PERSON_POS in the config -- where the person's arm is -- is a placeholder.
+    Measure it and edit it. The target is the button, same as the button config.
   - `--dry-run` first, then run --condition strong and confirm the arm stops
     clear before trying anything lower.
   - Someone on the e-stop, ready to Ctrl+C the torque node, every run.
