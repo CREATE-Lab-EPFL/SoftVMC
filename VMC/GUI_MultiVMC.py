@@ -36,21 +36,25 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64, Float64MultiArray
 
-from GUI_MultiVMC_Config import (
-    VIRTUAL_COMPONENTS,
-    DEFAULT_START,
-    N_VC,
-    GUI_COLORS,
-    SPRING_PARAM_NAMES,
-    DAMPER_PARAM_NAMES,
-    SPRING_PARAM_INIT,
-    DAMPER_PARAM_INIT,
-    XY_RANGE,
-    Z_RANGE,
-    TAU_PLOT_WINDOW,
-    FK_S_SAMPLES,
-    PLOT_VIRTUAL_FORCES,
-)
+from VMC_utils.ConfigHelpers import config_from_argv
+
+# --config NAME picks GUI_MultiVMC_Config_NAME.py from the launch directory;
+# without it the plain GUI_MultiVMC_Config.py is used, as before.
+_cfg = config_from_argv()
+
+VIRTUAL_COMPONENTS  = _cfg.VIRTUAL_COMPONENTS
+DEFAULT_START       = _cfg.DEFAULT_START
+N_VC                = _cfg.N_VC
+GUI_COLORS          = _cfg.GUI_COLORS
+SPRING_PARAM_NAMES  = _cfg.SPRING_PARAM_NAMES
+DAMPER_PARAM_NAMES  = _cfg.DAMPER_PARAM_NAMES
+SPRING_PARAM_INIT   = _cfg.SPRING_PARAM_INIT
+DAMPER_PARAM_INIT   = _cfg.DAMPER_PARAM_INIT
+XY_RANGE            = _cfg.XY_RANGE
+Z_RANGE             = _cfg.Z_RANGE
+TAU_PLOT_WINDOW     = _cfg.TAU_PLOT_WINDOW
+FK_S_SAMPLES        = _cfg.FK_S_SAMPLES
+PLOT_VIRTUAL_FORCES = _cfg.PLOT_VIRTUAL_FORCES
 
 from FK_Multi import FK_Multi
 

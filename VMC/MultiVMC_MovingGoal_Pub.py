@@ -10,16 +10,20 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 
-from GUI_MultiVMC_Config import (
-    DEFAULT_START,
-    DEFAULT_GOALS,
-    VIRTUAL_COMPONENTS,
-    STEPS_M,
-    PUBLISH_PERIOD,
-    LOOP_BACK,
-    SYNCHRONIZED_ARRIVAL,
-    MOVING_GOAL,
-)
+from VMC_utils.ConfigHelpers import config_from_argv
+
+# --config NAME picks GUI_MultiVMC_Config_NAME.py from the launch directory;
+# without it the plain GUI_MultiVMC_Config.py is used, as before.
+_cfg = config_from_argv()
+
+DEFAULT_START        = _cfg.DEFAULT_START
+DEFAULT_GOALS        = _cfg.DEFAULT_GOALS
+VIRTUAL_COMPONENTS   = _cfg.VIRTUAL_COMPONENTS
+STEPS_M              = _cfg.STEPS_M
+PUBLISH_PERIOD       = _cfg.PUBLISH_PERIOD
+LOOP_BACK            = _cfg.LOOP_BACK
+SYNCHRONIZED_ARRIVAL = _cfg.SYNCHRONIZED_ARRIVAL
+MOVING_GOAL          = _cfg.MOVING_GOAL
 
 # TERMINAL 3 (ONLY AFTER running GUI_MultiVMC_Torque.py, from the SAME
 # experiment directory)

@@ -17,7 +17,13 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 
-from GUI_MultiVMC_Config import DEFAULT_START
+from VMC_utils.ConfigHelpers import config_from_argv
+
+# --config NAME picks GUI_MultiVMC_Config_NAME.py from the launch directory;
+# without it the plain GUI_MultiVMC_Config.py is used, as before.
+_cfg = config_from_argv()
+
+DEFAULT_START = _cfg.DEFAULT_START
 
 PUB_HZ = 10.0   # publish rate [Hz]
 
