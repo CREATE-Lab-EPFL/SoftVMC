@@ -31,12 +31,12 @@ GRAVITY_DIR = "-y"
 # ─────────────────────────────────────────────────────────────────────────────
 # Reference positions
 # ─────────────────────────────────────────────────────────────────────────────
-BUTTON_POS   = np.array([0.05, 0.0, 0.38], dtype=float)
-OBSTACLE_POS = np.array([0.07, 0.0, 0.22], dtype=float)
+BUTTON_POS   = np.array([-0.20, 0.0, 0.38], dtype=float)
+OBSTACLE_POS = np.array([-0.05, 0.0, 0.20], dtype=float)
 
 # Aim past the contact surface: at the surface the steady-state spring error,
 # and the contact force with it, would go to zero once the tip arrives.
-PRESS_DEPTH = 0.05   # [m] -> nominal press force = K_REACH * PRESS_DEPTH = 1.25 N
+PRESS_DEPTH = 0.02   # [m] -> nominal press force = K_REACH * PRESS_DEPTH = 1.25 N
 
 K_REACH = 25.0   # [N/m]
 SIGMA   = 0.06   # [m]
