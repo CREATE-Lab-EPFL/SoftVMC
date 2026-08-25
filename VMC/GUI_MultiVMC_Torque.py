@@ -49,7 +49,12 @@ import matplotlib.pyplot as plt
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64, Float64MultiArray
+from std_msgs.msg import Float64, Float64MultiArray, String
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
+
+# Latched, so a driver starting later still learns which config is live.
+CONFIG_QOS = QoSProfile(depth=1, history=HistoryPolicy.KEEP_LAST,
+                        durability=DurabilityPolicy.TRANSIENT_LOCAL)
 
 from MultiController import CONTROL_FREQUENCY
 from MultiVMCTaskSpace import VMC_Multi_Modular  # multi_torques_and_forces used below
@@ -131,6 +136,8 @@ class VMCTorqueNode(Node):
         self._grav_comp = MultiGravComp(
             R_world_to_system=rotation_for_gravity_dir(gravity_dir)
         )
+        self._pub_cfg = self.create_publisher(String, "/vmc_config", CONFIG_QOS)
+        self._pub_cfg.publish(String(data=_cfg.__name__))
         self.get_logger().info(f"config: {_cfg.__name__}")
         self.get_logger().info(f"gravity compensation: gravity pulls along "
                                f"{gravity_dir} in the robot frame")

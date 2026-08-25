@@ -39,10 +39,6 @@ def parse_args():
 def main():
     args = parse_args()
 
-    if cfg.CONFIG_NAME != "button":
-        sys.exit(f"active GUI_MultiVMC_Config.py is '{cfg.CONFIG_NAME}', expected 'button' -- "
-                 f"run: cp GUI_MultiVMC_Config_button.py GUI_MultiVMC_Config.py")
-
     if args.dry_run:
         from _geometry_check import report
         report(cfg)

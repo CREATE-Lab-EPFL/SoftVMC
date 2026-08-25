@@ -43,10 +43,6 @@ def parse_args():
 def main():
     args = parse_args()
 
-    if cfg.CONFIG_NAME != "person":
-        sys.exit(f"active GUI_MultiVMC_Config.py is '{cfg.CONFIG_NAME}', expected 'person' -- "
-                 f"run: cp GUI_MultiVMC_Config_person.py GUI_MultiVMC_Config.py")
-
     if args.dry_run:
         from _geometry_check import report
         report(cfg)

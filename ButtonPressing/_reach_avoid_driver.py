@@ -25,7 +25,11 @@ import time
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64MultiArray, String
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
+
+CONFIG_QOS = QoSProfile(depth=1, history=HistoryPolicy.KEEP_LAST,
+                        durability=DurabilityPolicy.TRANSIENT_LOCAL)
 
 POS_TOL     = 1e-4   # [m] convergence epsilon of the reference walk
 FLUSH_TICKS = 10     # ticks of zero-strength publishing before exit
@@ -53,6 +57,12 @@ class ReachAvoidDriver(Node):
 
         self._pub_param  = self.create_publisher(Float64MultiArray, "/VC_Param",   10)
         self._pub_refpos = self.create_publisher(Float64MultiArray, "/VC_ref_pos", 10)
+
+        # Which config the torque node was launched with -- both sides must
+        # agree, or the run uses one config's strengths against another's limits.
+        self._node_config = None
+        self.create_subscription(String, "/vmc_config",
+                                 lambda m: setattr(self, "_node_config", m.data), CONFIG_QOS)
 
         self._ramp_ticks = max(1, int(round(cfg.GAUSS_RAMP_S * cfg.CTRL_HZ)))
         self._tick_n     = 0
@@ -156,13 +166,14 @@ class ReachAvoidDriver(Node):
 
 def _wait_for_torque_node(node, timeout=10.0):
     """Nothing consumes /VC_ref_pos except the torque node, so no subscriber
-    means it is not running and the whole run would be published into the void."""
+    means it is not running and the whole run would be published into the void.
+    Also give /vmc_config a moment to arrive, so the configs can be compared."""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if node._pub_refpos.get_subscription_count() > 0:
+        if node._pub_refpos.get_subscription_count() > 0 and node._node_config is not None:
             return True
         rclpy.spin_once(node, timeout_sec=0.05)
-    return False
+    return node._pub_refpos.get_subscription_count() > 0
 
 
 def run_reach_avoid(cfg, gauss_strength, hold_time=None, label="reach_avoid"):
@@ -176,6 +187,16 @@ def run_reach_avoid(cfg, gauss_strength, hold_time=None, label="reach_avoid"):
         node.destroy_node()
         rclpy.shutdown()
         raise SystemExit(1)
+    want = cfg.__name__
+    if node._node_config is not None and node._node_config != want:
+        node.get_logger().error(
+            f"torque node is running {node._node_config}, this run needs {want} -- "
+            f"restart it as: python3 ../VMC/GUI_MultiVMC_Torque.py --config {cfg.CONFIG_NAME}"
+        )
+        node.destroy_node()
+        rclpy.shutdown()
+        raise SystemExit(1)
+
     node.start()
     try:
         while rclpy.ok() and not node.done:
