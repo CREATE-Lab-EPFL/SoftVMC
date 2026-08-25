@@ -33,8 +33,8 @@ def parse_args():
                    help="hardcoded Gaussian strength to use for this run")
     p.add_argument("--gauss-strength", type=float, default=None,
                    help="override the condition with an explicit strength (tuning only)")
-    p.add_argument("--hold-time", type=float, default=15.0,
-                   help="seconds to hold at steady state (default: 15)")
+    p.add_argument("--hold-time", type=float, default=cfg.HOLD_TIME,
+                   help=f"seconds to hold at steady state (default: {cfg.HOLD_TIME:.0f})")
     p.add_argument("--dry-run", action="store_true",
                    help="print the offline force/torque check and exit, no ROS")
     return p.parse_args()

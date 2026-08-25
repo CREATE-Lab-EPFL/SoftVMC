@@ -56,7 +56,8 @@ def report():
     print(f"press target      {np.round(cfg.PRESS_TARGET, 4).tolist()}")
     print(f"obstacle          {np.round(cfg.OBSTACLE_POS, 4).tolist()}   sigma {cfg.SIGMA}")
     print(f"approach          {np.linalg.norm(cfg.PRESS_TARGET - tip):.3f} m "
-          f"({np.linalg.norm(cfg.PRESS_TARGET - tip) / 0.04:.1f} s at 4 cm/s)")
+          f"({np.linalg.norm(cfg.PRESS_TARGET - tip) / cfg.APPROACH_V:.1f} s "
+          f"at {cfg.APPROACH_V * 100:.0f} cm/s)")
     print(f"reach             k={cfg.K_REACH} N/m, depth={cfg.PRESS_DEPTH} m "
           f"-> {F_reach:.2f} N, |tau| {tau_reach:.4f} N.m")
 

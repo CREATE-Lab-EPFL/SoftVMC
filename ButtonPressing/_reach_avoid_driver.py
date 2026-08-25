@@ -7,7 +7,7 @@ target, obstacle and stiffness always match the torque node's own config.
 
 Phases, all time-based and identical across conditions:
   RAMP_GAUSS  strength 0 -> gauss_strength over GAUSS_RAMP_S, tip goal at rest
-  APPROACH    tip goal from rest to PRESS_TARGET at STEP per tick
+  APPROACH    tip goal from rest to PRESS_TARGET at APPROACH_V
   HOLD        steady state, hold_time seconds
   RETRACT     tip goal back to rest
   RELEASE     strength back to 0
@@ -25,18 +25,17 @@ from std_msgs.msg import Float64MultiArray
 
 from GUI_MultiVMC_Config import (
     DEFAULT_START, N_VC, DAMPER_PARAM_INIT, K_REACH, OBSTACLE_POS, PRESS_TARGET,
+    CTRL_HZ, APPROACH_V, GAUSS_RAMP_S, HOLD_TIME,
 )
 
-CTRL_HZ      = 20.0
-STEP         = 0.002   # [m/tick] -> 4 cm/s
-POS_TOL      = 1e-4    # [m]
-GAUSS_RAMP_S = 5.0     # [s]
-FLUSH_TICKS  = 10      # ticks of zero-strength publishing before exit
+STEP        = APPROACH_V / CTRL_HZ   # [m/tick]
+POS_TOL     = 1e-4   # [m] convergence epsilon of the reference walk
+FLUSH_TICKS = 10     # ticks of zero-strength publishing before exit
 
 
 class ReachAvoidDriver(Node):
 
-    def __init__(self, gauss_strength, hold_time=15.0, label="reach_avoid"):
+    def __init__(self, gauss_strength, hold_time=HOLD_TIME, label="reach_avoid"):
         super().__init__(f"{label}_driver")
         if N_VC != 3:
             raise RuntimeError(
@@ -153,7 +152,7 @@ def _wait_for_torque_node(node, timeout=10.0):
     return False
 
 
-def run_reach_avoid(gauss_strength, hold_time=15.0, label="reach_avoid"):
+def run_reach_avoid(gauss_strength, hold_time=HOLD_TIME, label="reach_avoid"):
     rclpy.init()
     node = ReachAvoidDriver(gauss_strength, hold_time, label)
     if not _wait_for_torque_node(node):
