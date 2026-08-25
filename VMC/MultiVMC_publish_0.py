@@ -11,7 +11,11 @@ TERMINAL 2 (torque backend must already be running, run from the experiment dire
 """
 
 import sys, os
+# The caller's cwd first, so an experiment folder's config wins over VMC/'s.
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+sys.path.insert(0, os.getcwd())
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path: sys.path.insert(0, _ROOT)
 
 import rclpy
 from rclpy.node import Node

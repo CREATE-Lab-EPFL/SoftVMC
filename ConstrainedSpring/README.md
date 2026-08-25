@@ -21,6 +21,16 @@ This element implements **sliding contact**: the arm can move freely parallel to
 
 `plot_constrained_spring.ipynb` — position traces and normal/tangential force decomposition.
 
+## Gravity direction
+
+This folder's config does not set `GRAVITY_DIR`, so the torque node compensates
+for an **upright** arm (`-z`) — which is how these runs were recorded. The arm
+is currently mounted **on its side** for `ButtonPressing/`. To reproduce this
+folder's data, remount it upright. If you run it on the side anyway, pass
+`--gravity-dir -y` or the compensation pushes along an axis gravity no longer
+acts on — and expect the numbers to differ from the recorded runs either way,
+since the arm's own weight loads it differently.
+
 ## Running
 
 ```bash

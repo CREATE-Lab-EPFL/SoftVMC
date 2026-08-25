@@ -4,6 +4,8 @@ import sys, os
 # picks up THAT folder's GUI_MultiVMC_Config.py, not VMC/GUI_MultiVMC_Config.py.
 _CWD = os.getcwd()
 sys.path.insert(0, _CWD)
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path: sys.path.insert(0, _ROOT)
 
 import numpy as np
 import rclpy

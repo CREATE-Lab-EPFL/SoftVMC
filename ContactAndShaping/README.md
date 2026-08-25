@@ -25,6 +25,16 @@ Experiments involving physical contact and body shaping — multiple virtual ele
 | `plot_three_spring_vs_one.ipynb` | Posture error comparison: 1 vs. 3 springs |
 | `plot_surface_tracking.ipynb` | XY/X-position trajectory comparisons, soft-vs-stiff energy comparison, and per-k Y-position tracking across the `outputs/surface_tracking/` k-sweep |
 
+## Gravity direction
+
+This folder's config does not set `GRAVITY_DIR`, so the torque node compensates
+for an **upright** arm (`-z`) — which is how these runs were recorded. The arm
+is currently mounted **on its side** for `ButtonPressing/`. To reproduce this
+folder's data, remount it upright. If you run it on the side anyway, pass
+`--gravity-dir -y` or the compensation pushes along an axis gravity no longer
+acts on — and expect the numbers to differ from the recorded runs either way,
+since the arm's own weight loads it differently.
+
 ## Running
 
 `GUI_MultiVMC.py`/`GUI_MultiVMC_Torque.py` always import a module literally named
@@ -36,13 +46,11 @@ place before launching:
 conda activate finger
 cd ContactAndShaping
 
-# Surface tracking:
-cp GUI_MultiVMC_Config_surface.py GUI_MultiVMC_Config.py
-python3 ../VMC/GUI_MultiVMC_Torque.py &
-python3 ../VMC/GUI_MultiVMC.py
+# Surface tracking -- every command names the same variant:
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _surface &
+python3 ../VMC/GUI_MultiVMC.py --config _surface
 
 # Three-spring vs. one comparison (separate run):
-cp GUI_MultiVMC_Config_three_springs.py GUI_MultiVMC_Config.py
-python3 ../VMC/GUI_MultiVMC_Torque.py &
-python3 ../VMC/GUI_MultiVMC.py
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _three_springs &
+python3 ../VMC/GUI_MultiVMC.py --config _three_springs
 ```

@@ -30,6 +30,16 @@ Key properties: zero force at large distance, peak force at distance σ from the
 | `plot_gauss_fixed_gauss.ipynb` | Force field and arm trajectory for fixed obstacle |
 | `plot_gauss_moving_gauss.ipynb` | Dynamic avoidance trajectory |
 
+## Gravity direction
+
+This folder's config does not set `GRAVITY_DIR`, so the torque node compensates
+for an **upright** arm (`-z`) — which is how these runs were recorded. The arm
+is currently mounted **on its side** for `ButtonPressing/`. To reproduce this
+folder's data, remount it upright. If you run it on the side anyway, pass
+`--gravity-dir -y` or the compensation pushes along an axis gravity no longer
+acts on — and expect the numbers to differ from the recorded runs either way,
+since the arm's own weight loads it differently.
+
 ## Running
 
 `GUI_MultiVMC.py`/`GUI_MultiVMC_Torque.py` always import a module literally named
@@ -42,14 +52,12 @@ original data collection:
 conda activate finger
 cd GaussianElement
 
-# Fixed obstacle:
-cp GUI_MultiVMC_Config_fixed.py GUI_MultiVMC_Config.py
-python3 ../VMC/GUI_MultiVMC_Torque.py &
-python3 ../VMC/GUI_MultiVMC.py
+# Fixed obstacle -- every command names the same variant:
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _fixed &
+python3 ../VMC/GUI_MultiVMC.py --config _fixed
 
 # Moving obstacle (separate run):
-cp GUI_MultiVMC_Config_moving.py GUI_MultiVMC_Config.py
-python3 ../VMC/GUI_MultiVMC_Torque.py &
-python3 ../VMC/GUI_MultiVMC.py
-python3 moving_gauss_test.py   # additional terminal, drives the moving center
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _moving &
+python3 ../VMC/GUI_MultiVMC.py --config _moving
+python3 moving_gauss_test.py _moving   # additional terminal, drives the moving center
 ```
