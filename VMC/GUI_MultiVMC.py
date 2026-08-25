@@ -60,6 +60,22 @@ TAU_PLOT_WINDOW     = getattr(_cfg, "TAU_PLOT_WINDOW", 10.0)
 FK_S_SAMPLES        = getattr(_cfg, "FK_S_SAMPLES", 4)
 PLOT_VIRTUAL_FORCES = getattr(_cfg, "PLOT_VIRTUAL_FORCES", True)
 
+# ── Optional placement constraints ───────────────────────────────────────────
+# All three are opt-in. A config that defines none of them takes exactly the
+# same code paths as before: every goal free in x, y and z, publishing on.
+#   GOAL_Z_LOCK   {name: z}          held at z; its Z slider is disabled
+#   GOAL_LINK     [(name, name...)]  one shared goal -- drag one, they all move
+#   PUBLISH_ON_START  bool           False = place the goals before the arm moves
+_NAMES   = [c.name or f"VC{i+1}" for i, c in enumerate(VIRTUAL_COMPONENTS)]
+Z_LOCKED = {_NAMES.index(k): float(v)
+            for k, v in getattr(_cfg, "GOAL_Z_LOCK", {}).items() if k in _NAMES}
+LINKED   = {i: [i] for i in range(N_VC)}
+for _group in getattr(_cfg, "GOAL_LINK", []):
+    _idx = [_NAMES.index(k) for k in _group if k in _NAMES]
+    for _i in _idx:
+        LINKED[_i] = list(_idx)
+PUBLISH_ON_START = bool(getattr(_cfg, "PUBLISH_ON_START", True))
+
 from FK_Multi import FK_Multi
 
 
@@ -178,7 +194,7 @@ class RobotGUI:
         self._mouse_target = DEFAULT_START.copy()   # (N,3) raw mouse XY during drag
         self._k_vals    = list(SPRING_PARAM_INIT)
         self._c_vals    = list(DAMPER_PARAM_INIT)
-        self._pub_active   = tk.BooleanVar(value=True)
+        self._pub_active   = tk.BooleanVar(value=PUBLISH_ON_START)
         self._selected_vc  = tk.IntVar(value=0)
         self._dragging     = False
         self._ignore_z     = False   # guard against programmatic slider set()
@@ -398,9 +414,14 @@ class RobotGUI:
                 from_=Z_RANGE[1], to=Z_RANGE[0],   # top = max
                 orient="vertical", variable=zv, length=130,
             )
+            if i in Z_LOCKED:
+                # Held by the config -- show it, do not let it be dragged.
+                sl.state(["disabled"])
             sl.pack(pady=2)
 
-            lbl = ttk.Label(z_frame, text=f"{self._ref_pos[i, 2]:.3f} m")
+            lbl = ttk.Label(z_frame,
+                            text=f"{self._ref_pos[i, 2]:.3f} m"
+                                 + ("  (fixed)" if i in Z_LOCKED else ""))
             lbl.pack()
 
             # Trace: fires on every slider move (incl. programmatic set())
@@ -426,12 +447,14 @@ class RobotGUI:
         idx = self._selected_vc.get()
         x = float(np.clip(event.xdata, *XY_RANGE))
         y = float(np.clip(event.ydata, *XY_RANGE))
-        # Jump immediately on click; drag will be speed-capped from here
-        self._ref_pos[idx, 0] = x
-        self._ref_pos[idx, 1] = y
-        self._mouse_target[idx, 0] = x
-        self._mouse_target[idx, 1] = y
-        self._xy_pts[idx].set_data([x], [y])
+        # Jump immediately on click; drag will be speed-capped from here.
+        # LINKED[idx] is just [idx] unless the config shares a goal.
+        for j in LINKED[idx]:
+            self._ref_pos[j, 0] = x
+            self._ref_pos[j, 1] = y
+            self._mouse_target[j, 0] = x
+            self._mouse_target[j, 1] = y
+            self._xy_pts[j].set_data([x], [y])
         self._canvas_xy.draw_idle()
         if self._pub_active.get():
             self.node.publish_ref_pos(self._ref_pos)
@@ -445,15 +468,16 @@ class RobotGUI:
         if not self._dragging or event.inaxes != self._ax_xy:
             return
         idx = self._selected_vc.get()
-        self._mouse_target[idx, 0] = float(np.clip(event.xdata, *XY_RANGE))
-        self._mouse_target[idx, 1] = float(np.clip(event.ydata, *XY_RANGE))
+        for j in LINKED[idx]:
+            self._mouse_target[j, 0] = float(np.clip(event.xdata, *XY_RANGE))
+            self._mouse_target[j, 1] = float(np.clip(event.ydata, *XY_RANGE))
         # Actual movement is handled in _update_loop at capped speed
 
     def _xy_release(self, _event):
         self._dragging = False
 
     def _z_changed(self, idx: int, lbl: ttk.Label):
-        if self._ignore_z:
+        if self._ignore_z or idx in Z_LOCKED:
             return
         z = float(self._z_vars[idx].get())
         self._ref_pos[idx, 2] = z
@@ -746,9 +770,11 @@ class RobotGUI:
             diff     = self._mouse_target[idx, :2] - self._ref_pos[idx, :2]
             dist     = float(np.linalg.norm(diff))
             if dist > 1e-6:
-                self._ref_pos[idx, :2] += diff / dist * min(dist, max_step)
-                self._xy_pts[idx].set_data(
-                    [self._ref_pos[idx, 0]], [self._ref_pos[idx, 1]])
+                step = diff / dist * min(dist, max_step)
+                for j in LINKED[idx]:
+                    self._ref_pos[j, :2] += step
+                    self._xy_pts[j].set_data(
+                        [self._ref_pos[j, 0]], [self._ref_pos[j, 1]])
                 self._canvas_xy.draw_idle()
                 if self._pub_active.get():
                     self.node.publish_ref_pos(self._ref_pos)

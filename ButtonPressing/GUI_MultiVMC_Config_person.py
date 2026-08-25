@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import numpy as np
 from VMC.MultiVMCTaskSpace import VirtualComponent
 from VMC_utils.VirtualModels import LinearSpring, LinearDamper, GaussianSpring
-from VMC_utils.ConfigHelpers import default_start, param_info
+from VMC_utils.ConfigHelpers import default_start, param_info, rest_pose
 
 CONFIG_NAME = "person"
 
@@ -64,12 +64,34 @@ COLLECTED_DATA = False   # True = never save, the recorded runs are final
 PLOT_Z         = True
 PLOT_FORCE     = False   # no load cell in this variant
 
+# ── GUI placement constraints ────────────────────────────────────────────────
+# Only two points are placed by hand per run: the tip's x/y and one shared
+# centre for both Gaussians.
+#   - the button's height is known, so the tip goal's z is held at it
+#   - the two Gaussians share ONE goal, held at the midpoint between the tips
+#     of section 1 and section 2 (z is linear in s on the straight arm, so that
+#     midpoint is just rest_pose(0.5))
+TIP_GOAL_Z   = 0.38                       # [m] button height
+GAUSS_GOAL_Z = float(rest_pose(0.5)[2])   # [m] = 0.2175, between sections 1 and 2
+
+GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,
+               "gauss_seg1": GAUSS_GOAL_Z,
+               "gauss_seg2": GAUSS_GOAL_Z}
+GOAL_LINK   = [("gauss_seg1", "gauss_seg2")]
+
+# The tip goal starts 5.5 cm below the resting tip, so come up with publishing
+# off: place both points first, then switch it on and the arm moves once.
+PUBLISH_ON_START = False
+
 # ── GUI framing ──────────────────────────────────────────────────────────────
 XY_RANGE = (-0.35, 0.35)   # [m]
 Z_RANGE  = (0.15, 0.50)    # [m]
 
 # ── Derived ──────────────────────────────────────────────────────────────────
 DEFAULT_START = default_start(VIRTUAL_COMPONENTS)   # straight-arm rest pose
+for _i, _c in enumerate(VIRTUAL_COMPONENTS):        # start each goal on its locked z
+    if _c.name in GOAL_Z_LOCK:
+        DEFAULT_START[_i, 2] = GOAL_Z_LOCK[_c.name]
 N_VC          = len(VIRTUAL_COMPONENTS)
 
 (SPRING_PARAM_NAMES, DAMPER_PARAM_NAMES,
