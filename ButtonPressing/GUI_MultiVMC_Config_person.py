@@ -35,6 +35,8 @@ K_GAUSS = 0.0    # [N/m]   both Gaussians start off; raise them from the GUI
 SIGMA   = 0.06   # [m]     Gaussian width
 C_DAMP  = 1.0    # [N.s/m] all three
 
+GAUSS_COMPONENTS = ("gauss_seg1", "gauss_seg2")   # one obstacle, two attachment points
+
 VIRTUAL_COMPONENTS = [
     VirtualComponent(spring=LinearSpring(K_REACH),
                      damper=LinearDamper(C_DAMP),
@@ -57,7 +59,7 @@ GAUSS_CONDITIONS = {
     "mid_2":    10.0,
     "strong":   20.0,
 }
-CONDITION_APPLIES_TO = ("gauss_seg1", "gauss_seg2")   # both share one strength
+CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
 
 # ── Controller ───────────────────────────────────────────────────────────────
 TAU_LIMIT   = 0.15   # [N·m] per motor -- lower: this variant runs near a person
@@ -89,7 +91,11 @@ GAUSS_GOAL_Z = float(rest_pose(0.5)[2])   # [m] = 0.2175, between sections 1 and
 GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,
                "gauss_seg1": GAUSS_GOAL_Z,
                "gauss_seg2": GAUSS_GOAL_Z}
-GOAL_LINK   = [("gauss_seg1", "gauss_seg2")]
+
+# The obstacle is pre-placed, so a run can start without dragging anything.
+# Drag either Gaussian in the GUI to move it; both follow.
+GAUSS_GOAL_XY = (-0.05, 0.0)   # [m]
+GOAL_LINK   = [GAUSS_COMPONENTS]
 
 # The tip goal starts 5.5 cm below the resting tip, so come up with publishing
 # off: place both points first, then switch it on and the arm moves once.
@@ -101,9 +107,11 @@ Z_RANGE  = (0.15, 0.50)    # [m]
 
 # ── Derived ──────────────────────────────────────────────────────────────────
 DEFAULT_START = default_start(VIRTUAL_COMPONENTS)   # straight-arm rest pose
-for _i, _c in enumerate(VIRTUAL_COMPONENTS):        # start each goal on its locked z
+for _i, _c in enumerate(VIRTUAL_COMPONENTS):        # start each goal where it belongs
     if _c.name in GOAL_Z_LOCK:
         DEFAULT_START[_i, 2] = GOAL_Z_LOCK[_c.name]
+    if _c.name in GAUSS_COMPONENTS:
+        DEFAULT_START[_i, :2] = GAUSS_GOAL_XY
 N_VC          = len(VIRTUAL_COMPONENTS)
 
 (SPRING_PARAM_NAMES, DAMPER_PARAM_NAMES,

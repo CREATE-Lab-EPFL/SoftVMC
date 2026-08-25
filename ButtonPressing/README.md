@@ -15,14 +15,16 @@ arm is allowed:
 | load cell | yes (`/force_shear`) | no |
 | runs land in | `outputs/button_pressing/` | `outputs/person_avoiding/` |
 
-Only **two points** are placed by hand per run, and only in x/y:
+Both goals are **already placed when the GUI opens** — nothing has to be
+dragged to start a run:
 
-- the **button**, for the tip spring — its z is known, so it is held at 0.38 m
-- the **obstacle**, shared by both Gaussians — one centre, not two, held at
-  0.2175 m, the midpoint between the tips of sections 1 and 2
+| | starts at | fixed by |
+|---|---|---|
+| **button** (`lin_tip`) | x 0, y 0, **z 0.38 m** | z held at the button's height; set x/y by hand |
+| **obstacle** (both Gaussians) | **x −0.05, y 0, z 0.2175 m** | one shared centre; z held at the midpoint between the tips of sections 1 and 2 |
 
-Everything else about the placement is set by dragging in the GUI and recorded
-in the run's own data.
+Drag either only to move it, in x/y — the Z sliders are disabled and read
+`(fixed)`. Whatever you end up with is recorded in the run's own data.
 
 ## Mechanism
 
@@ -45,7 +47,9 @@ strength peaks immediately if its centre is already within `SIGMA` of the arm.
 
 `GAUSS_GOAL_Z` is derived, not typed: z is linear in s on the straight arm, so
 the midpoint between the tips of sections 1 (s=1/3) and 2 (s=2/3) is exactly
-`rest_pose(0.5)`. Change `REST_LENGTH` and it follows.
+`rest_pose(0.5)`. Change `REST_LENGTH` and it follows. It also puts both
+attachment points the same distance from the centre — 0.088 m at the rest pose,
+for the pre-placed x — so the two Gaussians push equally hard to begin with.
 
 Aim the tip goal a little *past* the contact surface. Parked exactly on it, the
 steady-state spring error — and the contact force with it — decays to zero once
@@ -142,9 +146,12 @@ Both terminals must name the same variant; the torque node logs what it loaded:
 The GUI comes up with **publishing off** (`PUBLISH_ON_START = False`), so
 nothing moves while you set up. Then:
 
-1. **Place the obstacle.** Drag either Gaussian — they share one goal, so the
-   other follows. x/y only; the Z slider is disabled and reads `(fixed)`.
-2. **Place the button.** Drag `lin_tip`, x/y only, again with z fixed.
+1. **The obstacle is already at x = −0.05, y = 0** (`GAUSS_GOAL_XY`), shared
+   by both Gaussians — nothing to do unless you want it elsewhere, in which
+   case drag either one and the other follows. x/y only; the Z slider is
+   disabled and reads `(fixed)`.
+2. **Place the button.** Drag `lin_tip` to it — x/y only, z fixed at 0.38 m.
+   This is the one placement a run actually needs.
 3. **Switch publishing on.** *Now* the arm moves, once, to the goals you set.
    The tip goal starts 5.5 cm below the resting tip, so expect it to take up
    that slack immediately (≈0.55 N at `K_REACH = 10`).
