@@ -133,6 +133,36 @@ agree: `button_pressing.py` aborts if the torque node is running a different
 config, rather than quietly using one config's strengths against another's
 torque limit.
 
+### Live tuning with the GUI
+
+When the arm rings instead of settling, drive it by hand from the GUI rather
+than the scripted runner. Same torque node, same topics, same saved data:
+
+```bash
+# Terminal 1 — hardware
+bash ../start_arm.sh
+# Terminal 2 — load cell (button only)
+python3 ../LoadCell/arduino_force.py
+# Terminal 3 — torque node
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _button
+# Terminal 4 — GUI instead of the runner
+python3 ../VMC/GUI_MultiVMC.py --config _button
+```
+
+It comes up with the tip reference at the straight-arm rest pose and both
+Gaussians already centred on the obstacle at **strength 0** — nothing moves
+until you ask it to. Then: drag `lin_tip` toward the button, work its
+`stiffness` slider live until the tip settles instead of oscillating, and raise
+the two `strength` sliders together to add repulsion. Whatever stiffness ends
+up feeling right is the value to write into `K_REACH`.
+
+The data is saved exactly as in a scripted run — the torque node logs every
+control tick no matter who publishes the reference, and writes on Ctrl+C. The
+one thing a hand-driven run loses is the notebook's automatic steady-state
+window, which looks for the tip goal parked at its farthest point with the
+Gaussians at full strength. So: tune in the GUI, then record the reported
+conditions with `button_pressing.py`.
+
 ### Pre-flight — once, before the first condition
 
 ```bash
@@ -252,8 +282,29 @@ condition.
 `GUI_MultiVMC_Torque.py` auto-saves to `experiments/z_<stamp>.{npz,png}`;
 `collect_run.py` moves that pair into `outputs/button_pressing/<condition>.{npz,png}`
 or `outputs/person_avoiding/<condition>.{npz,png}`, which is where the notebook
-looks. The `force` field is raw load cell **grams** — multiply by `9.80665e-3`
-for newtons.
+looks.
+
+Saving needs `SAVE_PLOT`/`SAVE_DATA` `True` and `COLLECTED_DATA` `False` — all
+three are set that way in both configs — and it happens **on exit only**, from
+the node's `finally` block. So Ctrl+C the torque node; a `kill -9` loses the
+run. It writes relative to the launch directory, so the node must have been
+started from `ButtonPressing/`.
+
+Every control tick is logged, whether the reference came from the runner or
+from the GUI. The `.npz` holds:
+
+| field | shape | what |
+|---|---|---|
+| `t` | (n,) | seconds since the first reference message |
+| `goal` | (n, N_VC, 3) | reference trajectory, per component [m] |
+| `comp_pos` | (n, N_VC, 3) | actual FK position of each component [m] |
+| `q_motor` / `q_motor_dot` | (n, 9) | joint positions [rad] and velocities [rad/s] |
+| `tau` | (n, 9) | commanded torque, post-clip [N·m] |
+| `tau_grav` | (n, 9) | the gravity-compensation share of it [N·m] |
+| `force` | (n,) | load-cell shear, raw **grams** — ×`9.80665e-3` for N |
+| `f_virtual` | (n, 3) | task-space virtual force [N] |
+| `k_params` | (n, N_VC) | each component's spring parameter over time |
+| `comp_names`, `comp_s_params`, `control_freq`, `tau_limit` | — | metadata |
 
 The notebook finds each run's steady-state window on its own, from the logged
 tip goal and `k_params`, and reads the Gaussian attachment points from the
