@@ -45,6 +45,18 @@ VIRTUAL_COMPONENTS = [
                      s_param=2.0 / 3.0, name="gauss_seg2"),
 ]
 
+# ── Conditions ───────────────────────────────────────────────────────────────
+# The Gaussian strength each run name stands for. `--run mid_1` starts both
+# Gaussians at 5 N/m -- no slider work needed to set up a named run; the sliders
+# are still live if you want to move off it.
+GAUSS_CONDITIONS = {
+    "no_gauss": 0.0,
+    "mid_1":    5.0,
+    "mid_2":    10.0,
+    "strong":   20.0,
+}
+CONDITION_APPLIES_TO = ("gauss_seg1", "gauss_seg2")   # both share one strength
+
 # ── Controller ───────────────────────────────────────────────────────────────
 TAU_LIMIT   = 0.25   # [N·m] per motor
 GRAVITY_DIR = "-y"   # arm rotated onto its side: gravity pulls along -y, not -z

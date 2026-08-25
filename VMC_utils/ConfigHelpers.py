@@ -115,3 +115,32 @@ def config_from_argv(argv=None, allow_positional=False, directory=None):
     if variant is None and allow_positional and argv and not argv[0].startswith("-"):
         variant = argv[0]
     return load_config(variant, directory)
+
+
+def run_name_from_argv(argv=None):
+    """The name given by `--run NAME` / `--run=NAME`, or None."""
+    argv = list(sys.argv[1:] if argv is None else argv)
+    for i, a in enumerate(argv):
+        if a == "--run" and i + 1 < len(argv):
+            return argv[i + 1]
+        if a.startswith("--run="):
+            return a.split("=", 1)[1]
+    return None
+
+
+def condition_strength(cfg, run_name):
+    """
+    The spring strength a run name stands for, from the config's
+    GAUSS_CONDITIONS, or None when this config names no conditions (or the run
+    is not one of them) -- in which case nothing is overridden.
+    """
+    conds = getattr(cfg, "GAUSS_CONDITIONS", None)
+    if not conds or run_name is None:
+        return None
+    v = conds.get(run_name)
+    return None if v is None else float(v)
+
+
+def condition_targets(cfg):
+    """Component names that a condition's strength applies to."""
+    return tuple(getattr(cfg, "CONDITION_APPLIES_TO", ()))

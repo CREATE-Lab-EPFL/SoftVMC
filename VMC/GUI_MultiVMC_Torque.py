@@ -60,7 +60,8 @@ from MultiVMCTaskSpace import VMC_Multi_Modular  # multi_torques_and_forces used
 from MultiGravityComp import MultiGravComp
 from FK_Multi import FK_Multi
 from VMC_utils.GravityCompensation import GRAVITY_DIR_CHOICES, rotation_for_gravity_dir
-from VMC_utils.ConfigHelpers import config_from_argv
+from VMC_utils.ConfigHelpers import (config_from_argv, condition_strength,
+                                     condition_targets)
 
 # --config NAME picks GUI_MultiVMC_Config_NAME.py from the launch directory;
 # without it the plain GUI_MultiVMC_Config.py is used, as before.
@@ -108,6 +109,18 @@ class VMCTorqueNode(Node):
 
         # ── Deep-copy components so we can mutate spring/damper params ────────
         self._components = copy.deepcopy(VIRTUAL_COMPONENTS)
+
+        # A named run can carry its own spring strength (GAUSS_CONDITIONS), so
+        # the run name alone defines the condition. Configs without them are
+        # untouched.
+        strength = condition_strength(_cfg, run_name)
+        if strength is not None:
+            for i, c in enumerate(self._components):
+                if c.name in condition_targets(_cfg):
+                    setattr(c.spring, SPRING_PARAM_NAMES[i], strength)
+            self.get_logger().info(
+                f"condition {run_name}: {', '.join(condition_targets(_cfg))} "
+                f"-> strength {strength}")
         self._rebuild_vmc()
 
         self._run_name    = run_name

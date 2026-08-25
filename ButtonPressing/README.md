@@ -37,9 +37,11 @@ toward the button while the two Gaussians push its body away from the obstacle;
 both act on the same 9 motors, and how that contest resolves sets how hard the
 tip ends up pressing.
 
-Both Gaussians start at **strength 0**. Place the shared centre first, then
-raise the sliders — a Gaussian switched on at full strength peaks immediately if
-its centre is already within `SIGMA` of the arm.
+Both Gaussians start at whatever strength the run name stands for (see
+[Run names](#run-names)), and share it. Because the GUI comes up with
+publishing off, that strength does not act until you have placed the centre and
+switched publishing on — which matters, since a Gaussian switched on at full
+strength peaks immediately if its centre is already within `SIGMA` of the arm.
 
 `GAUSS_GOAL_Z` is derived, not typed: z is linear in s on the straight arm, so
 the midpoint between the tips of sections 1 (s=1/3) and 2 (s=2/3) is exactly
@@ -71,27 +73,36 @@ notebook agree on what a run is called:
 
 | `--run` | Gaussian strength | |
 |---|---|---|
-| `no_gauss` | 0 | baseline — reach only |
-| `mid_1` | ≈24 | just past the reach/repulsion balance |
-| `mid_2` | ≈48 | repulsion clearly winning |
-| `strong` | ≈80 | strongest of the set |
+| `no_gauss` | 0 N/m | baseline — reach only |
+| `mid_1` | 5 N/m | |
+| `mid_2` | 10 N/m | |
+| `strong` | 20 N/m | around the reach/repulsion balance |
 
-For `_person`: `no_gauss` (0) · `mid` (≈25) · `strong` (≈50) — **record
-`strong` first** and confirm the arm stops clear before running anything
-weaker.
+**The name sets the strength.** `GAUSS_CONDITIONS` in the config maps each name
+to a value, and `--run` applies it to both Gaussians — in the torque node and on
+the GUI sliders alike, so the two agree from the first tick and there is no
+slider work to set up a named run:
 
 ```bash
 python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run mid_1
+python3 ../VMC/GUI_MultiVMC.py        --config _button --run mid_1
 ```
 
-Those strengths are indicative, not settings: you dial them in on the GUI
-sliders. They come from the torque balance at the straight-arm rest pose, where
-reach and repulsion crossed at **19.3 N/m** for the geometry they were sized
-against — and with the obstacle now placed by hand, that balance point moves
-with it. Read it off the live torque plot instead.
+The sliders stay live — move off the condition whenever you want, and
+`k_params` in the saved data records what was actually applied, tick by tick.
 
-Anything not in the table is a scratch name. `--run tuning` overwrites itself
-every time, which is exactly what you want while feeling out gains.
+Both configs use the same four. For `_person`, **record `strong` first** and
+confirm the arm stops clear before running anything weaker.
+
+For scale: at `K_REACH = 10` the reach and repulsion torques crossed at
+**19.3 N/m** for the geometry these were sized against, so `strong` sits about
+at that balance and the rest below it. With the obstacle now placed by hand
+that crossover moves with it — read it off the live torque plot rather than
+trusting the number.
+
+Anything not in the table is a scratch name with no strength attached:
+`--run tuning` starts from the config's own value and overwrites itself every
+time, which is what you want while feeling out gains.
 
 ## Gravity direction
 
@@ -137,8 +148,9 @@ nothing moves while you set up. Then:
 3. **Switch publishing on.** *Now* the arm moves, once, to the goals you set.
    The tip goal starts 5.5 cm below the resting tip, so expect it to take up
    that slack immediately (≈0.55 N at `K_REACH = 10`).
-4. **Raise the repulsion.** Bring both `strength` sliders up together, in
-   steps, watching the torque plot.
+4. **Check the repulsion.** Both `strength` sliders already sit at the run's
+   condition. Move them if you want to explore — they publish live, and what
+   was applied is recorded in `k_params`.
 5. **Leave it alone.** The longest stretch where you touch nothing is what the
    notebook reads as the measurement window.
 6. **Ctrl+C terminal 3 — once.** That writes the run.

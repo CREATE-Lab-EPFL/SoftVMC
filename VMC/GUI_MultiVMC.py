@@ -36,7 +36,8 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64, Float64MultiArray
 
-from VMC_utils.ConfigHelpers import config_from_argv
+from VMC_utils.ConfigHelpers import (config_from_argv, condition_strength,
+                                     condition_targets, run_name_from_argv)
 
 # --config NAME picks GUI_MultiVMC_Config_NAME.py from the launch directory;
 # without it the plain GUI_MultiVMC_Config.py is used, as before.
@@ -75,6 +76,13 @@ for _group in getattr(_cfg, "GOAL_LINK", []):
     for _i in _idx:
         LINKED[_i] = list(_idx)
 PUBLISH_ON_START = bool(getattr(_cfg, "PUBLISH_ON_START", True))
+
+# --run NAME may name a condition (GAUSS_CONDITIONS): its strength becomes the
+# slider's starting value, so the GUI and the torque node agree from the start.
+_STRENGTH = condition_strength(_cfg, run_name_from_argv())
+if _STRENGTH is not None:
+    SPRING_PARAM_INIT = [_STRENGTH if nm in condition_targets(_cfg) else v
+                         for nm, v in zip(_NAMES, SPRING_PARAM_INIT)]
 
 from FK_Multi import FK_Multi
 
