@@ -84,10 +84,19 @@ python3 ../VMC/GUI_MultiVMC.py
 ```
 
 If an experiment directory holds more than one named config (e.g.
-`GaussianElement/GUI_MultiVMC_Config_fixed.py` and `_moving.py`), copy the one
-you want into place first — `cp GUI_MultiVMC_Config_fixed.py GUI_MultiVMC_Config.py`
-— since the import always looks for that exact module name. See the
-experiment's own README for which configs need this.
+`GaussianElement/GUI_MultiVMC_Config_fixed.py` and `_moving.py`), name the one
+you want with `--config`:
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _fixed
+python3 ../VMC/GUI_MultiVMC.py        --config _fixed
+```
+
+`_fixed` and `fixed` both work, and a name that does not exist lists what does.
+Every command in a run must name the same variant — for `ButtonPressing/` the
+driver checks this over `/vmc_config` and aborts on a mismatch. Copying a
+variant over `GUI_MultiVMC_Config.py` still works, since that plain name is
+what `--config` falls back to. See the experiment's own README.
 
 On exit, the torque node saves a timestamped `.npz` + `.png` snapshot into an
 `experiments/` subfolder of **the directory you launched it from** (e.g.

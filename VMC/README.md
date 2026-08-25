@@ -16,6 +16,25 @@ See [VMC_DOCUMENTATION.md](VMC_DOCUMENTATION.md) for the full architecture descr
 | `MultiVMC_MovingGoal_Pub.py` | Scripted alternative to `GUI_MultiVMC.py`: ramps `/VC_ref_pos` from `DEFAULT_START` to `DEFAULT_GOALS` (and back, if `LOOP_BACK=True`) using whichever config is active in the caller's directory — no dragging required. Used directly by `ConnectivityTest/`. |
 | `MultiVMC_publish_0.py` | Publishes a fixed `DEFAULT_START` so the arm holds home pose while testing external perturbations |
 
+## Common flags
+
+Both apply to every script that loads an experiment config
+(`GUI_MultiVMC_Torque.py`, `GUI_MultiVMC.py`, `MultiVMC_MovingGoal_Pub.py`,
+`MultiVMC_publish_0.py`; `--gravity-dir` to the torque nodes only):
+
+| Flag | Effect |
+|---|---|
+| `--config NAME` | load `GUI_MultiVMC_Config_NAME.py` from the launch directory instead of `GUI_MultiVMC_Config.py`. `_moving` and `moving` are equivalent; a bad name lists what is available. Replaces copying a variant into place. |
+| `--gravity-dir DIR` | direction gravity pulls in the robot frame — `+x/-x/+y/-y/+z/-z`. Defaults to the config's `GRAVITY_DIR`, or `-z` (upright) if it defines none. `--gravity-dir=-y` and `--gravity-dir -y` both parse. |
+
+The torque node logs both on startup; check those two lines before trusting a
+run:
+
+```
+[INFO] config: GUI_MultiVMC_Config_button
+[INFO] gravity compensation: gravity pulls along -y in the robot frame
+```
+
 ## Running
 
 ```bash
