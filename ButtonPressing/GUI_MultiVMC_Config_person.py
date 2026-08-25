@@ -96,9 +96,11 @@ GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,
 GAUSS_GOAL_XY = (-0.05, 0.0)   # [m]
 GOAL_LINK   = [GAUSS_COMPONENTS]
 
-# The tip goal starts 5.5 cm below the resting tip, so come up with publishing
-# off: place both points first, then switch it on and the arm moves once.
-PUBLISH_ON_START = False
+# Live from the start, like every other folder. The tip goal sits 5.5 cm below
+# the resting tip, so the arm takes up that slack (~0.55 N at K_REACH = 10) as
+# soon as the torque node is up -- and a named run's Gaussians are already at
+# their strength. Untick "Publisher Active" in the GUI to place goals quietly.
+PUBLISH_ON_START = True
 
 # ── GUI framing ──────────────────────────────────────────────────────────────
 XY_RANGE = (-0.35, 0.35)   # [m]

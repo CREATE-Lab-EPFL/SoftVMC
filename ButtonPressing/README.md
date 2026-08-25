@@ -62,10 +62,11 @@ check the config, the run and the gravity line before moving anything:
 [INFO] gravity compensation: gravity pulls along -y in the robot frame
 ```
 
-The GUI opens with **publishing off**. Drag `lin_tip` to the button, switch
-publishing on — the arm takes up the 5.5 cm to its goal at once (≈0.55 N) —
-then leave it alone. The longest stretch you don't touch is the measurement
-window. **Ctrl+C T3 once** to write the run.
+The GUI publishes from the start, so the arm takes up the 5.5 cm to its goal
+as soon as the torque node is up (≈0.55 N), with the run's Gaussian strength
+already applied. Drag `lin_tip` to the button, then leave it alone — the longest
+stretch you don't touch is the measurement window. **Ctrl+C T3 once** to write
+the run. Untick **Publisher Active** to move goals without the arm following.
 
 Swap both `_button` for `_person`, drop T2.
 
