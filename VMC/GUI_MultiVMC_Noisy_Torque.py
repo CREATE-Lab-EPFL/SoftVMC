@@ -38,6 +38,7 @@ _KINE = os.path.join(_ROOT, 'Kinematics')
 for _p in [_ROOT, _KINE]:
     if _p not in sys.path: sys.path.insert(0, _p)
 
+import argparse
 import copy
 import time
 from datetime import datetime
@@ -53,6 +54,7 @@ from MultiController import CONTROL_FREQUENCY
 from MultiVMCTaskSpace import VMC_Multi_Modular  # multi_torques_and_forces used below
 from MultiGravityComp import MultiGravComp
 from FK_Multi import FK_Multi
+from VMC_utils.GravityCompensation import GRAVITY_DIR_CHOICES, rotation_for_gravity_dir
 from GUI_MultiVMC_Config import (
     VIRTUAL_COMPONENTS,
     DEFAULT_START,
@@ -76,6 +78,15 @@ try:
 except ImportError:
     COLLECTED_DATA = False
 
+try:
+    # Direction gravity pulls in the ROBOT frame. "-z" (the default) is the arm
+    # standing straight up; a config for a rotated mount overrides it, e.g. the
+    # arm laid on its side pulls along "-y". Configs that don't define it keep
+    # the upright behaviour.
+    from GUI_MultiVMC_Config import GRAVITY_DIR
+except ImportError:
+    GRAVITY_DIR = "-z"
+
 # ── Perturbance config ─────────────────────────────────────────────────────────
 PERTURB_ENABLED      = True               # master switch
 PERTURB_STD          = 0.18                # [N·m] std of additive Gaussian noise (mean=0)
@@ -96,14 +107,19 @@ class VMCTorqueNode(Node):
     updates do not mutate the config module's originals.
     """
 
-    def __init__(self):
+    def __init__(self, gravity_dir=GRAVITY_DIR):
         super().__init__("vmc_torque_node")
 
         # ── Deep-copy components so we can mutate spring/damper params ────────
         self._components = copy.deepcopy(VIRTUAL_COMPONENTS)
         self._rebuild_vmc()
 
-        self._grav_comp = MultiGravComp()
+        self._gravity_dir = gravity_dir
+        self._grav_comp = MultiGravComp(
+            R_world_to_system=rotation_for_gravity_dir(gravity_dir)
+        )
+        self.get_logger().info(f"gravity compensation: gravity pulls along "
+                               f"{gravity_dir} in the robot frame")
 
         # ── Robot state ───────────────────────────────────────────────────────
         self._q      = np.zeros(9, dtype=float)   # rad
@@ -488,9 +504,39 @@ class VMCTorqueNode(Node):
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
+def _glue_signed_values(argv, flags=("--gravity-dir",)):
+    """
+    argparse reads a leading "-" as another flag, so `--gravity-dir -y` would
+    fail. Rewrite it to `--gravity-dir=-y` and let both spellings work.
+    """
+    out, i = [], 0
+    while i < len(argv):
+        if argv[i] in flags and i + 1 < len(argv):
+            out.append(f"{argv[i]}={argv[i + 1]}")
+            i += 2
+        else:
+            out.append(argv[i])
+            i += 1
+    return out
+
+
+def _parse_args():
+    p = argparse.ArgumentParser(description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--gravity-dir", default=GRAVITY_DIR, metavar="DIR",
+                   choices=GRAVITY_DIR_CHOICES,
+                   help="direction gravity pulls in the robot frame "
+                        f"(default from this folder's config: {GRAVITY_DIR}). "
+                        '"-z" is the arm standing straight up, "-y" the arm '
+                        "rotated onto its side.")
+    args, _ = p.parse_known_args(_glue_signed_values(sys.argv[1:]))  # ignore ROS args
+    return args
+
+
 def main():
+    args = _parse_args()
     rclpy.init()
-    node = VMCTorqueNode()
+    node = VMCTorqueNode(gravity_dir=args.gravity_dir)
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

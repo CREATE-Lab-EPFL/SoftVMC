@@ -22,6 +22,16 @@ keep TAU_LIMIT low while doing so.
 REQUIREMENT: len(COMPONENT_SPECS) == number of virtual components == number of goals.
 """
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Mounting orientation
+# Direction gravity pulls in the ROBOT frame. Defaults to "-y" -- the arm
+# rotated onto its side, as it is mounted for the ButtonPressing runs. Use
+# "-z" for the upright arm. Override per run without editing this file:
+#     python3 ../VMC/GUI_MultiVMC_Torque.py --gravity-dir -z
+# ─────────────────────────────────────────────────────────────────────────────
+GRAVITY_DIR = "-y"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Reference positions -- identical to VMC/GUI_MultiVMC_Config.py's go_x_y
 # ─────────────────────────────────────────────────────────────────────────────

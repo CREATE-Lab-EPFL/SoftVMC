@@ -21,6 +21,15 @@ load cell. Driven headlessly by person_avoiding.py.
 CONFIG_NAME = "person"   # guards against running a script against the wrong config
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Mounting orientation
+# The arm is rotated onto its side for these runs, so gravity pulls along -y in
+# the robot frame instead of the upright -z. GUI_MultiVMC_Torque.py reads this
+# and orients its gravity compensation accordingly; without it the compensation
+# would push the arm sideways into an axis gravity no longer acts on.
+# ─────────────────────────────────────────────────────────────────────────────
+GRAVITY_DIR = "-y"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Reference positions
 # ─────────────────────────────────────────────────────────────────────────────
 # PLACEHOLDER, not a measurement -- set this before running near a person.

@@ -20,6 +20,15 @@ by button_pressing.py -- positions and strengths are all hardcoded here.
 CONFIG_NAME = "button"   # guards against running a script against the wrong config
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Mounting orientation
+# The arm is rotated onto its side for these runs, so gravity pulls along -y in
+# the robot frame instead of the upright -z. GUI_MultiVMC_Torque.py reads this
+# and orients its gravity compensation accordingly; without it the compensation
+# would push the arm sideways into an axis gravity no longer acts on.
+# ─────────────────────────────────────────────────────────────────────────────
+GRAVITY_DIR = "-y"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Reference positions
 # ─────────────────────────────────────────────────────────────────────────────
 BUTTON_POS   = np.array([0.05, 0.0, 0.38], dtype=float)

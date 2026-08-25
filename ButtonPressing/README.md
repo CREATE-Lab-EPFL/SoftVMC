@@ -45,6 +45,15 @@ so they size the conditions rather than predict them. And they drift one way:
 reaching bends the body *toward* the obstacle, so the distance falls toward
 `SIGMA` and the repulsion grows — the Gaussians bite somewhat harder in practice.
 
+## Gravity direction
+
+The arm is **rotated onto its side** for both experiments, so gravity pulls
+along **-y** in the robot frame, not the upright **-z**. Both configs set
+`GRAVITY_DIR = "-y"` and `GUI_MultiVMC_Torque.py` orients its gravity
+compensation from it; the node logs the direction on startup, so confirm that
+line before recording. Goals and obstacle positions are unaffected — they are
+already expressed in the robot frame.
+
 ## Sequence
 
 Identical for every condition, only the strength differs:

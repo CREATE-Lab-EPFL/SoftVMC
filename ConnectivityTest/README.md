@@ -13,6 +13,23 @@ enough authority to confirm the arm responds, without needing much. Raise
 them live via the GUI sliders if you want more, and keep `TAU_LIMIT` low
 while doing so.
 
+## Gravity direction
+
+`GRAVITY_DIR = "-y"` in `GUI_MultiVMC_Config.py`: the default here assumes the
+arm rotated onto its side, the mounting used for the `ButtonPressing` runs, so
+gravity pulls along **-y** in the robot frame rather than the upright **-z**.
+The torque node reads it and orients its gravity compensation to match.
+
+Change it for a single run straight from the terminal — no edit needed:
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --gravity-dir -z    # arm standing upright
+```
+
+Accepts `+x/-x/+y/-y/+z/-z`, and `--gravity-dir=-z` works too. The node logs the
+direction it started with, so check that line before trusting a run. If the arm
+sags or drifts consistently to one side, this is the first thing to check.
+
 ## Running
 
 Primary path — interactive GUI:
