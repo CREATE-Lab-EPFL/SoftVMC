@@ -120,41 +120,121 @@ configs are headless, so they carry no GUI slider metadata at all.
 | `collect_run.py` | moves the newest auto-saved run into `outputs/` under its condition name |
 | `plot_button_and_person.ipynb` | analysis for both |
 
-## Running
+## Running an experiment
 
 `GUI_MultiVMC_Torque.py` always imports a module literally named
-`GUI_MultiVMC_Config` from the current directory, so copy the variant into place
-first. The runners refuse to start against the wrong one.
+`GUI_MultiVMC_Config` from the current directory, so the variant gets copied
+into place first. The runners check `CONFIG_NAME` and refuse to start against
+the wrong one.
+
+### Pre-flight — once, before the first condition
 
 ```bash
 conda activate finger
 cd ButtonPressing
-cp GUI_MultiVMC_Config_button.py GUI_MultiVMC_Config.py
+cp GUI_MultiVMC_Config_button.py GUI_MultiVMC_Config.py   # or _person
 
-python3 button_pressing.py --dry-run          # offline, no hardware
+python3 button_pressing.py --dry-run     # offline, no hardware, ~30 s
+```
 
-# Terminal 1
+Check, in this order:
+
+1. **The arm is on its side.** Both configs assume `GRAVITY_DIR = "-y"`. If the
+   arm is mounted upright, set `"-z"` — see [Gravity direction](#gravity-direction).
+2. **The dry-run numbers are sane** — press target, obstacle distances, the
+   crossover, and `worst nominal |tau|` under `TAU_LIMIT`. Re-run it after
+   *any* config edit; every number comes from the config.
+3. **`COLLECTED_DATA = False`**, or the torque node will refuse to save.
+4. **Person runs only:** `PERSON_POS` is measured, not the placeholder. Someone
+   is on the e-stop. Record `--condition strong` first and confirm the arm
+   stops clear before trying anything weaker.
+
+### One condition, start to finish
+
+Four terminals, all from `ButtonPressing/`:
+
+```bash
+# Terminal 1 — hardware
 bash ../start_arm.sh
-# Terminal 2  (button only)
+
+# Terminal 2 — load cell (button config only)
 python3 ../LoadCell/arduino_force.py
-# Terminal 3
+
+# Terminal 3 — torque node
 python3 ../VMC/GUI_MultiVMC_Torque.py
-# Terminal 4
+
+# Terminal 4 — the run
 python3 button_pressing.py --condition no_gauss
 ```
 
-The torque node saves once, on exit, so each condition needs its own run:
-Ctrl+C the torque node, collect the file, restart it for the next condition.
+On startup, terminal 3 logs the gravity direction it is compensating for:
 
-```bash
-python3 collect_run.py button_pressing no_gauss
+```
+[INFO] gravity compensation: gravity pulls along -y in the robot frame
 ```
 
-For the person config, `cp GUI_MultiVMC_Config_person.py GUI_MultiVMC_Config.py`,
-drop the load-cell terminal, and record `--condition strong` first — confirm the
-arm stops clear before running anything lower. `PERSON_POS` — where the
-person's arm is — is a placeholder until measured, and someone should be on the
-e-stop for every run.
+Confirm that matches how the arm is actually mounted before going further.
+
+Then terminal 4 walks the sequence, roughly 45 s of motion plus however long
+you take to answer:
+
+| | what you should see |
+|---|---|
+| `RAMP_GAUSS` | 5 s, arm still, repulsion fading in |
+| `APPROACH` | ≈11 s, tip creeping to the target at 2 cm/s |
+| `HOLD` | 15 s steady — this is the measurement window |
+| `CONFIRM` | `hold complete -- did it touch? press ENTER to return home` |
+| `RETRACT` → `RELEASE` | back to rest, repulsion fading out |
+
+At `CONFIRM` the arm keeps holding its press. Look at the contact, then press
+ENTER to send it home. The run ends with:
+
+```
+run complete -- Ctrl+C the torque node to save, then run collect_run.py
+```
+
+### Saving and repeating
+
+The torque node saves **once, on exit**, so every condition needs its own run
+of the node:
+
+```bash
+# Terminal 3: Ctrl+C   -> writes experiments/z_<stamp>.{npz,png}
+python3 collect_run.py button_pressing no_gauss   # -> outputs/button_pressing/no_gauss.*
+# restart terminal 3, then run the next condition
+```
+
+Work through every condition in `GAUSS_CONDITIONS` — `no_gauss`, `mid_1`,
+`mid_2`, `strong` for the button; `strong` first, then `mid`, `no_gauss` for
+the person. `collect_run.py` refuses to overwrite an existing file without
+`--force`, so a forgotten Ctrl+C shows up as an error rather than a lost run.
+
+For the person config: `cp GUI_MultiVMC_Config_person.py GUI_MultiVMC_Config.py`,
+drop the load-cell terminal, and use `python3 person_avoiding.py` in terminal 4.
+
+### After the last condition
+
+Open `plot_button_and_person.ipynb` and run it — it reads straight from
+`outputs/` and writes the figures back there as PDF + SVG. Then set
+`COLLECTED_DATA = True` in the config you just recorded, so a later rerun
+cannot overwrite the data.
+
+### Tuning outside a condition
+
+`--gauss-strength 90` runs an arbitrary strength without touching the config
+(it labels the run `tuning`), and `--hold-time` overrides `HOLD_TIME` for one
+run. Both are for exploration — reported runs should come from a named
+condition.
+
+### If something looks wrong
+
+| symptom | cause |
+|---|---|
+| `no subscriber on /VC_ref_pos -- aborting` | terminal 3 is not running, or was started from another directory |
+| `active GUI_MultiVMC_Config.py is 'person', expected 'button'` | wrong variant copied into place |
+| `Torque limit exceeded — clipping` spam | strength too high for `TAU_LIMIT`; check the dry-run's `worst nominal \|tau\|` |
+| arm sags or drifts to one side | `GRAVITY_DIR` does not match the real mounting |
+| `no z_*.npz in .../experiments` | `COLLECTED_DATA = True`, or the torque node was launched from elsewhere, or killed rather than Ctrl+C'd |
 
 ## Data
 
