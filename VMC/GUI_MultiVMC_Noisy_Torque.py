@@ -40,7 +40,6 @@ for _p in [_ROOT, _KINE]:
 
 import argparse
 import copy
-import importlib
 import time
 from datetime import datetime
 
@@ -61,40 +60,11 @@ from MultiVMCTaskSpace import VMC_Multi_Modular  # multi_torques_and_forces used
 from MultiGravityComp import MultiGravComp
 from FK_Multi import FK_Multi
 from VMC_utils.GravityCompensation import GRAVITY_DIR_CHOICES, rotation_for_gravity_dir
+from VMC_utils.ConfigHelpers import config_from_argv
 
-_CONFIG_BASE = "GUI_MultiVMC_Config"
-
-
-def _config_module(value):
-    """Both "button" and "_button" name GUI_MultiVMC_Config_button."""
-    return _CONFIG_BASE + "_" + value.lstrip("_")
-
-
-def _load_config():
-    """
-    Import the experiment config from the working directory.
-
-    Default is the plain GUI_MultiVMC_Config, so a folder holding a single
-    config needs nothing. `--config button` loads GUI_MultiVMC_Config_button
-    instead: that is how a folder with several variants picks one, without
-    copying a file into place first.
-    """
-    name, argv = _CONFIG_BASE, sys.argv[1:]
-    for i, a in enumerate(argv):
-        if a == "--config" and i + 1 < len(argv):
-            name = _config_module(argv[i + 1])
-        elif a.startswith("--config="):
-            name = _config_module(a.split("=", 1)[1])
-    try:
-        return importlib.import_module(name)
-    except ModuleNotFoundError:
-        variants = sorted(f[len(_CONFIG_BASE) + 1:-3] for f in os.listdir(_CWD)
-                          if f.startswith(_CONFIG_BASE + "_") and f.endswith(".py"))
-        sys.exit(f"[FATAL] no {name}.py in {_CWD}"
-                 + (f" -- try --config {{{','.join(variants)}}}" if variants else ""))
-
-
-_cfg = _load_config()
+# --config NAME picks GUI_MultiVMC_Config_NAME.py from the launch directory;
+# without it the plain GUI_MultiVMC_Config.py is used, as before.
+_cfg = config_from_argv(directory=_CWD)
 
 VIRTUAL_COMPONENTS   = _cfg.VIRTUAL_COMPONENTS
 DEFAULT_START        = _cfg.DEFAULT_START

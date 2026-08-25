@@ -7,6 +7,7 @@ section rest length comes from Kinematics/JacobiansMulti.py, the only place
 it is defined.
 """
 
+import importlib
 import sys, os
 
 import numpy as np
@@ -57,3 +58,60 @@ def param_info(components):
     dampers = [first(c.damper, "c", 1.0) for c in components]
     return ([s[0] for s in springs], [d[0] for d in dampers],
             [s[1] for s in springs], [d[1] for d in dampers])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Selecting an experiment config
+#
+# Scripts import "GUI_MultiVMC_Config" from the working directory. A folder
+# holding several variants used to pick one by copying it over that name;
+# these load the chosen variant directly instead.
+# ─────────────────────────────────────────────────────────────────────────────
+
+CONFIG_BASE = "GUI_MultiVMC_Config"
+
+
+def config_variants(directory=None):
+    """Variant names of the GUI_MultiVMC_Config_*.py files in `directory`."""
+    directory = directory or os.getcwd()
+    return sorted(f[len(CONFIG_BASE) + 1:-3] for f in os.listdir(directory)
+                  if f.startswith(CONFIG_BASE + "_") and f.endswith(".py"))
+
+
+def load_config(variant=None, directory=None):
+    """
+    Import the experiment config from `directory` (default: the working dir).
+
+    `variant=None` loads the plain GUI_MultiVMC_Config, so a folder holding a
+    single config needs nothing. "fixed" and "_fixed" both load
+    GUI_MultiVMC_Config_fixed.
+    """
+    name = CONFIG_BASE if not variant else CONFIG_BASE + "_" + str(variant).lstrip("_")
+    try:
+        return importlib.import_module(name)
+    except ModuleNotFoundError as exc:
+        if exc.name != name:
+            raise            # something the config itself imports is missing
+        available = config_variants(directory)
+        raise SystemExit(
+            f"[FATAL] no {name}.py in {directory or os.getcwd()}"
+            + (" -- available: " + ", ".join("_" + v for v in available) if available else "")
+        ) from None
+
+
+def config_from_argv(argv=None, allow_positional=False, directory=None):
+    """
+    Load the config named on the command line -- `--config NAME`,
+    `--config=NAME`, or (with allow_positional) a bare first argument --
+    falling back to the plain GUI_MultiVMC_Config.
+    """
+    argv = list(sys.argv[1:] if argv is None else argv)
+    variant = None
+    for i, a in enumerate(argv):
+        if a == "--config" and i + 1 < len(argv):
+            variant = argv[i + 1]
+        elif a.startswith("--config="):
+            variant = a.split("=", 1)[1]
+    if variant is None and allow_positional and argv and not argv[0].startswith("-"):
+        variant = argv[0]
+    return load_config(variant, directory)

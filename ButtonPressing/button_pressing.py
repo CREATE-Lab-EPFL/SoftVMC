@@ -27,23 +27,18 @@ Before running _person, anywhere near a person:
 """
 
 import argparse
-import glob
-import importlib
 import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from VMC_utils.ConfigHelpers import config_variants, load_config
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_BASE = "GUI_MultiVMC_Config"
 
 # Variants are whatever config files sit next to this script, so adding a new
 # GUI_MultiVMC_Config_<name>.py is enough to make `<name>` runnable.
-VARIANTS = sorted("_" + os.path.basename(f)[len(_BASE) + 1:-3]
-                  for f in glob.glob(os.path.join(_HERE, f"{_BASE}_*.py")))
+VARIANTS = ["_" + v for v in config_variants(_HERE)]
 DEFAULT_VARIANT = "_button" if "_button" in VARIANTS else (VARIANTS[0] if VARIANTS else None)
-
-
-def load_config(variant):
-    """Import GUI_MultiVMC_Config_<variant>; '_button' and 'button' both work."""
-    return importlib.import_module(f"{_BASE}_{variant.lstrip('_')}")
 
 
 def parse_args():
