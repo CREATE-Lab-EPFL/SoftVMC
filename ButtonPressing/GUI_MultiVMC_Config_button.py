@@ -55,9 +55,11 @@ COMPONENT_SPECS = [
 ]
 
 # ── Conditions ───────────────────────────────────────────────────────────────
-# Both Gaussians share one strength. |tau_gauss| matches |tau_reach| at ~70 N/m
-# for the geometry above, so these straddle the crossover (ratios 0 / 0.87 /
-# 1.74 / 2.90). Re-check with `button_pressing.py _button --dry-run` after any edit.
+# Both Gaussians share one strength. |tau_gauss| now matches |tau_reach| at
+# 19.3 N/m -- dropping K_REACH to 10 moved that crossover down by 2.5x, so this
+# set no longer straddles it: the weakest non-zero condition is already 3.1x
+# past. 0 / 24 / 48 / 80 would restore the original spread. Re-check with
+# `button_pressing.py _button --dry-run` after any edit.
 GAUSS_CONDITIONS = {
     "no_gauss": 0.0,
     "mid_1":    60.0,

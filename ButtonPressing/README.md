@@ -31,20 +31,25 @@ would decay to zero once the tip arrives.
 |---|---|---|
 | target (`BUTTON_POS`) | `[-0.20, 0, 0.38]` | `[-0.20, 0, 0.38]` — same button |
 | obstacle | `OBSTACLE_POS` `[-0.05, 0, 0.20]` | `PERSON_POS` `[-0.05, 0, 0.20]` — **placeholder, measure it** |
-| `K_REACH` / `PRESS_DEPTH` | 25 N/m / 0.02 m → 0.50 N | 15 N/m / 0.02 m → 0.30 N |
+| `K_REACH` / `PRESS_DEPTH` | 10 N/m / 0.02 m → 0.20 N | 10 N/m / 0.02 m → 0.20 N |
 | `SIGMA` / `C_DAMP` | 0.06 m / 1.0 N·s/m | 0.06 m / 1.0 N·s/m |
 | `TAU_LIMIT` | 0.25 N·m | 0.15 N·m |
 | conditions | 0 / 60 / 120 / 200 | 0 / 40 / 80 |
 | load cell | yes (`/force_shear`) | no |
 
-The person config is deliberately softer — lower `K_REACH`, lower `TAU_LIMIT` —
-because that one runs near a human. Everything else defaults to the button
-config's values.
+`K_REACH` was 25 N/m and made the tip oscillate; 10 N/m is the current value.
+The person config matches it — it may never be stiffer than the button config,
+since that is the variant that runs near a human — and keeps the lower
+`TAU_LIMIT` as its margin.
 
-Strengths come from the torque balance at the rest pose: `|tau_gauss|` matches
-`|tau_reach|` at ≈48 N/m (button) and ≈29 N/m (person), so each set straddles
-the crossover (button ratios 0 / 1.24 / 2.49 / 4.14, person 0 / 1.38 / 2.76).
-`--dry-run` recomputes all of this offline after any edit.
+Strengths were sized from the torque balance at the rest pose, where
+`|tau_gauss|` meets `|tau_reach|`. **That crossover is now 19.3 N/m for both
+configs**, down 2.5× with `K_REACH`, so the condition sets above no longer
+straddle it — every non-zero condition sits in the repulsion-dominated regime
+(button 3.1× / 6.2× / 10.3×, person 2.1× / 4.1×). Rescaling to **0 / 24 / 48 /
+80** (button) and **0 / 25 / 50** (person) would restore the original spread
+around the balance point. `--dry-run` recomputes all of this offline after any
+edit.
 
 Two caveats on those numbers. They are evaluated at the straight-arm rest pose,
 so they size the conditions rather than predict them. And they drift one way:

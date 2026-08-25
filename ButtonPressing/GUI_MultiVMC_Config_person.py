@@ -64,8 +64,9 @@ COMPONENT_SPECS = [
 ]
 
 # ── Conditions ───────────────────────────────────────────────────────────────
-# Strength of the repulsion from the person. Re-check where it balances the
-# reach with `button_pressing.py _person --dry-run` after any geometry edit.
+# Strength of the repulsion from the person. The reach/repulsion crossover is
+# now 19.3 N/m, so both of these sit past it (2.1x, 4.1x); 0 / 25 / 50 would
+# straddle it. Re-check with `button_pressing.py _person --dry-run`.
 GAUSS_CONDITIONS = {
     "no_gauss": 0.0,
     "mid":      40.0,
