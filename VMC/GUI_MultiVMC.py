@@ -45,16 +45,20 @@ _cfg = config_from_argv()
 VIRTUAL_COMPONENTS  = _cfg.VIRTUAL_COMPONENTS
 DEFAULT_START       = _cfg.DEFAULT_START
 N_VC                = _cfg.N_VC
-GUI_COLORS          = _cfg.GUI_COLORS
 SPRING_PARAM_NAMES  = _cfg.SPRING_PARAM_NAMES
 DAMPER_PARAM_NAMES  = _cfg.DAMPER_PARAM_NAMES
 SPRING_PARAM_INIT   = _cfg.SPRING_PARAM_INIT
 DAMPER_PARAM_INIT   = _cfg.DAMPER_PARAM_INIT
-XY_RANGE            = _cfg.XY_RANGE
-Z_RANGE             = _cfg.Z_RANGE
-TAU_PLOT_WINDOW     = _cfg.TAU_PLOT_WINDOW
-FK_S_SAMPLES        = _cfg.FK_S_SAMPLES
-PLOT_VIRTUAL_FORCES = _cfg.PLOT_VIRTUAL_FORCES
+
+# Presentation only -- a config that says nothing about how it wants to be drawn
+# gets these, so headless-first configs can still be driven from the GUI.
+GUI_COLORS          = getattr(_cfg, "GUI_COLORS",
+                              ["red", "blue", "green", "darkorange", "purple", "cyan", "magenta"])
+XY_RANGE            = getattr(_cfg, "XY_RANGE", (-0.6, 0.6))
+Z_RANGE             = getattr(_cfg, "Z_RANGE", (0.0, 0.45))
+TAU_PLOT_WINDOW     = getattr(_cfg, "TAU_PLOT_WINDOW", 10.0)
+FK_S_SAMPLES        = getattr(_cfg, "FK_S_SAMPLES", 4)
+PLOT_VIRTUAL_FORCES = getattr(_cfg, "PLOT_VIRTUAL_FORCES", True)
 
 from FK_Multi import FK_Multi
 

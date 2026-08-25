@@ -95,6 +95,10 @@ PRETENSION_ENABLED   = True
 PRETENSION_WEIGHTS   = np.full(9, 0.03, dtype=float)  # [N·m/rad] x 9
 PRETENSION_THRESHOLD = np.deg2rad(30.0)               # [rad]
 
+# ── GUI framing (only used when driving this config from GUI_MultiVMC.py) ────
+XY_RANGE = (-0.35, 0.35)   # [m] the button sits at x = -0.20
+Z_RANGE  = (0.15, 0.50)    # [m] the button sits at z = 0.38
+
 # ── Output ───────────────────────────────────────────────────────────────────
 OUTPUT_FOLDER  = "person_avoiding"   # outputs/<folder>/<condition>.npz
 SAVE_PLOT      = True
@@ -108,6 +112,12 @@ VIRTUAL_COMPONENTS = [spec["component"] for spec in COMPONENT_SPECS]
 DEFAULT_GOALS      = np.array([spec["goal"] for spec in COMPONENT_SPECS], dtype=float)
 DEFAULT_START      = default_start(VIRTUAL_COMPONENTS)
 N_VC               = len(VIRTUAL_COMPONENTS)
+
+# The Gaussians' reference is the obstacle, not their own rest point. Setting it
+# here means the GUI and the headless driver both start with the repulsive field
+# already centred where it belongs -- and at strength 0, so nothing moves.
+DEFAULT_START[1] = OBSTACLE_POS
+DEFAULT_START[2] = OBSTACLE_POS
 
 (SPRING_PARAM_NAMES, DAMPER_PARAM_NAMES,
  SPRING_PARAM_INIT,  DAMPER_PARAM_INIT) = param_info(VIRTUAL_COMPONENTS)
