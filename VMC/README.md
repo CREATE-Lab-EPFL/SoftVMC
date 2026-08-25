@@ -25,6 +25,7 @@ Both apply to every script that loads an experiment config
 | Flag | Effect |
 |---|---|
 | `--config NAME` | load `GUI_MultiVMC_Config_NAME.py` from the launch directory instead of `GUI_MultiVMC_Config.py`. `_moving` and `moving` are equivalent; a bad name lists what is available. Replaces copying a variant into place. |
+| `--run NAME` | (torque nodes) write the run straight to `outputs/<OUTPUT_FOLDER>/NAME.{npz,png}`, overwriting a previous run of that name. Without it, output is a timestamped `experiments/z_<stamp>` pair. |
 | `--gravity-dir DIR` | direction gravity pulls in the robot frame — `+x/-x/+y/-y/+z/-z`. Defaults to the config's `GRAVITY_DIR`, or `-z` (upright) if it defines none. `--gravity-dir=-y` and `--gravity-dir -y` both parse. |
 
 The torque node logs both on startup; check those two lines before trusting a
