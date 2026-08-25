@@ -26,14 +26,22 @@ TERMINAL 2 (torque backend must already be running):
 """
 
 import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 import numpy as np
 
-from GUI_MultiVMC_Config import DEFAULT_START, DAMPER_PARAM_INIT, SPRING_PARAM_INIT
+from VMC_utils.ConfigHelpers import config_from_argv
+
+# Pick a config variant on the command line -- `Sequential_jump_tests.py _variant` or
+# `--config _variant`. Without one the plain GUI_MultiVMC_Config.py is used,
+# so nothing has to be copied into place.
+_cfg = config_from_argv(allow_positional=True)
+DEFAULT_START     = _cfg.DEFAULT_START
+DAMPER_PARAM_INIT = _cfg.DAMPER_PARAM_INIT
+SPRING_PARAM_INIT = _cfg.SPRING_PARAM_INIT
 
 # ── Test parameters ────────────────────────────────────────────────────────────
 K_TEST     = 10.0    # stiffness for main jumps [N/m]

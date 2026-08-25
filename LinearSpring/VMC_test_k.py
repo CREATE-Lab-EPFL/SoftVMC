@@ -20,7 +20,16 @@ from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 import numpy as np
 
-from GUI_MultiVMC_Config import DEFAULT_START, N_VC, DAMPER_PARAM_INIT, SPRING_PARAM_INIT
+from VMC_utils.ConfigHelpers import config_from_argv
+
+# Pick a config variant on the command line -- `VMC_test_k.py _disturbance` or
+# `--config _disturbance`. Without one the plain GUI_MultiVMC_Config.py is used,
+# so nothing has to be copied into place.
+_cfg = config_from_argv(allow_positional=True)
+DEFAULT_START     = _cfg.DEFAULT_START
+N_VC              = _cfg.N_VC
+DAMPER_PARAM_INIT = _cfg.DAMPER_PARAM_INIT
+SPRING_PARAM_INIT = _cfg.SPRING_PARAM_INIT
 
 # ── Test parameters ────────────────────────────────────────────────────────────
 K_START    = 2.0     # first stiffness value [N/m]

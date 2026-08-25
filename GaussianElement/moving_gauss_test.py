@@ -18,14 +18,22 @@ TERMINAL 2 (torque backend must already be running):
 """
 
 import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 import numpy as np
 
-from GUI_MultiVMC_Config import DEFAULT_START, N_VC, DAMPER_PARAM_INIT
+from VMC_utils.ConfigHelpers import config_from_argv
+
+# Pick a config variant on the command line -- `moving_gauss_test.py _moving` or
+# `--config _moving`. Without one the plain GUI_MultiVMC_Config.py is used,
+# so nothing has to be copied into place.
+_cfg = config_from_argv(allow_positional=True)
+DEFAULT_START     = _cfg.DEFAULT_START
+N_VC              = _cfg.N_VC
+DAMPER_PARAM_INIT = _cfg.DAMPER_PARAM_INIT
 
 # ── Test parameters ────────────────────────────────────────────────────────────
 CTRL_HZ        = 10.0    # [Hz]  timer rate
