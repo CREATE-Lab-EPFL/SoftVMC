@@ -85,6 +85,9 @@ PRETENSION_ENABLED   = _cfg.PRETENSION_ENABLED
 # define it (e.g. connectivity-test folders) behave as before: False.
 COLLECTED_DATA = getattr(_cfg, "COLLECTED_DATA", False)
 
+# Subfolder of outputs/ that this experiment's named runs belong in.
+OUTPUT_FOLDER = getattr(_cfg, "OUTPUT_FOLDER", None)
+
 # Direction gravity pulls in the ROBOT frame. "-z" (the default) is the arm
 # standing straight up; a config for a rotated mount overrides it, e.g. the arm
 # laid on its side pulls along "-y".
@@ -100,13 +103,14 @@ class VMCTorqueNode(Node):
     updates do not mutate the config module's originals.
     """
 
-    def __init__(self, gravity_dir=GRAVITY_DIR):
+    def __init__(self, gravity_dir=GRAVITY_DIR, run_name=None):
         super().__init__("vmc_torque_node")
 
         # ── Deep-copy components so we can mutate spring/damper params ────────
         self._components = copy.deepcopy(VIRTUAL_COMPONENTS)
         self._rebuild_vmc()
 
+        self._run_name    = run_name
         self._gravity_dir = gravity_dir
         self._grav_comp = MultiGravComp(
             R_world_to_system=rotation_for_gravity_dir(gravity_dir)
@@ -114,6 +118,10 @@ class VMCTorqueNode(Node):
         self._pub_cfg = self.create_publisher(String, "/vmc_config", CONFIG_QOS)
         self._pub_cfg.publish(String(data=_cfg.__name__))
         self.get_logger().info(f"config: {_cfg.__name__}")
+        if run_name:
+            self.get_logger().info(
+                f"run: {run_name} -- saving to {self._out_dir()}/{run_name}.{{png,npz}}, "
+                f"overwriting any previous {run_name}")
         self.get_logger().info(f"gravity compensation: gravity pulls along "
                                f"{gravity_dir} in the robot frame")
 
@@ -278,6 +286,20 @@ class VMCTorqueNode(Node):
 
     # ── Plot / save ───────────────────────────────────────────────────────────
 
+    def _out_dir(self):
+        """
+        Where this run is written, relative to the caller's cwd (the experiment
+        directory the config came from), never this script's own directory.
+
+        A named run (--run) goes straight to its final home under outputs/ and
+        overwrites, so repeating a run replaces it. An unnamed one keeps the old
+        timestamped experiments/z_<stamp> behaviour, collected afterwards with
+        collect_run.py.
+        """
+        if self._run_name:
+            return os.path.join(_CWD, "outputs", OUTPUT_FOLDER or "")
+        return os.path.join(_CWD, "experiments")
+
     def save_plot(self):
         if len(self._t_log) < 2:
             print("[WARN] Not enough data logged to plot.")
@@ -305,6 +327,50 @@ class VMCTorqueNode(Node):
         comp_pos_arrs  = [
             np.asarray(self._comp_pos_logs[i][:n]) for i in range(N_VC)
         ]                                                       # each (n, 3)
+
+        # ── Save raw data FIRST ───────────────────────────────────────────────
+        # The figure is a big, slow render; the data is small and irreplaceable.
+        # Writing it first means an interrupt (or a plotting failure) during the
+        # save costs the plot, never the run.
+        plots_dir = self._out_dir()
+        os.makedirs(plots_dir, exist_ok=True)
+        base      = self._run_name or ("z_" + datetime.now().strftime("%d_%H%M"))
+        print(f"[..] Saving {base} to {plots_dir} -- do not interrupt")
+
+        if SAVE_DATA:
+            npz_path = os.path.join(plots_dir, f"{base}.npz")
+            existed  = os.path.exists(npz_path)
+            try:
+                # goal_arr is (n, 3*N_VC) -> (n, N_VC, 3) for clean indexing
+                goal_3d     = goal_arr.reshape(n, N_VC, 3)
+                comp_pos_3d = np.stack(comp_pos_arrs, axis=1)
+                np.savez_compressed(
+                    npz_path,
+                    # ── time ──────────────────────────────────────────────────
+                    t            = t_arr,           # (n,)         [s]
+                    # ── torques ───────────────────────────────────────────────
+                    tau          = tau_arr,         # (n, 9)       [N·m]  commanded
+                    tau_grav     = tau_grav_arr,    # (n, 9)       [N·m]  grav comp
+                    # ── positions ─────────────────────────────────────────────
+                    goal         = goal_3d,         # (n, N_VC, 3) [m]  reference
+                    comp_pos     = comp_pos_3d,     # (n, N_VC, 3) [m]  FK actual
+                    # ── force ─────────────────────────────────────────────────
+                    force        = force_arr,       # (n,)   [g] shear, raw load-cell units -- x 9.80665e-3 for N
+                    f_virtual    = f_virtual_arr,   # (n, 3)       [N]   task-space virtual force
+                    k_params     = k_arr,           # (n, N_VC)    spring param per component over time
+                    q_motor      = q_arr,           # (n, 9)       [rad] joint positions
+                    q_motor_dot  = q_dot_arr,       # (n, 9)       [rad/s] joint velocities
+                    # ── metadata ──────────────────────────────────────────────
+                    comp_names   = np.array([c.name or f"VC{i+1}"
+                                             for i, c in enumerate(self._components)]),
+                    comp_s_params= np.array([c.s_param for c in self._components]),
+                    control_freq = np.array([CONTROL_FREQUENCY]),   # [Hz]
+                    tau_limit    = np.array([TAU_LIMIT]),           # [N·m]
+                    gravity_dir  = np.array([self._gravity_dir]),
+                )
+                print(f"[OK] {'Overwrote' if existed else 'Saved'} data  -> {npz_path}")
+            except Exception as e:
+                print(f"[FAIL] could not save data to {npz_path}: {e!r}")
 
         n_pos_axes = 3 if PLOT_Z else 2
         n_rows = n_pos_axes + (1 if PLOT_FORCE else 0) + 3   # +1 virtual forces, +1 spring params, +1 torques
@@ -411,49 +477,15 @@ class VMCTorqueNode(Node):
         ax_tau.legend(ncol=3, fontsize=8, loc="lower right")
 
         # ── Save plot ─────────────────────────────────────────────────────────
-        # Saved relative to the caller's cwd (the experiment directory), matching
-        # where GUI_MultiVMC_Config.py was loaded from -- NOT this script's own
-        # directory -- so output lands next to the experiment it belongs to.
-        plots_dir = os.path.join(_CWD, "experiments")
-        os.makedirs(plots_dir, exist_ok=True)
-        stamp    = datetime.now().strftime("%d_%H%M")
-        out_path = os.path.join(plots_dir, f"z_{stamp}.png")
-        fig.savefig(out_path, dpi=200, bbox_inches="tight")
-        plt.close(fig)
-        print(f"[OK] Saved plot → {out_path}")
-
-        # ── Save raw data (.npz) ──────────────────────────────────────────────
-        if SAVE_DATA:
-            # goal_arr is (n, 3*N_VC) → reshape to (n, N_VC, 3) for clean indexing
-            goal_3d     = goal_arr.reshape(n, N_VC, 3)
-            # comp_pos_arrs is list of N_VC × (n, 3) → stack to (n, N_VC, 3)
-            comp_pos_3d = np.stack(comp_pos_arrs, axis=1)
-
-            npz_path = os.path.join(plots_dir, f"z_{stamp}.npz")
-            np.savez_compressed(
-                npz_path,
-                # ── time ──────────────────────────────────────────────────────
-                t            = t_arr,          # (n,)        [s]
-                # ── torques ───────────────────────────────────────────────────
-                tau          = tau_arr,         # (n, 9)      [N·m]  commanded
-                tau_grav     = tau_grav_arr,    # (n, 9)      [N·m]  grav comp
-                # ── positions ─────────────────────────────────────────────────
-                goal         = goal_3d,         # (n, N_VC, 3) [m]  reference
-                comp_pos     = comp_pos_3d,     # (n, N_VC, 3) [m]  FK actual
-                # ── force ─────────────────────────────────────────────────────
-                force        = force_arr,       # (n,)        [g]   shear, raw load-cell units -- multiply by 9.80665e-3 for N (see LinearSpring/plot_k_saturation.ipynb)
-                f_virtual    = f_virtual_arr,   # (n, 3)      [N]   task-space virtual force
-                k_params     = k_arr,           # (n, N_VC)   spring param per component over time
-                q_motor      = q_arr,           # (n, 9)      [rad] joint positions
-                q_motor_dot  = q_dot_arr,       # (n, 9)      [rad/s] joint velocities
-                # ── metadata ──────────────────────────────────────────────────
-                comp_names   = np.array([c.name or f"VC{i+1}"
-                                         for i, c in enumerate(self._components)]),
-                comp_s_params= np.array([c.s_param for c in self._components]),
-                control_freq = np.array([CONTROL_FREQUENCY]),   # [Hz]
-                tau_limit    = np.array([TAU_LIMIT]),            # [N·m]
-            )
-            print(f"[OK] Saved data  → {npz_path}")
+        png_path = os.path.join(plots_dir, f"{base}.png")
+        png_existed = os.path.exists(png_path)
+        try:
+            fig.savefig(png_path, dpi=200, bbox_inches="tight")
+            print(f"[OK] {'Overwrote' if png_existed else 'Saved'} plot  -> {png_path}")
+        except Exception as e:
+            print(f"[FAIL] could not save plot to {png_path}: {e!r} (the data is already written)")
+        finally:
+            plt.close(fig)
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
@@ -480,6 +512,11 @@ def _parse_args():
     p.add_argument("--config", metavar="NAME", default=None,
                    help=f"load GUI_MultiVMC_Config_NAME.py from this directory "
                         f"instead of GUI_MultiVMC_Config.py (loaded: {_cfg.__name__})")
+    p.add_argument("--run", metavar="NAME", default=None,
+                   help="name this run: it is written straight to "
+                        f"outputs/{OUTPUT_FOLDER or '<folder>'}/NAME.{{png,npz}} on exit, "
+                        "overwriting a previous run of the same name. Without it, "
+                        "output goes to experiments/z_<stamp> as before.")
     p.add_argument("--gravity-dir", default=GRAVITY_DIR, metavar="DIR",
                    choices=GRAVITY_DIR_CHOICES,
                    help="direction gravity pulls in the robot frame "
@@ -493,7 +530,7 @@ def _parse_args():
 def main():
     args = _parse_args()
     rclpy.init()
-    node = VMCTorqueNode(gravity_dir=args.gravity_dir)
+    node = VMCTorqueNode(gravity_dir=args.gravity_dir, run_name=args.run)
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
