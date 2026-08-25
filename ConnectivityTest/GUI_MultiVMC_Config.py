@@ -103,7 +103,7 @@ PLOT_VIRTUAL_FORCES = True
 # ─────────────────────────────────────────────────────────────────────────────
 # Pretension config
 # ─────────────────────────────────────────────────────────────────────────────
-PRETENSION_WEIGHTS   = np.full(9, 0.002, dtype=float)   # [N·m/rad] x 9 -- always on, no threshold
+PRETENSION_WEIGHTS   = np.full(9, 0.010, dtype=float)   # [N·m/rad] x 9 -- always on, no threshold
 PRETENSION_ENABLED   = True
 
 # ─────────────────────────────────────────────────────────────────────────────

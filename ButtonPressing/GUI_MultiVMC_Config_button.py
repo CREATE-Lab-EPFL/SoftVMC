@@ -59,13 +59,18 @@ GAUSS_CONDITIONS = {
 }
 CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
 
+# The obstacle centre is already placed, so a run's strength is ramped in from
+# 0 over this many seconds rather than applied at once -- switched on at full
+# strength the field would shove the arm off the obstacle in a single tick.
+GAUSS_RAMP_S = 5.0   # [s]   0 disables the ramp
+
 # ── Controller ───────────────────────────────────────────────────────────────
 TAU_LIMIT   = 0.25   # [N·m] per motor
 GRAVITY_DIR = "-y"   # arm rotated onto its side: gravity pulls along -y, not -z
 
 # tau_pretension[i] = PRETENSION_WEIGHTS[i] * q_motor[i], always applied
 PRETENSION_ENABLED   = True
-PRETENSION_WEIGHTS   = np.full(9, 0.002, dtype=float)   # [N·m/rad] x 9 -- always on, no threshold
+PRETENSION_WEIGHTS   = np.full(9, 0.010, dtype=float)   # [N·m/rad] x 9 -- always on, no threshold
 
 # ── Output ───────────────────────────────────────────────────────────────────
 OUTPUT_FOLDER  = "button_pressing"   # --run NAME lands in outputs/<folder>/NAME.*

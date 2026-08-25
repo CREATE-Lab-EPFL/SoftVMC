@@ -112,14 +112,23 @@ class VMCTorqueNode(Node):
         # A named run can carry its own spring strength (GAUSS_CONDITIONS), so
         # the run name alone defines the condition. Configs without them are
         # untouched.
-        strength = condition_strength(_cfg, run_name)
-        if strength is not None:
-            for i, c in enumerate(self._components):
-                if c.name in condition_targets(_cfg):
-                    setattr(c.spring, SPRING_PARAM_NAMES[i], strength)
+        # A named run carries its own spring strength (GAUSS_CONDITIONS). It is
+        # ramped in from 0 over GAUSS_RAMP_S rather than applied at once: the
+        # obstacle centre is already placed, so a field switched on at full
+        # strength shoves the arm off it within a single tick.
+        self._cond_targets = condition_targets(_cfg)
+        self._ramp_target  = condition_strength(_cfg, run_name)
+        self._ramp_s       = float(getattr(_cfg, "GAUSS_RAMP_S", 0.0))
+        self._ramp_t0      = None
+        self._ramp_done    = self._ramp_target is None
+        if not self._ramp_done:
+            ramping = self._ramp_s > 0.0
+            self._set_condition(0.0 if ramping else self._ramp_target)
+            self._ramp_done = not ramping
             self.get_logger().info(
-                f"condition {run_name}: {', '.join(condition_targets(_cfg))} "
-                f"-> strength {strength}")
+                f"condition {run_name}: {', '.join(self._cond_targets)} -> "
+                f"strength {self._ramp_target}"
+                + (f", ramped in over {self._ramp_s:.0f} s" if ramping else ""))
         self._rebuild_vmc()
 
         self._run_name    = run_name
@@ -182,6 +191,12 @@ class VMCTorqueNode(Node):
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
+    def _set_condition(self, value):
+        """Set the condition's spring parameter on every component it applies to."""
+        for i, c in enumerate(self._components):
+            if c.name in self._cond_targets:
+                setattr(c.spring, SPRING_PARAM_NAMES[i], float(value))
+
     def _rebuild_vmc(self):
         """(Re-)create VMC_Multi_Modular with current component list."""
         self._vmc = VMC_Multi_Modular(self._components)
@@ -212,6 +227,10 @@ class VMCTorqueNode(Node):
                 f"/VC_Param: expected {expected} values, got {len(data)} — ignoring."
             )
             return
+
+        if not self._ramp_done:
+            self._ramp_done = True
+            self.get_logger().info("/VC_Param received -- gauss ramp cancelled, sliders take over")
 
         k_vals = data[:N_VC]
         c_vals = data[N_VC: 2 * N_VC]
@@ -255,6 +274,15 @@ class VMCTorqueNode(Node):
     # ── Control loop ──────────────────────────────────────────────────────────
 
     def _control_loop(self):
+        if not self._ramp_done:
+            if self._ramp_t0 is None:
+                self._ramp_t0 = time.perf_counter()
+            frac = min(1.0, (time.perf_counter() - self._ramp_t0) / self._ramp_s)
+            self._set_condition(frac * self._ramp_target)
+            if frac >= 1.0:
+                self._ramp_done = True
+                self.get_logger().info(f"gauss ramp complete -- strength {self._ramp_target}")
+
         tau_vmc, f_virtual = self._vmc.multi_torques_and_forces(
             q_motor     = self._q,
             q_motor_dot = self._q_dot,
