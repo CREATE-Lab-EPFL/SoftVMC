@@ -27,13 +27,13 @@ OBSTACLE_POS = np.array([-0.05, 0.0, 0.20], dtype=float)   # [m]
 
 # Aim past the contact surface: at the surface the steady-state spring error,
 # and the contact force with it, would go to zero once the tip arrives.
-PRESS_DEPTH = 0.02   # [m] -> nominal press force = K_REACH * PRESS_DEPTH = 0.50 N
+PRESS_DEPTH = 0.02   # [m] -> nominal press force = K_REACH * PRESS_DEPTH = 0.20 N
 
 _APPROACH_U  = BUTTON_POS - rest_pose(1.0)
 PRESS_TARGET = BUTTON_POS + PRESS_DEPTH * _APPROACH_U / np.linalg.norm(_APPROACH_U)
 
 # ── Virtual elements ─────────────────────────────────────────────────────────
-K_REACH = 25.0   # [N/m]
+K_REACH = 10.0   # [N/m] -- 25 was stiff enough to make the tip oscillate
 SIGMA   = 0.06   # [m]
 C_DAMP  = 1.0    # [N.s/m]
 

@@ -34,15 +34,15 @@ OBSTACLE_POS = PERSON_POS
 
 # Aim past the button: at its surface the steady-state spring error, and the
 # contact force with it, would go to zero once the tip arrives.
-PRESS_DEPTH = 0.02   # [m] -> nominal press force = K_REACH * PRESS_DEPTH = 0.30 N
+PRESS_DEPTH = 0.02   # [m] -> nominal press force = K_REACH * PRESS_DEPTH = 0.20 N
 
 _APPROACH_U  = BUTTON_POS - rest_pose(1.0)
 PRESS_TARGET = BUTTON_POS + PRESS_DEPTH * _APPROACH_U / np.linalg.norm(_APPROACH_U)
 
 # ── Virtual elements ─────────────────────────────────────────────────────────
-# Deliberately softer than the button config (25 N/m): this one runs near a
-# person. Same for TAU_LIMIT below.
-K_REACH = 15.0   # [N/m]
+# Matches the button config: it may never be stiffer than that one, since this
+# is the variant that runs near a person. TAU_LIMIT below stays lower.
+K_REACH = 10.0   # [N/m]
 SIGMA   = 0.06   # [m]
 C_DAMP  = 1.0    # [N.s/m]
 
