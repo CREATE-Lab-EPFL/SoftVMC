@@ -15,7 +15,7 @@ clearance. Driven live from the GUI.
 
 | Component | Element | s | Goal |
 |---|---|---|---|
-| `lin_tip` | `LinearSpring(10)` | 1.0 | starts `[0, 0, 0.38]`; drag x/y onto the button |
+| `lin_tip` | `LinearSpring(30)` | 1.0 | starts `[0, 0, 0.38]`; drag x/y onto the button |
 | `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | starts `[-0.05, 0, 0.2175]` |
 | `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `gauss_seg1`'s goal** |
 
@@ -25,7 +25,7 @@ both attachment points equidistant from the centre). Only x/y is placed by hand,
 and only for the tip: the obstacle is already where it belongs. Aim the tip a
 little past the surface, or the steady-state force decays to zero on arrival.
 
-`K_REACH = 10` N/m — 25 made the tip oscillate. `C_DAMP = 1.0` N·s/m.
+`K_REACH = 30` N/m, `C_DAMP = 1.0` N·s/m. Both are live sliders in the GUI.
 
 ## Run names
 
@@ -43,18 +43,40 @@ strength. For `_person`, record `strong` first.
 
 ## Running
 
+Four terminals, each starting from:
+
 ```bash
 conda activate finger
 cd ButtonPressing
-
-bash ../start_arm.sh                                              # T1
-python3 ../LoadCell/arduino_force.py                              # T2, _button only
-python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run mid_1  # T3
-python3 ../VMC/GUI_MultiVMC.py        --config _button --run mid_1  # T4
 ```
 
-Both terminals must name the same variant and run. T3 logs what it loaded —
-check the config, the run and the gravity line before moving anything:
+**Terminal 1** — hardware
+
+```bash
+bash ../start_arm.sh
+```
+
+**Terminal 2** — load cell (`_button` only, skip for `_person`)
+
+```bash
+python3 ../LoadCell/arduino_force.py
+```
+
+**Terminal 3** — torque node
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run mid_1
+```
+
+**Terminal 4** — GUI
+
+```bash
+python3 ../VMC/GUI_MultiVMC.py --config _button --run mid_1
+```
+
+Terminals 3 and 4 must name the same variant and the same run. Terminal 3 logs
+what it loaded — check the config, the run and the gravity line before moving
+anything:
 
 ```
 [INFO] config: GUI_MultiVMC_Config_button
@@ -63,12 +85,14 @@ check the config, the run and the gravity line before moving anything:
 ```
 
 The GUI publishes from the start, so the arm takes up the 5.5 cm to its goal
-as soon as the torque node is up (≈0.55 N), with the run's Gaussian strength
-already applied. Drag `lin_tip` to the button, then leave it alone — the longest
-stretch you don't touch is the measurement window. **Ctrl+C T3 once** to write
-the run. Untick **Publisher Active** to move goals without the arm following.
+as soon as the torque node is up (≈1.65 N at `K_REACH = 30`), with the run's
+Gaussian strength already applied. Drag `lin_tip` to the button, then leave it alone — the longest
+stretch you don't touch is the measurement window. **Ctrl+C terminal 3 once**
+to write the run. Untick **Publisher Active** to move goals without the arm
+following.
 
-Swap both `_button` for `_person`, drop T2.
+For the other variant, swap `_button` for `_person` in terminals 3 and 4, and
+skip terminal 2.
 
 ## Gravity
 

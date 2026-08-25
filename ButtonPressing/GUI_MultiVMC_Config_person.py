@@ -30,7 +30,7 @@ from VMC_utils.ConfigHelpers import default_start, param_info, rest_pose
 CONFIG_NAME = "person"
 
 # ── Virtual elements ─────────────────────────────────────────────────────────
-K_REACH = 10.0   # [N/m]   tip spring -- 25 was stiff enough to make it oscillate
+K_REACH = 30.0   # [N/m]   tip spring
 K_GAUSS = 0.0    # [N/m]   both Gaussians start off; raise them from the GUI
 SIGMA   = 0.06   # [m]     Gaussian width
 C_DAMP  = 1.0    # [N.s/m] all three
@@ -97,7 +97,7 @@ GAUSS_GOAL_XY = (-0.05, 0.0)   # [m]
 GOAL_LINK   = [GAUSS_COMPONENTS]
 
 # Live from the start, like every other folder. The tip goal sits 5.5 cm below
-# the resting tip, so the arm takes up that slack (~0.55 N at K_REACH = 10) as
+# the resting tip, so the arm takes up that slack (~1.65 N at K_REACH = 30) as
 # soon as the torque node is up -- and a named run's Gaussians are already at
 # their strength. Untick "Publisher Active" in the GUI to place goals quietly.
 PUBLISH_ON_START = True
