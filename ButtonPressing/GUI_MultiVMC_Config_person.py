@@ -4,14 +4,16 @@ Reaching for the button with a person in the way -- driven live from the GUI.
     python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run <name>
     python3 ../VMC/GUI_MultiVMC.py        --config _person
 
+Every value here is identical to GUI_MultiVMC_Config_button.py -- same target,
+same stiffness, same conditions, same torque limit -- so the two runs differ
+only in what the obstacle is. Keep them in step.
+
 This file sets the three virtual elements and their parameters, nothing else.
 Everything positional -- where the button is, where the obstacle is, how far
 past the surface to aim -- is set by dragging in the GUI, so none of it is
 hardcoded here.
 
-  lin_tip     (s=1.0)  linear spring, drag its goal onto the button -- the
-                       target is the same button as _button, only the obstacle
-                       differs
+  lin_tip     (s=1.0)  linear spring, drag its goal onto the button
   gauss_seg1  (s=1/3)  repulsive Gaussian, drag its centre onto the person's arm
   gauss_seg2  (s=2/3)  the same, further up the body
 
@@ -55,9 +57,9 @@ VIRTUAL_COMPONENTS = [
 # are still live if you want to move off it.
 GAUSS_CONDITIONS = {
     "no_gauss": 0.0,
-    "mid_1":    5.0,
-    "mid_2":    10.0,
-    "strong":   20.0,
+    "mid_1":    1000.0,
+    "mid_2":    2000.0,
+    "strong":   5000.0,
 }
 CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
 
@@ -67,7 +69,7 @@ CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
 GAUSS_RAMP_S = 5.0   # [s]   0 disables the ramp
 
 # ── Controller ───────────────────────────────────────────────────────────────
-TAU_LIMIT   = 0.15   # [N·m] per motor -- lower: this variant runs near a person
+TAU_LIMIT   = 0.25   # [N·m] per motor
 GRAVITY_DIR = "-y"   # arm rotated onto its side: gravity pulls along -y, not -z
 
 # tau_pretension[i] = PRETENSION_WEIGHTS[i] * q_motor[i], always applied

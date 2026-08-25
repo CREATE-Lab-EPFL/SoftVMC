@@ -4,12 +4,18 @@ A linear spring reaching for a button, plus two repulsive Gaussians pushing the
 arm's body off an obstacle. Sweeping the Gaussian strength trades reach against
 clearance. Driven live from the GUI.
 
+The two variants carry **identical values** — same target, stiffness,
+conditions, torque limit, pretension, ramp — and differ only in what the
+obstacle is:
+
 | | `_button` | `_person` |
 |---|---|---|
 | obstacle | a fixture | a person's arm |
-| `TAU_LIMIT` | 0.25 N·m | 0.15 N·m |
 | load cell | yes (`/force_shear`) | no |
 | runs land in | `outputs/button_pressing/` | `outputs/person_avoiding/` |
+
+`GUI_MultiVMC_Config_person.py` is generated from the button one, so nothing can
+drift between them: edit a value in one and copy it across.
 
 ## Elements
 
@@ -25,21 +31,32 @@ both attachment points equidistant from the centre). Only x/y is placed by hand,
 and only for the tip: the obstacle is already where it belongs. Aim the tip a
 little past the surface, or the steady-state force decays to zero on arrival.
 
-`K_REACH = 30` N/m, `C_DAMP = 1.0` N·s/m. Both are live sliders in the GUI.
+`K_REACH = 30` N/m, `C_DAMP = 1.0` N·s/m, `TAU_LIMIT = 0.25` N·m,
+`PRETENSION_WEIGHTS = 0.010` N·m/rad. Springs and dampers are live sliders in
+the GUI.
 
 ## Run names
 
 | `--run` | strength | | `--run` | strength |
 |---|---|---|---|---|
-| `no_gauss` | 0 N/m | | `mid_2` | 10 N/m |
-| `mid_1` | 5 N/m | | `strong` | 20 N/m |
+| `no_gauss` | 0 | | `mid_2` | 2000 |
+| `mid_1` | 1000 | | `strong` | 5000 |
 
 The name sets the strength: `--run` applies `GAUSS_CONDITIONS` to both
-Gaussians, in the torque node and on the GUI sliders. The sliders stay live and
-`k_params` records what was actually applied. Reach and repulsion balance near
-20 N/m, so `strong` sits about there — but that moves with the obstacle, so read
-it off the torque plot. Any other name is a scratch run at the config's own
-strength. For `_person`, record `strong` first.
+Gaussians, in the torque node and on the GUI sliders. It is **ramped in from 0
+over `GAUSS_RAMP_S` = 5 s** rather than applied at once — the obstacle centre is
+already placed, so a field switched on at full strength would shove the arm off
+it in a single tick. Touching **Apply Parameters** cancels the ramp and hands
+control to the sliders; `k_params` records what was actually applied.
+
+Any other name is a scratch run at the config's own strength. For `_person`,
+record `strong` first.
+
+⚠ At `strong = 5000` the Gaussian torque is roughly **1.75 N·m, about 7×
+`TAU_LIMIT`** — the controller is hard-clipped and the arm's behaviour is set by
+the limiter rather than by the virtual model. If lower strengths did nothing,
+`SIGMA` is the cheaper knob: repulsion is `k · exp(−d²/2σ²) · d`, and with the
+obstacle 1.5σ away the field is already down to 34% before `k` multiplies.
 
 ## Running
 
