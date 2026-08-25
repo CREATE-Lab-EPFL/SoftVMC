@@ -95,6 +95,7 @@ PRETENSION_WEIGHTS   = np.full(9, 0.03, dtype=float)  # [N·m/rad] x 9
 PRETENSION_THRESHOLD = np.deg2rad(30.0)               # [rad]
 
 # ── Output ───────────────────────────────────────────────────────────────────
+OUTPUT_FOLDER  = "person_avoiding"   # outputs/<folder>/<condition>.npz
 SAVE_PLOT      = True
 SAVE_DATA      = True    # raw arrays to .npz alongside the plot
 COLLECTED_DATA = False   # keep False until the runs are recorded

@@ -65,6 +65,11 @@ from VMC_utils.GravityCompensation import GRAVITY_DIR_CHOICES, rotation_for_grav
 _CONFIG_BASE = "GUI_MultiVMC_Config"
 
 
+def _config_module(value):
+    """"button" and "_button" both name GUI_MultiVMC_Config_button."""
+    return _CONFIG_BASE + "_" + value.lstrip("_")
+
+
 def _load_config():
     """
     Import the experiment config from the working directory.
@@ -77,9 +82,9 @@ def _load_config():
     name, argv = _CONFIG_BASE, sys.argv[1:]
     for i, a in enumerate(argv):
         if a == "--config" and i + 1 < len(argv):
-            name = f"{_CONFIG_BASE}_{argv[i + 1]}"
+            name = _config_module(argv[i + 1])
         elif a.startswith("--config="):
-            name = f"{_CONFIG_BASE}_{a.split('=', 1)[1]}"
+            name = _config_module(a.split("=", 1)[1])
     try:
         return importlib.import_module(name)
     except ModuleNotFoundError:
