@@ -15,26 +15,35 @@ arm is allowed:
 | load cell | yes (`/force_shear`) | no |
 | runs land in | `outputs/button_pressing/` | `outputs/person_avoiding/` |
 
-Nothing positional is hardcoded. Where the button is, where the obstacle is,
-how far past the surface to aim — all of it is set by dragging in the GUI, and
-recorded in the run's own data.
+Only **two points** are placed by hand per run, and only in x/y:
+
+- the **button**, for the tip spring — its z is known, so it is held at 0.38 m
+- the **obstacle**, shared by both Gaussians — one centre, not two, held at
+  0.2175 m, the midpoint between the tips of sections 1 and 2
+
+Everything else about the placement is set by dragging in the GUI and recorded
+in the run's own data.
 
 ## Mechanism
 
 | Component | Element | s | Its goal |
 |---|---|---|---|
-| `lin_tip` | `LinearSpring(K_REACH)` | 1.0 | drag onto the button |
-| `gauss_seg1` | `GaussianSpring(0, SIGMA)` | 1/3 | drag onto the obstacle |
-| `gauss_seg2` | `GaussianSpring(0, SIGMA)` | 2/3 | drag onto the obstacle |
+| `lin_tip` | `LinearSpring(K_REACH)` | 1.0 | drag x/y onto the button — z held at `TIP_GOAL_Z` = 0.38 m |
+| `gauss_seg1` | `GaussianSpring(0, SIGMA)` | 1/3 | drag x/y onto the obstacle — z held at `GAUSS_GOAL_Z` = 0.2175 m |
+| `gauss_seg2` | `GaussianSpring(0, SIGMA)` | 2/3 | **shares `gauss_seg1`'s goal** — drag either, both move |
 
 Torques superpose as `tau = sum_i J_i^T F_i`. The tip spring pulls the arm
 toward the button while the two Gaussians push its body away from the obstacle;
 both act on the same 9 motors, and how that contest resolves sets how hard the
 tip ends up pressing.
 
-Both Gaussians start at **strength 0**. Place their centres first, then raise
-the sliders — a Gaussian switched on at full strength peaks immediately if its
-centre is already within `SIGMA` of the arm.
+Both Gaussians start at **strength 0**. Place the shared centre first, then
+raise the sliders — a Gaussian switched on at full strength peaks immediately if
+its centre is already within `SIGMA` of the arm.
+
+`GAUSS_GOAL_Z` is derived, not typed: z is linear in s on the straight arm, so
+the midpoint between the tips of sections 1 (s=1/3) and 2 (s=2/3) is exactly
+`rest_pose(0.5)`. Change `REST_LENGTH` and it follows.
 
 Aim the tip goal a little *past* the contact surface. Parked exactly on it, the
 steady-state spring error — and the contact force with it — decays to zero once
@@ -119,18 +128,20 @@ Both terminals must name the same variant; the torque node logs what it loaded:
 [INFO] gravity compensation: gravity pulls along -y in the robot frame
 ```
 
-Then, in the GUI:
+The GUI comes up with **publishing off** (`PUBLISH_ON_START = False`), so
+nothing moves while you set up. Then:
 
-1. **Place the Gaussian centres.** Drag `gauss_seg1` and `gauss_seg2` onto the
-   obstacle. They start at the arm's own rest points at strength 0, so nothing
-   moves while you do it.
-2. **Place the tip goal.** Drag `lin_tip` to the button, a little past its
-   surface.
-3. **Raise the repulsion.** Bring both `strength` sliders up together, in
+1. **Place the obstacle.** Drag either Gaussian — they share one goal, so the
+   other follows. x/y only; the Z slider is disabled and reads `(fixed)`.
+2. **Place the button.** Drag `lin_tip`, x/y only, again with z fixed.
+3. **Switch publishing on.** *Now* the arm moves, once, to the goals you set.
+   The tip goal starts 5.5 cm below the resting tip, so expect it to take up
+   that slack immediately (≈0.55 N at `K_REACH = 10`).
+4. **Raise the repulsion.** Bring both `strength` sliders up together, in
    steps, watching the torque plot.
-4. **Leave it alone.** The longest stretch where you touch nothing is what the
+5. **Leave it alone.** The longest stretch where you touch nothing is what the
    notebook reads as the measurement window.
-5. **Ctrl+C terminal 3 — once.** That writes the run.
+6. **Ctrl+C terminal 3 — once.** That writes the run.
 
 Swap `_button` for `_person` to run the other variant, and drop terminal 2.
 
