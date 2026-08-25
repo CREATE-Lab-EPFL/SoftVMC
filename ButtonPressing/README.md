@@ -1,12 +1,13 @@
 # ButtonPressing
 
 Two headless runs of the same mechanism: a linear reaching spring at the tip
-plus two Gaussian repulsive springs on the body. Sweeping the Gaussian strength
-modulates how hard the tip presses on what it reaches for — a load cell in one
-case, a person's arm in the other.
+plus two Gaussian repulsive springs on the body. **The tip always reaches for
+the same button.** What changes between the two runs is what the body has to
+get around — a fixture in one case, a person's arm in the other. Sweeping the
+Gaussian strength trades press force against clearance.
 
-Nothing is dragged in the GUI: every position and strength is hardcoded, and a
-run is identified by its config file plus one condition name.
+Nothing is dragged in the GUI: every value a run depends on lives in its config
+file, and a run is identified by that config plus one condition name.
 
 ## Mechanism
 
@@ -28,17 +29,22 @@ would decay to zero once the tip arrives.
 
 | | `_button` | `_person` |
 |---|---|---|
-| target | `[0.05, 0, 0.38]` | `[0.10, 0, 0.35]` — **placeholder, measure it** |
-| `OBSTACLE_POS` | `[0.07, 0, 0.22]` | `[0.07, 0, 0.22]` |
-| `K_REACH` / `PRESS_DEPTH` | 25 N/m / 0.05 m → 1.25 N | 15 N/m / 0.03 m → 0.45 N |
+| target (`BUTTON_POS`) | `[-0.20, 0, 0.38]` | `[-0.20, 0, 0.38]` — same button |
+| obstacle | `OBSTACLE_POS` `[-0.05, 0, 0.20]` | `PERSON_POS` `[-0.05, 0, 0.20]` — **placeholder, measure it** |
+| `K_REACH` / `PRESS_DEPTH` | 25 N/m / 0.02 m → 0.50 N | 15 N/m / 0.02 m → 0.30 N |
 | `SIGMA` / `C_DAMP` | 0.06 m / 1.0 N·s/m | 0.06 m / 1.0 N·s/m |
 | `TAU_LIMIT` | 0.25 N·m | 0.15 N·m |
 | conditions | 0 / 60 / 120 / 200 | 0 / 40 / 80 |
 | load cell | yes (`/force_shear`) | no |
 
+The person config is deliberately softer — lower `K_REACH`, lower `TAU_LIMIT` —
+because that one runs near a human. Everything else defaults to the button
+config's values.
+
 Strengths come from the torque balance at the rest pose: `|tau_gauss|` matches
-`|tau_reach|` at ≈70 N/m (button) and ≈28 N/m (person), so each set straddles
-the crossover. `--dry-run` reprints all of this offline after any edit.
+`|tau_reach|` at ≈48 N/m (button) and ≈29 N/m (person), so each set straddles
+the crossover (button ratios 0 / 1.24 / 2.49 / 4.14, person 0 / 1.38 / 2.76).
+`--dry-run` recomputes all of this offline after any edit.
 
 Two caveats on those numbers. They are evaluated at the straight-arm rest pose,
 so they size the conditions rather than predict them. And they drift one way:
@@ -58,9 +64,48 @@ already expressed in the robot frame.
 
 Identical for every condition, only the strength differs:
 
-`RAMP_GAUSS` (5 s, strength 0 → condition, tip at rest) → `APPROACH` (tip
-reference to `PRESS_TARGET` at 4 cm/s) → `HOLD` (15 s) → `RETRACT` → `RELEASE`
-(strength back to 0).
+`RAMP_GAUSS` (`GAUSS_RAMP_S`, strength 0 → condition, tip at rest) → `APPROACH`
+(tip reference to `PRESS_TARGET` at `APPROACH_V`) → `HOLD` (`HOLD_TIME`) →
+**`CONFIRM`** → `RETRACT` (back home) → `RELEASE` (strength back to 0).
+
+`CONFIRM` is the stop at the end: the driver keeps holding the press and prints
+
+```
+  hold complete -- did it touch? press ENTER to return home
+```
+
+Press ENTER and the tip reference walks back to the straight-arm rest pose. The
+wait is polled rather than blocking, so the reference keeps publishing at
+`CTRL_HZ` the whole time and the arm holds its press steadily instead of going
+limp. Set `CONFIRM_BEFORE_RETURN = False` to retract straight out of `HOLD`; if
+stdin is not a terminal the driver falls through immediately, so scripted runs
+behave as before. Returning *home* here means the reference pose — the motors'
+own homing routine is still `python3 ../VMC/MultiGoHome.py`.
+
+The timing is all config (`CTRL_HZ`, `APPROACH_V`, `GAUSS_RAMP_S`, `HOLD_TIME`,
+`CONFIRM_BEFORE_RETURN`), editable in the same file as the geometry. Defaults:
+20 Hz, **2 cm/s**, 5 s ramp, 15 s hold — the 22.7 cm approach takes ≈11.4 s.
+That is the *reference* speed; the arm follows it compliantly, so the hardware
+lags behind and moves slower still.
+
+## Configuration
+
+The config file is the single source of truth for a run — geometry, elements,
+conditions, sequence timing, torque limit, gravity direction, save flags. The
+driver, the runners and the offline check all import it, so they cannot
+disagree. Two deliberate exceptions:
+
+- **Robot constants** are imported from where they are defined, never copied
+  into a config: section length from `Kinematics/JacobiansMulti.py`
+  (`REST_LENGTH`), lumped segment mass from `VMC/MultiGravityComp.py`
+  (`SEGMENT_MASS`). Copying them into each config is how they drift apart.
+- **Plumbing** stays in `_reach_avoid_driver.py`: `POS_TOL` (convergence
+  epsilon) and `FLUSH_TICKS` (shutdown guard) describe the code, not the
+  experiment.
+
+Boilerplate every config used to repeat — the rest-pose helper and the GUI
+parameter introspection — now lives in `VMC_utils/ConfigHelpers.py`. These two
+configs are headless, so they carry no GUI slider metadata at all.
 
 ## Files
 
@@ -107,8 +152,9 @@ python3 collect_run.py button_pressing no_gauss
 
 For the person config, `cp GUI_MultiVMC_Config_person.py GUI_MultiVMC_Config.py`,
 drop the load-cell terminal, and record `--condition strong` first — confirm the
-arm stops clear before running anything lower. `PERSON_TARGET` is a placeholder
-until measured, and someone should be on the e-stop for every run.
+arm stops clear before running anything lower. `PERSON_POS` — where the
+person's arm is — is a placeholder until measured, and someone should be on the
+e-stop for every run.
 
 ## Data
 
@@ -119,9 +165,11 @@ looks. The `force` field is raw load cell **grams** — multiply by `9.80665e-3`
 for newtons.
 
 The notebook finds each run's steady-state window on its own, from the logged
-tip goal and `k_params`, so no timing is hardcoded in the analysis. It writes
-`force_vs_time`, `force_vs_strength` and `backbone` for the button runs, and
-`standoff` for the person runs (PDF + SVG).
+tip goal and `k_params`, and reads the Gaussian attachment points from the
+run's own `comp_s_params`, so nothing about the analysis is hardcoded. It
+writes `force_vs_time`, `force_vs_strength` and `backbone` for the button runs,
+and `clearance` for the person runs — closest approach of the whole arm to the
+person, alongside the tip's remaining reach error (PDF + SVG).
 
 Both configs ship `COLLECTED_DATA = False` so runs actually save. Flip both to
 `True` once the reported runs are collected, or a later rerun will overwrite them.

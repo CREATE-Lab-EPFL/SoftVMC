@@ -77,9 +77,13 @@ SAFE_FIRST_CONDITION = "strong"
 
 # ── Sequence -- read by _reach_avoid_driver.py ────────────────────────────────
 CTRL_HZ      = 20.0   # [Hz]  driver publish rate
-APPROACH_V   = 0.04   # [m/s] tip reference speed during APPROACH and RETRACT
+APPROACH_V   = 0.02   # [m/s] tip reference speed during APPROACH and RETRACT
 GAUSS_RAMP_S = 5.0    # [s]   strength 0 -> condition, and back on release
 HOLD_TIME    = 15.0   # [s]   steady state -- the measurement window
+
+# After HOLD, hold the press and wait for ENTER before returning home, so the
+# contact can be confirmed by eye first. False = retract as soon as HOLD ends.
+CONFIRM_BEFORE_RETURN = True
 
 # ── Controller ───────────────────────────────────────────────────────────────
 TAU_LIMIT   = 0.15   # [N·m] per motor -- lower than the button config

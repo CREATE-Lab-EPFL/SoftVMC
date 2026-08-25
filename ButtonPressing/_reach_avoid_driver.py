@@ -9,13 +9,16 @@ Phases, all time-based and identical across conditions:
   RAMP_GAUSS  strength 0 -> gauss_strength over GAUSS_RAMP_S, tip goal at rest
   APPROACH    tip goal from rest to PRESS_TARGET at APPROACH_V
   HOLD        steady state, hold_time seconds
-  RETRACT     tip goal back to rest
+  CONFIRM     hold the press, wait for ENTER  (CONFIRM_BEFORE_RETURN)
+  RETRACT     tip goal back to rest -- home
   RELEASE     strength back to 0
 
 Only the strength differs between runs. Ctrl+C the torque node afterwards to
 trigger its exit-time save, then `python3 collect_run.py <folder> <name>`.
 """
 
+import select
+import sys
 import time
 
 import numpy as np
@@ -25,7 +28,7 @@ from std_msgs.msg import Float64MultiArray
 
 from GUI_MultiVMC_Config import (
     DEFAULT_START, N_VC, DAMPER_PARAM_INIT, K_REACH, OBSTACLE_POS, PRESS_TARGET,
-    CTRL_HZ, APPROACH_V, GAUSS_RAMP_S, HOLD_TIME,
+    CTRL_HZ, APPROACH_V, GAUSS_RAMP_S, HOLD_TIME, CONFIRM_BEFORE_RETURN,
 )
 
 STEP        = APPROACH_V / CTRL_HZ   # [m/tick]
@@ -113,8 +116,21 @@ class ReachAvoidDriver(Node):
 
         elif self._state == "HOLD":
             if time.time() - self._hold_start >= self._hold_time:
+                if CONFIRM_BEFORE_RETURN:
+                    self._state = "CONFIRM"
+                    print("\n  hold complete -- did it touch? "
+                          "press ENTER to return home ", end="", flush=True)
+                else:
+                    self._state = "RETRACT"
+                    self.get_logger().info("hold complete -- retracting")
+
+        elif self._state == "CONFIRM":
+            # Polled, not input(): the reference keeps publishing at CTRL_HZ so
+            # the arm holds its press steadily while waiting for the answer.
+            if select.select([sys.stdin], [], [], 0.0)[0]:
+                sys.stdin.readline()
                 self._state = "RETRACT"
-                self.get_logger().info("hold complete -- retracting")
+                self.get_logger().info("confirmed -- returning home")
 
         elif self._state == "RETRACT":
             if self._step_tip_toward(self._rest_tip):
