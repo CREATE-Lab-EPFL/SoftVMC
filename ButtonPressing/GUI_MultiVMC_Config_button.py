@@ -85,6 +85,12 @@ COLLECTED_DATA = False   # True = never save, the recorded runs are final
 # not exit cleanly. The write runs on its own thread, off the control loop.
 AUTOSAVE_S     = 30.0    # [s] 0 disables
 
+# Asked in terminal 3, one per ENTER, while the run goes. The run ends with
+# Ctrl+C, so nothing else in the log says when the tip actually arrived: press
+# ENTER once the tip is on the button and the analysis takes the measurement
+# window from there instead of guessing it.
+MARK_PROMPTS   = ("Target reached?",)
+
 PLOT_Z         = True
 PLOT_FORCE     = True    # load cell is used here
 

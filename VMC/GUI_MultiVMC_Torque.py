@@ -105,6 +105,14 @@ AUTOSAVE_S = float(getattr(_cfg, "AUTOSAVE_S", 0.0))
 # recent PRE_REFERENCE_S so a node left idling cannot grow without bound.
 PRE_REFERENCE_S = float(getattr(_cfg, "PRE_REFERENCE_S", 60.0))
 
+# Prompts typed at in THIS terminal while the run goes, one per ENTER. A run is
+# ended with Ctrl+C, so without them nothing in the log says when the arm
+# actually arrived -- the measurement window has to be guessed from the longest
+# stretch nothing was touched, which cannot tell "on the button" from "let go
+# of the mouse". Empty (the default) means no prompt at all, so a folder that
+# does not set it behaves exactly as before.
+MARK_PROMPTS = tuple(getattr(_cfg, "MARK_PROMPTS", ()))
+
 # Direction gravity pulls in the ROBOT frame. "-z" (the default) is the arm
 # standing straight up; a config for a rotated mount overrides it, e.g. the arm
 # laid on its side pulls along "-y".
@@ -194,8 +202,16 @@ class VMCTorqueNode(Node):
         self._q_log          = []    # (9,) [rad] joint positions
         self._q_dot_log      = []    # (9,) [rad/s] joint velocities
 
+        # Operator marks: (perf_counter, unix time, label), re-based on save.
+        self._marks = []
+
         # Named once, at the start: an unnamed run is stamped with when it began.
         self._base = self._run_name or ("z_" + datetime.now().strftime("%d_%H%M"))
+        if MARK_PROMPTS and sys.stdin is not None and sys.stdin.isatty():
+            threading.Thread(target=self._mark_loop, daemon=True).start()
+        elif MARK_PROMPTS:
+            self.get_logger().warn("stdin is not a terminal -- run marks disabled")
+
         self._stop_autosave = threading.Event()
         if AUTOSAVE_S > 0.0:
             threading.Thread(target=self._autosave_loop, daemon=True).start()
@@ -377,6 +393,29 @@ class VMCTorqueNode(Node):
         self._q_log.append(self._q.copy())
         self._q_dot_log.append(self._q_dot.copy())
 
+    def _mark_loop(self):
+        """Ask for a mark, wait on ENTER, stamp the moment it was pressed.
+
+        Runs on its own thread so the control loop never waits on a human. The
+        configured prompts are asked in order; after them ENTER keeps marking,
+        so nothing stops you noting more than the config planned for. Type a
+        label instead of pressing ENTER to name a mark yourself.
+        """
+        i = 0
+        while True:
+            prompt = MARK_PROMPTS[i] if i < len(MARK_PROMPTS) else "Another mark?"
+            try:
+                label = input(f"\n>>> {prompt}  ENTER to mark (or type a label): ").strip()
+            except (EOFError, KeyboardInterrupt):
+                return
+            if not label:
+                label = prompt.rstrip("? ").strip().lower() or f"mark {i + 1}"
+            now = time.perf_counter()
+            self._marks.append((now, time.time(), label))
+            when = "before the GUI connected" if self._t0 is None else f"t = {now - self._t0:.1f} s"
+            print(f"    [mark {len(self._marks)}] {label!r} at {when}", flush=True)
+            i += 1
+
     def _trim_pre_reference(self, now):
         """Keep the pre-reference buffer to the last PRE_REFERENCE_S seconds.
 
@@ -453,6 +492,12 @@ class VMCTorqueNode(Node):
         # negative t rather than being thrown away.
         origin = self._t0 if self._t0 is not None else out["t"][0]
         out["t"]         = out["t"] - origin
+
+        # Where the operator said something happened, on the same clock as t.
+        marks = list(self._marks)
+        out["marks_t"]     = np.array([m[0] - origin for m in marks], dtype=float)
+        out["marks_wall"]  = np.array([m[1] for m in marks], dtype=float)
+        out["marks_label"] = np.array([m[2] for m in marks], dtype=object)
         out["goal"]      = out["goal"].reshape(n, N_VC, 3)   # (n, N_VC, 3) [m]
         # tau as actually sent, vs what the model asked for before the limiter
         out["tau_raw"]   = out["tau_vmc"] + out["tau_grav"] - out["tau_pretension"]
@@ -596,6 +641,8 @@ class VMCTorqueNode(Node):
                 self._write_npz(npz_path, arrays)
                 print(f"[OK] {'Overwrote' if existed else 'Saved'} data  -> {npz_path}"
                       f"  ({n} samples, {os.path.getsize(npz_path)/1e6:.1f} MB)")
+                for j, (mt, lbl) in enumerate(zip(arrays["marks_t"], arrays["marks_label"])):
+                    print(f"     mark {j + 1}: {lbl!r} at t = {mt:.1f} s")
                 stale = os.path.join(plots_dir, f"{base}.autosave.npz")
                 if os.path.exists(stale):
                     os.remove(stale)      # the real file is written; the checkpoint is spent
