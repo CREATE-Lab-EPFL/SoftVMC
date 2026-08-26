@@ -77,6 +77,14 @@ OUTPUT_FOLDER  = "button_pressing"   # --run NAME lands in outputs/<folder>/NAME
 SAVE_PLOT      = True
 SAVE_DATA      = True    # raw arrays to .npz alongside the plot
 COLLECTED_DATA = False   # True = never save, the recorded runs are final
+
+# Checkpoint the logs to <run>.autosave.npz every 30 s while the run is going,
+# and print a status line. These runs are minutes long and hand-driven, so a
+# crash at the end would otherwise cost the whole thing; the checkpoint is
+# deleted once the real file is written, so one left behind means the run did
+# not exit cleanly. The write runs on its own thread, off the control loop.
+AUTOSAVE_S     = 30.0    # [s] 0 disables
+
 PLOT_Z         = True
 PLOT_FORCE     = True    # load cell is used here
 

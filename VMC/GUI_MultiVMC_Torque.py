@@ -40,6 +40,8 @@ for _p in [_ROOT, _KINE]:
 
 import argparse
 import copy
+import json
+import threading
 import time
 from datetime import datetime
 
@@ -87,6 +89,21 @@ COLLECTED_DATA = getattr(_cfg, "COLLECTED_DATA", False)
 
 # Subfolder of outputs/ that this experiment's named runs belong in.
 OUTPUT_FOLDER = getattr(_cfg, "OUTPUT_FOLDER", None)
+
+# Seconds between checkpoints while a run is going: the logs so far are written
+# to <run>.autosave.npz and a status line is printed. 0 (the default) keeps the
+# old behaviour -- nothing reaches disk until exit, and a kill -9 loses the run.
+# Set it in a config to opt in; the write happens on its own thread so the
+# control loop is not blocked by it.
+AUTOSAVE_S = float(getattr(_cfg, "AUTOSAVE_S", 0.0))
+
+# The torque node drives the arm from its first tick -- the goal is already at
+# DEFAULT_START and a run's condition is already ramping -- but the GUI usually
+# comes up seconds later. Those first seconds used to go unlogged, taking the
+# take-up transient and the whole ramp with them. They are logged now, at
+# negative t (t = 0 is still the first /VC_ref_pos), and trimmed to the most
+# recent PRE_REFERENCE_S so a node left idling cannot grow without bound.
+PRE_REFERENCE_S = float(getattr(_cfg, "PRE_REFERENCE_S", 60.0))
 
 # Direction gravity pulls in the ROBOT frame. "-z" (the default) is the arm
 # standing straight up; a config for a rotated mount overrides it, e.g. the arm
@@ -152,18 +169,38 @@ class VMCTorqueNode(Node):
         self._goal   = DEFAULT_START.reshape(-1).copy()   # flattened (3N,)
 
         # ── Logging ───────────────────────────────────────────────────────────
-        self._t0             = None   # set on first /VC_ref_pos message
-        self._t_log          = []
-        self._tau_log        = []
-        self._tau_grav_log   = []
-        self._goal_log       = []
-        self._comp_pos_logs  = [[] for _ in range(N_VC)]
+        # Everything the control loop computes is kept, at control rate -- a
+        # run is a few MB and it happens once. Only what is exactly derivable
+        # offline is left out: the backbone at any s follows from q_motor, and
+        # the summed virtual force from the per-component ones.
+        self._t0             = None   # perf_counter of the first /VC_ref_pos message
+        self._t_log          = []    # (1,) [s]  raw perf_counter; re-based on save
+        self._t_wall_log     = []    # (1,) [s]  unix time, to line this up with other logs
+        self._tau_log        = []    # (9,) [N.m] commanded, AFTER clipping
+        self._tau_vmc_log    = []    # (9,) [N.m] virtual-model share, before clipping
+        self._tau_grav_log   = []    # (9,) [N.m] gravity-compensation share
+        self._tau_pre_log    = []    # (9,) [N.m] pretension share (subtracted)
+        self._tau_comp_log   = []    # (N_VC, 9) [N.m] each element's share of tau_vmc
+        self._goal_log       = []    # (3*N_VC,) [m] reference
+        self._comp_pos_log   = []    # (N_VC, 3) [m] FK position of each attachment point
+        self._comp_vel_log   = []    # (N_VC, 3) [m/s] its task-space velocity
+        self._f_comp_log     = []    # (N_VC, 3) [N] each element's task-space force
         self._force_shear    = 0.0   # latest value from /force_shear
-        self._force_log      = []    # sampled at control-loop rate
-        self._f_virtual_log  = []    # (3,) task-space virtual force, sampled at control-loop rate
-        self._k_log          = []    # (N_VC,) spring param per component, sampled at control-loop rate
-        self._q_log          = []    # (9,) joint positions [rad], sampled at control-loop rate
-        self._q_dot_log      = []    # (9,) joint velocities [rad/s], sampled at control-loop rate
+        self._force_stamp    = None  # when it arrived -- a flat channel may be a dead node
+        self._force_log      = []    # (1,) sampled at control-loop rate
+        self._force_age_log  = []    # (1,) [s] age of that reading when sampled
+        self._k_log          = []    # (N_VC,) spring param per component over time
+        self._c_log          = []    # (N_VC,) damper param per component over time
+        self._q_log          = []    # (9,) [rad] joint positions
+        self._q_dot_log      = []    # (9,) [rad/s] joint velocities
+
+        # Named once, at the start: an unnamed run is stamped with when it began.
+        self._base = self._run_name or ("z_" + datetime.now().strftime("%d_%H%M"))
+        self._stop_autosave = threading.Event()
+        if AUTOSAVE_S > 0.0:
+            threading.Thread(target=self._autosave_loop, daemon=True).start()
+            self.get_logger().info(
+                f"checkpointing every {AUTOSAVE_S:.0f} s to {self._base}.autosave.npz")
 
         # ── Subscribers ───────────────────────────────────────────────────────
         self.create_subscription(
@@ -270,6 +307,7 @@ class VMCTorqueNode(Node):
 
     def _cb_force_shear(self, msg: Float64):
         self._force_shear = float(msg.data)
+        self._force_stamp = time.perf_counter()
 
     # ── Control loop ──────────────────────────────────────────────────────────
 
@@ -283,11 +321,17 @@ class VMCTorqueNode(Node):
                 self._ramp_done = True
                 self.get_logger().info(f"gauss ramp complete -- strength {self._ramp_target}")
 
-        tau_vmc, f_virtual = self._vmc.multi_torques_and_forces(
+        # The per-component form: same torque, but it also hands back the FK
+        # position, the task-space velocity and the force of every element, so
+        # the logs below cost no second kinematics pass and record exactly the
+        # pose this torque was computed from.
+        state           = self._vmc.multi_torques_forces_states(
             q_motor     = self._q,
             q_motor_dot = self._q_dot,
             target_pos  = self._goal,
         )
+        tau_vmc         = state["tau"]
+        f_virtual       = state["F_comp"].sum(axis=0)
         tau_grav        = self._grav_comp.gravity_compensation(self._q)
         tau_pretension  = self._pretension_torque(self._q)
         if not PRETENSION_ENABLED:
@@ -305,24 +349,49 @@ class VMCTorqueNode(Node):
         self._pub_vforce.publish(msg_vf)
 
         # LOGS FOR PLOTTING:
+        now = time.perf_counter()
         if self._t0 is None:
-            return
-        t_now = time.perf_counter() - self._t0
-        self._t_log.append(t_now)
+            self._trim_pre_reference(now)
+        self._t_log.append(now)
+        self._t_wall_log.append(time.time())
         self._tau_log.append(tau_cmd.copy())
+        self._tau_vmc_log.append(tau_vmc.copy())
         self._tau_grav_log.append(tau_grav.copy())
+        self._tau_pre_log.append(tau_pretension.copy())
+        self._tau_comp_log.append(state["tau_comp"].copy())
         self._goal_log.append(self._goal.copy())
+        self._comp_pos_log.append(state["pos"].copy())
+        self._comp_vel_log.append(state["vel"].copy())
+        self._f_comp_log.append(state["F_comp"].copy())
         self._force_log.append(self._force_shear)
-        self._f_virtual_log.append(f_virtual.copy())
+        self._force_age_log.append(
+            np.nan if self._force_stamp is None else now - self._force_stamp)
         self._k_log.append([
             getattr(comp.spring, SPRING_PARAM_NAMES[i])
             for i, comp in enumerate(self._components)
         ])
+        self._c_log.append([
+            getattr(comp.damper, DAMPER_PARAM_NAMES[i])
+            for i, comp in enumerate(self._components)
+        ])
         self._q_log.append(self._q.copy())
         self._q_dot_log.append(self._q_dot.copy())
-        for i, comp in enumerate(self._components):
-            pose_i = FK_Multi(self._q, float(comp.s_param))
-            self._comp_pos_logs[i].append(np.asarray(pose_i[:3], dtype=float))
+
+    def _trim_pre_reference(self, now):
+        """Keep the pre-reference buffer to the last PRE_REFERENCE_S seconds.
+
+        Dropped in batches: shifting a list is O(n), so paying it once per
+        quarter-buffer costs far less than paying it every tick.
+        """
+        if not self._t_log or now - self._t_log[0] <= PRE_REFERENCE_S:
+            return
+        drop = max(1, len(self._t_log) // 4)
+        for log in (self._t_log, self._t_wall_log, self._tau_log, self._tau_vmc_log,
+                    self._tau_grav_log, self._tau_pre_log, self._tau_comp_log,
+                    self._goal_log, self._comp_pos_log, self._comp_vel_log,
+                    self._f_comp_log, self._force_log, self._force_age_log,
+                    self._k_log, self._c_log, self._q_log, self._q_dot_log):
+            del log[:drop]
 
     def _publish(self, tau: np.ndarray):
         msg = Float64MultiArray()
@@ -345,33 +414,171 @@ class VMCTorqueNode(Node):
             return os.path.join(_CWD, "outputs", OUTPUT_FOLDER or "")
         return os.path.join(_CWD, "experiments")
 
+    def _log_arrays(self):
+        """
+        Every log as one synchronised dict of arrays, or None if there is not
+        enough yet.
+
+        The control loop appends to these lists while this runs, so the lists
+        can be caught at different lengths -- each is copied in one shot (a
+        list copy is atomic under the GIL) and then everything is cut to the
+        shortest. That is what makes a checkpoint safe to take mid-run.
+        """
+        logs = dict(
+            t              = self._t_log,          # (n,)
+            t_wall         = self._t_wall_log,     # (n,)
+            tau            = self._tau_log,        # (n, 9)
+            tau_vmc        = self._tau_vmc_log,    # (n, 9)
+            tau_grav       = self._tau_grav_log,   # (n, 9)
+            tau_pretension = self._tau_pre_log,    # (n, 9)
+            tau_comp       = self._tau_comp_log,   # (n, N_VC, 9)
+            goal           = self._goal_log,       # (n, 3*N_VC)
+            comp_pos       = self._comp_pos_log,   # (n, N_VC, 3)
+            comp_vel       = self._comp_vel_log,   # (n, N_VC, 3)
+            f_comp         = self._f_comp_log,     # (n, N_VC, 3)
+            force          = self._force_log,      # (n,)
+            force_age      = self._force_age_log,  # (n,)
+            k_params       = self._k_log,          # (n, N_VC)
+            c_params       = self._c_log,          # (n, N_VC)
+            q_motor        = self._q_log,          # (n, 9)
+            q_motor_dot    = self._q_dot_log,      # (n, 9)
+        )
+        snap = {k: list(v) for k, v in logs.items()}
+        n = min(len(v) for v in snap.values())
+        if n < 2:
+            return None
+        out = {k: np.asarray(v[:n]) for k, v in snap.items()}
+        # t = 0 at the first reference message, as before; the ticks before it
+        # -- the arm already being driven towards DEFAULT_START -- carry
+        # negative t rather than being thrown away.
+        origin = self._t0 if self._t0 is not None else out["t"][0]
+        out["t"]         = out["t"] - origin
+        out["goal"]      = out["goal"].reshape(n, N_VC, 3)   # (n, N_VC, 3) [m]
+        # tau as actually sent, vs what the model asked for before the limiter
+        out["tau_raw"]   = out["tau_vmc"] + out["tau_grav"] - out["tau_pretension"]
+        # Kept for readers written against the old file: the sum over elements.
+        out["f_virtual"] = out["f_comp"].sum(axis=1)         # (n, 3) [N]
+        return out
+
+    def _metadata(self):
+        """
+        Everything needed to read the run back without this folder's config --
+        including the config file itself, so a run stays interpretable after
+        the numbers in it move on.
+        """
+        def spec(obj):
+            return {"type": type(obj).__name__,
+                    **{k: (v.tolist() if isinstance(v, np.ndarray) else v)
+                       for k, v in getattr(obj, "__dict__", {}).items()
+                       if not k.startswith("_")}}
+
+        try:
+            with open(_cfg.__file__) as fh:
+                config_source = fh.read()
+        except Exception:
+            config_source = ""
+
+        return dict(
+            comp_names         = np.array([c.name or f"VC{i+1}"
+                                           for i, c in enumerate(self._components)]),
+            comp_s_params      = np.array([c.s_param for c in self._components]),
+            comp_spec          = np.array([json.dumps(
+                                    [{"name": c.name, "s": c.s_param,
+                                      "spring": spec(c.spring), "damper": spec(c.damper)}
+                                     for c in self._components])]),
+            spring_param_names = np.array(SPRING_PARAM_NAMES),
+            damper_param_names = np.array(DAMPER_PARAM_NAMES),
+            control_freq       = np.array([CONTROL_FREQUENCY]),   # [Hz]
+            tau_limit          = np.array([TAU_LIMIT]),           # [N.m]
+            gravity_dir        = np.array([self._gravity_dir]),
+            pretension_weights = np.asarray(PRETENSION_WEIGHTS, dtype=float),
+            pretension_enabled = np.array([bool(PRETENSION_ENABLED)]),
+            config_name        = np.array([_cfg.__name__]),
+            config_source      = np.array([config_source]),
+            run_name           = np.array([self._run_name or ""]),
+            condition_targets  = np.array(list(self._cond_targets), dtype=object),
+            condition_strength = np.array([np.nan if self._ramp_target is None
+                                           else float(self._ramp_target)]),
+            ramp_s             = np.array([self._ramp_s]),        # [s]
+            # t = 0 is the first /VC_ref_pos; t < 0 is the stretch before the
+            # GUI connected, when the goal was still the config's DEFAULT_START.
+            t_reference_ok     = np.array([self._t0 is not None]),
+        )
+
+    def _write_npz(self, path, arrays):
+        """Write through a temporary file, so an interrupt cannot leave a
+        half-written .npz where a complete one used to be."""
+        tmp = path + ".part.npz"
+        np.savez_compressed(tmp, **arrays, **self._metadata())
+        os.replace(tmp, path)
+
+    # ── Live checkpoint ───────────────────────────────────────────────────────
+
+    def _status_line(self, a):
+        """One line of what the arm is doing right now, from the logs."""
+        t    = a["t"]
+        tail = t >= t[-1] - AUTOSAVE_S
+        rate = int(tail.sum() / max(t[-1] - t[tail][0], 1e-9))
+        clip = 100.0 * np.mean(np.any(np.abs(a["tau_raw"][tail]) > TAU_LIMIT, axis=1))
+        err  = np.linalg.norm(a["comp_pos"][-1] - a["goal"][-1], axis=1)   # (N_VC,)
+        f    = np.linalg.norm(a["f_comp"][-1], axis=1)                     # (N_VC,)
+        per  = "  ".join(
+            f"{c.name or f'VC{i+1}'}: |e|={err[i]*100:5.1f}cm |F|={f[i]:6.2f}N "
+            f"{SPRING_PARAM_NAMES[i]}={a['k_params'][-1, i]:.0f}"
+            for i, c in enumerate(self._components))
+        age = a["force_age"][-1]
+        force = ("force n/a" if np.isnan(age)
+                 else f"force={a['force'][-1]:7.1f} ({age:.1f}s old)")
+        return (f"[{t[-1]:7.1f}s] {len(t):7d} samples @ {rate:4d} Hz  "
+                f"clip {clip:5.1f}%  {force}\n           {per}")
+
+    def _autosave_loop(self):
+        """Checkpoint the run every AUTOSAVE_S seconds, on its own thread.
+
+        A kill -9, a power cut or a crashed driver then costs the last few
+        seconds instead of the whole run. The file is separate from the final
+        one and is removed once that is written, so a leftover .autosave.npz
+        means the run did not exit cleanly.
+        """
+        while not self._stop_autosave.wait(AUTOSAVE_S):
+            arrays = self._log_arrays()
+            if arrays is None:
+                continue
+            try:
+                print(self._status_line(arrays), flush=True)
+            except Exception as e:
+                print(f"[WARN] status line: {e!r}")
+            if not SAVE_DATA or COLLECTED_DATA:
+                continue
+            path = os.path.join(self._out_dir(), f"{self._base}.autosave.npz")
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                self._write_npz(path, arrays)
+            except Exception as e:
+                print(f"[WARN] checkpoint failed ({e!r}) -- the run continues")
+
+    # ── Final save ────────────────────────────────────────────────────────────
+
     def save_plot(self):
-        if len(self._t_log) < 2:
+        self._stop_autosave.set()
+
+        arrays = self._log_arrays()
+        if arrays is None:
             print("[WARN] Not enough data logged to plot.")
             return
 
-        lengths = ([len(self._t_log), len(self._tau_log),
-                    len(self._tau_grav_log), len(self._goal_log),
-                    len(self._force_log), len(self._f_virtual_log),
-                    len(self._k_log), len(self._q_log), len(self._q_dot_log)]
-                   + [len(self._comp_pos_logs[i]) for i in range(N_VC)])
-        n = min(lengths)
-        if n < 2:
-            print("[WARN] Not enough synchronized data to plot.")
-            return
-
-        t_arr          = np.asarray(self._t_log[:n])
-        tau_arr        = np.asarray(self._tau_log[:n])         # (n, 9)
-        tau_grav_arr   = np.asarray(self._tau_grav_log[:n])    # (n, 9)
-        goal_arr       = np.asarray(self._goal_log[:n])        # (n, 3*N_VC)
-        force_arr      = np.asarray(self._force_log[:n])       # (n,)
-        f_virtual_arr  = np.asarray(self._f_virtual_log[:n])   # (n, 3)
-        k_arr          = np.asarray(self._k_log[:n])            # (n, N_VC)
-        q_arr          = np.asarray(self._q_log[:n])            # (n, 9)
-        q_dot_arr      = np.asarray(self._q_dot_log[:n])        # (n, 9)
-        comp_pos_arrs  = [
-            np.asarray(self._comp_pos_logs[i][:n]) for i in range(N_VC)
-        ]                                                       # each (n, 3)
+        t_arr          = arrays["t"]
+        tau_arr        = arrays["tau"]
+        tau_grav_arr   = arrays["tau_grav"]
+        tau_raw_arr    = arrays["tau_raw"]
+        goal_3d        = arrays["goal"]                       # (n, N_VC, 3)
+        goal_arr       = goal_3d.reshape(len(t_arr), -1)      # (n, 3*N_VC)
+        force_arr      = arrays["force"]
+        f_virtual_arr  = arrays["f_virtual"]
+        f_comp_arr     = arrays["f_comp"]
+        k_arr          = arrays["k_params"]
+        comp_pos_arrs  = [arrays["comp_pos"][:, i] for i in range(N_VC)]
+        n              = len(t_arr)
 
         # ── Save raw data FIRST ───────────────────────────────────────────────
         # The figure is a big, slow render; the data is small and irreplaceable.
@@ -379,41 +586,19 @@ class VMCTorqueNode(Node):
         # save costs the plot, never the run.
         plots_dir = self._out_dir()
         os.makedirs(plots_dir, exist_ok=True)
-        base      = self._run_name or ("z_" + datetime.now().strftime("%d_%H%M"))
+        base      = self._base
         print(f"[..] Saving {base} to {plots_dir} -- do not interrupt")
 
         if SAVE_DATA:
             npz_path = os.path.join(plots_dir, f"{base}.npz")
             existed  = os.path.exists(npz_path)
             try:
-                # goal_arr is (n, 3*N_VC) -> (n, N_VC, 3) for clean indexing
-                goal_3d     = goal_arr.reshape(n, N_VC, 3)
-                comp_pos_3d = np.stack(comp_pos_arrs, axis=1)
-                np.savez_compressed(
-                    npz_path,
-                    # ── time ──────────────────────────────────────────────────
-                    t            = t_arr,           # (n,)         [s]
-                    # ── torques ───────────────────────────────────────────────
-                    tau          = tau_arr,         # (n, 9)       [N·m]  commanded
-                    tau_grav     = tau_grav_arr,    # (n, 9)       [N·m]  grav comp
-                    # ── positions ─────────────────────────────────────────────
-                    goal         = goal_3d,         # (n, N_VC, 3) [m]  reference
-                    comp_pos     = comp_pos_3d,     # (n, N_VC, 3) [m]  FK actual
-                    # ── force ─────────────────────────────────────────────────
-                    force        = force_arr,       # (n,)   [g] shear, raw load-cell units -- x 9.80665e-3 for N
-                    f_virtual    = f_virtual_arr,   # (n, 3)       [N]   task-space virtual force
-                    k_params     = k_arr,           # (n, N_VC)    spring param per component over time
-                    q_motor      = q_arr,           # (n, 9)       [rad] joint positions
-                    q_motor_dot  = q_dot_arr,       # (n, 9)       [rad/s] joint velocities
-                    # ── metadata ──────────────────────────────────────────────
-                    comp_names   = np.array([c.name or f"VC{i+1}"
-                                             for i, c in enumerate(self._components)]),
-                    comp_s_params= np.array([c.s_param for c in self._components]),
-                    control_freq = np.array([CONTROL_FREQUENCY]),   # [Hz]
-                    tau_limit    = np.array([TAU_LIMIT]),           # [N·m]
-                    gravity_dir  = np.array([self._gravity_dir]),
-                )
-                print(f"[OK] {'Overwrote' if existed else 'Saved'} data  -> {npz_path}")
+                self._write_npz(npz_path, arrays)
+                print(f"[OK] {'Overwrote' if existed else 'Saved'} data  -> {npz_path}"
+                      f"  ({n} samples, {os.path.getsize(npz_path)/1e6:.1f} MB)")
+                stale = os.path.join(plots_dir, f"{base}.autosave.npz")
+                if os.path.exists(stale):
+                    os.remove(stale)      # the real file is written; the checkpoint is spent
             except Exception as e:
                 print(f"[FAIL] could not save data to {npz_path}: {e!r}")
 
@@ -491,9 +676,22 @@ class VMCTorqueNode(Node):
             ax_force.legend(fontsize=8, loc="lower right")
 
         # ── Virtual forces axis ───────────────────────────────────────────────
-        vf_colors = ["tab:blue", "tab:orange", "tab:green"]
-        for k, (lbl, c) in enumerate(zip(["Fx", "Fy", "Fz"], vf_colors)):
-            ax_vforce.plot(t_arr, f_virtual_arr[:, k], color=c, linewidth=1.6, label=lbl)
+        # With one element the components of its force are the interesting
+        # thing. With several, the sum is forces applied at different points
+        # added together -- meaningless as a vector -- so each element's
+        # magnitude is plotted instead, and the sum only as a faint reference.
+        if N_VC == 1:
+            vf_colors = ["tab:blue", "tab:orange", "tab:green"]
+            for k, (lbl, c) in enumerate(zip(["Fx", "Fy", "Fz"], vf_colors)):
+                ax_vforce.plot(t_arr, f_virtual_arr[:, k], color=c, linewidth=1.6, label=lbl)
+        else:
+            f_cmap = plt.get_cmap("tab10", N_VC)
+            for i, comp in enumerate(self._components):
+                ax_vforce.plot(t_arr, np.linalg.norm(f_comp_arr[:, i], axis=1),
+                               color=f_cmap(i), linewidth=1.6,
+                               label=f"|F| {comp.name or f'VC{i+1}'}")
+            ax_vforce.plot(t_arr, np.linalg.norm(f_virtual_arr, axis=1), color="gray",
+                           linewidth=1.0, alpha=0.6, label="|sum|")
         ax_vforce.set_ylabel("F_virtual [N]")
         ax_vforce.grid(True, alpha=0.3)
         ax_vforce.legend(ncol=3, fontsize=8, loc="lower right")
@@ -510,6 +708,15 @@ class VMCTorqueNode(Node):
         ax_k.legend(ncol=N_VC, fontsize=8, loc="lower right")
 
         # ── Torque axis ───────────────────────────────────────────────────────
+        # Shade where the limiter was active: inside those stretches the arm is
+        # driven by the clip, not by the virtual model.
+        clipped = np.any(np.abs(tau_raw_arr) > TAU_LIMIT, axis=1)
+        if clipped.any():
+            ax_tau.fill_between(t_arr, -TAU_LIMIT, TAU_LIMIT, where=clipped,
+                                color="red", alpha=0.10, linewidth=0,
+                                label=f"clipped ({100*clipped.mean():.0f}% of run)")
+        for lim in (-TAU_LIMIT, TAU_LIMIT):
+            ax_tau.axhline(lim, color="k", linewidth=0.8, alpha=0.5)
         for k in range(9):
             label = f"tau{k+11}"
             ln, = ax_tau.plot(t_arr, tau_arr[:, k], "-", linewidth=1.6, label=label)
