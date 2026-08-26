@@ -59,12 +59,12 @@ VIRTUAL_COMPONENTS = [
 #
 # Three conditions here, not the button's four: with a person as the obstacle
 # every run costs someone standing still with an arm in the way, so the sweep
-# is off / middle / hard rather than a fine one. `mid` is the button's `mid_2`
-# strength, so the two experiments still have a strength in common.
+# drops the button's `weak` point. `mid` and `strong` are the button's own two,
+# unchanged, so the fixture and the person can be compared at an identical field.
 GAUSS_CONDITIONS = {
     "no_gauss": 0.0,
-    "mid":      2000.0,
-    "strong":   5000.0,
+    "mid":      1000.0,
+    "strong":   2000.0,
 }
 CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
 

@@ -12,7 +12,7 @@ strengths are swept:
 |---|---|---|
 | obstacle | a fixture | a person's arm |
 | load cell | yes (`/force_shear`) | no |
-| runs | `no_gauss`, `mid_1`, `mid_2`, `strong` | `no_gauss`, `mid`, `strong` |
+| runs | `no_gauss`, `weak`, `mid`, `strong` | `no_gauss`, `mid`, `strong` |
 | runs land in | `outputs/button_pressing/` | `outputs/person_avoiding/` |
 
 `GUI_MultiVMC_Config_person.py` is generated from the button one, so nothing can
@@ -43,18 +43,19 @@ the GUI.
 
 | `--run` | strength | | `--run` | strength |
 |---|---|---|---|---|
-| `no_gauss` | 0 | | `mid_2` | 2000 |
-| `mid_1` | 1000 | | `strong` | 5000 |
+| `no_gauss` | 0 | | `mid` | 1000 |
+| `weak` | 500 | | `strong` | 2000 |
 
 `_person` — three. Every run needs someone holding an arm still in front of a
-moving robot, so the sweep is off / middle / hard rather than a fine one. `mid`
-is `mid_2`'s strength, so the two experiments still share a point:
+moving robot, so the sweep drops `weak`. `mid` and `strong` are the button's
+own two, unchanged, so the fixture and the person can be compared at an
+identical field:
 
 | `--run` | strength |
 |---|---|
 | `no_gauss` | 0 |
-| `mid` | 2000 |
-| `strong` | 5000 |
+| `mid` | 1000 |
+| `strong` | 2000 |
 
 The name sets the strength: `--run` applies `GAUSS_CONDITIONS` to both
 Gaussians, in the torque node and on the GUI sliders. It is **ramped in from 0
@@ -65,15 +66,22 @@ it in a single tick. Touching **Apply Parameters** cancels the ramp and hands
 control to the sliders; `k_params` records what was actually applied.
 
 Any other name is a scratch run at the config's own strength — terminal 3 warns
-when the name is not one of the config's conditions, so a `mid_1` typed at
+when the name is not one of the config's conditions, so a `weak` typed at
 `_person` does not quietly record itself as a condition it is not. For
 `_person`, record `strong` first.
 
-⚠ At `strong = 5000` the Gaussian torque is roughly **1.75 N·m, about 7×
-`TAU_LIMIT`** — the controller is hard-clipped and the arm's behaviour is set by
-the limiter rather than by the virtual model. If lower strengths did nothing,
-`SIGMA` is the cheaper knob: repulsion is `k · exp(−d²/2σ²) · d`, and with the
-obstacle 1.5σ away the field is already down to 34% before `k` multiplies.
+⚠ These strengths sweep how far the arm is pushed off the obstacle, not how
+hard it presses. Measured from `mid_1` (the old 1000 run): at the straight rest
+pose the Gaussian torque is 0.418 N·m per 1000 N/m of strength against a tip
+torque of 0.346 N·m, so the field already outweighs the reach at ≈ 830 N/m and
+the arm settles 23 cm off the button with **zero** contact force. Modulating a
+*press* is a much smaller quantity — the tip spring working on its overshoot
+past the surface, 0.15–1.5 N — and needs strengths of order 12–124 depending on
+how far past the surface the goal is aimed. So check the shear reading is still
+above zero at `strong`; if it is not, the sweep is showing on/off rather than
+modulation, and the fix is a larger overshoot (or a smaller `SIGMA`: repulsion
+is `k · exp(−d²/2σ²) · d`, and with the obstacle 1.5σ away the field is already
+down to 34% before `k` multiplies).
 
 ## Running
 
@@ -99,13 +107,13 @@ python3 ../LoadCell/arduino_force.py
 **Terminal 3** — torque node
 
 ```bash
-python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run mid_1
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run mid
 ```
 
 **Terminal 4** — GUI
 
 ```bash
-python3 ../VMC/GUI_MultiVMC.py --config _button --run mid_1
+python3 ../VMC/GUI_MultiVMC.py --config _button --run mid
 ```
 
 Terminals 3 and 4 must name the same variant and the same run. Terminal 3 logs
@@ -114,7 +122,7 @@ anything:
 
 ```
 [INFO] config: GUI_MultiVMC_Config_button
-[INFO] run: mid_1 -- saving to outputs/button_pressing/mid_1.{png,npz}, overwriting any previous mid_1
+[INFO] run: mid -- saving to outputs/button_pressing/mid.{png,npz}, overwriting any previous mid
 [INFO] gravity compensation: gravity pulls along -y in the robot frame
 ```
 

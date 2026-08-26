@@ -48,14 +48,18 @@ VIRTUAL_COMPONENTS = [
 ]
 
 # ── Conditions ───────────────────────────────────────────────────────────────
-# The Gaussian strength each run name stands for. `--run mid_1` starts both
+# The Gaussian strength each run name stands for. `--run mid` starts both
 # Gaussians at 1000 N/m -- no slider work needed to set up a named run; the
 # sliders are still live if you want to move off it.
+#
+# `mid` and `strong` are the same two strengths the person is swept at, so the
+# fixture and the person can be compared at an identical field; `weak` is the
+# button's own extra point below them.
 GAUSS_CONDITIONS = {
     "no_gauss": 0.0,
-    "mid_1":    1000.0,
-    "mid_2":    2000.0,
-    "strong":   5000.0,
+    "weak":      500.0,
+    "mid":      1000.0,
+    "strong":   2000.0,
 }
 CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
 
