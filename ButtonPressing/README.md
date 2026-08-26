@@ -27,11 +27,17 @@ is the **one** field that is deliberately different.
 | `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | starts `[-0.05, 0, 0.2175]` |
 | `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `gauss_seg1`'s goal** |
 
-`tau = sum_i J_i^T F_i`. Both z values are held — the button's height, and the
-midpoint between the tips of sections 1 and 2 (`rest_pose(0.5)`, which also puts
-both attachment points equidistant from the centre). Only x/y is placed by hand,
-and only for the tip: the obstacle is already where it belongs. Aim the tip a
-little past the surface, or the steady-state force decays to zero on arrival.
+`tau = sum_i J_i^T F_i`. Both z values are held — z is the reach **out along the
+arm's axis**, not height (see [Gravity and axes](#gravity-and-axes)): the
+button's distance from the base, and the midpoint between the tips of sections 1
+and 2 (`rest_pose(0.5)`, which also puts both attachment points equidistant from
+the centre). Everything else is dragged: x/y is (across, up), so the tip goal is
+placed on the button's face and the Gaussian centre on the real obstacle. The
+`GAUSS_GOAL_XY = (-0.05, 0.0)` default is a **starting point, not a placement** —
+it sits 5 cm off the arm's own rest axis with zero y offset, which leaves the
+direction the arm escapes in barely determined. Drag it onto the obstacle. Aim
+the tip a little past the surface, or the steady-state force decays to zero on
+arrival.
 
 `K_REACH = 30` N/m, `C_DAMP = 1.0` N·s/m, `TAU_LIMIT = 0.25` N·m,
 `PRETENSION_WEIGHTS = 0.010` N·m/rad. Springs and dampers are live sliders in
@@ -79,7 +85,7 @@ Drop `--run` altogether for a timestamped scratch run in `experiments/`. For
 `_person`, record `strong` first.
 
 ⚠ These strengths sweep how far the arm is pushed off the obstacle, not how
-hard it presses. Measured from `mid_1` (the old 1000 run): at the straight rest
+hard it presses. Measured from a 1000 N/m run: at the straight rest
 pose the Gaussian torque is 0.418 N·m per 1000 N/m of strength against a tip
 torque of 0.346 N·m, so the field already outweighs the reach at ≈ 830 N/m and
 the arm settles 23 cm off the button with **zero** contact force. Modulating a
@@ -129,22 +135,25 @@ its first half-minute in sympy building the Jacobians, then logs what it loaded
 — check the config, the run and the gravity line before moving anything:
 
 ```
-[INFO] config: GUI_MultiVMC_Config_button
-[INFO] run: medium -- saving to outputs/button_pressing/medium.{png,npz}, overwriting any previous medium
-[INFO] gravity compensation: gravity pulls along -y in the robot frame
 [INFO] building Jacobians (sympy -- takes a while, Ctrl+C to abort)
-[INFO] condition mid: gauss_seg1, gauss_seg2 -> strength 1000.0, ramped in over 5 s
+[INFO] condition medium: gauss_seg1, gauss_seg2 -> strength 1000.0, ramped in over 5 s
 [INFO] Jacobians ready in 31 s
+[INFO] config: GUI_MultiVMC_Config_button
+[INFO] run: medium -- saving to ~/github/SoftVMC/ButtonPressing/outputs/button_pressing/medium.{png,npz}, overwriting any previous medium
+[INFO] gravity compensation: gravity pulls along -y in the robot frame
 [INFO] Ctrl+C in THIS terminal: mark 'Target reached?' -> end the run, write medium.npz
+[INFO] checkpointing every 30 s to medium.autosave.npz
+[INFO] VMCTorqueNode started — 3 virtual component(s), control @ 330 Hz
 ```
 
 A Ctrl+C during that build just aborts — nothing has been recorded yet, so it
 exits with one line rather than a sympy traceback.
 
-The GUI publishes from the start, so the arm takes up the 5.5 cm to its goal
-as soon as the torque node is up (≈1.65 N at `K_REACH = 30`), with the run's
-Gaussian strength already applied. Drag `lin_tip` to the button, then leave it
-alone. Untick **Publisher Active** to move goals without the arm following.
+The torque node drives the arm from its **first tick**, before the GUI is up: the
+goal is already `DEFAULT_START`, so the arm takes up the 5.5 cm to it (≈1.65 N at
+`K_REACH = 30`) and the run's Gaussian ramps in, all of it logged at `t < 0`.
+Drag `lin_tip` to the button, then leave it alone. Untick **Publisher Active** to
+move goals without the arm following.
 
 **Ctrl+C in terminal 3 does two things, in order** (`MARK_PROMPTS` in the
 config; terminal 3 prints the protocol when it starts, and what to press next
@@ -162,11 +171,23 @@ anything, which cannot tell "on the button" from "let go of the mouse".
 For the other variant, swap `_button` for `_person` in terminals 3 and 4, and
 skip terminal 2.
 
-## Gravity
+## Gravity and axes
 
 The arm is mounted **on its side**, so both configs set `GRAVITY_DIR = "-y"`.
 Override for one run with `--gravity-dir -z`. Wrong value = compensation pushing
 along an axis gravity no longer acts on.
+
+That mounting is also what the robot axes mean physically, and it is easy to get
+backwards:
+
+| axis | physically | in the GUI |
+|---|---|---|
+| `x` | horizontal, across | canvas X |
+| `y` | **vertical — up is +y** | canvas Y |
+| `z` | out along the arm's axis | the locked slider |
+
+So the drag canvas is (across, **up**), and a "z" in this folder is always a
+distance out from the base, never a height.
 
 ## Data
 
@@ -203,19 +224,20 @@ Launch T3 from this folder; paths are relative to it.
 | `marks_t` / `marks_label` / `marks_wall` | (m,) | where Ctrl+C was pressed, on the same clock as `t` |
 | `comp_spec` | (1,) | every spring/damper type and value, as JSON |
 | `config_source` | (1,) | the whole config file, so a run stays readable after the numbers move on |
-| `comp_names`, `comp_s_params`, `control_freq`, `tau_limit`, `gravity_dir`, `config_name`, `run_name`, `condition_strength`, `ramp_s`, `pretension_weights` | | metadata |
+| `comp_names`, `comp_s_params`, `spring_param_names`, `damper_param_names`, `control_freq`, `tau_limit`, `gravity_dir`, `config_name`, `run_name`, `condition_targets`, `condition_strength`, `ramp_s`, `pretension_weights`, `pretension_enabled`, `t_reference_ok` | | metadata (`t_reference_ok` is False if the GUI never connected, so `t = 0` is the first sample rather than the first reference) |
 
-The projections are not the geometry: the tip goal is dragged in x-y at a locked
-z and gravity pulls along -y, so a recorded pose leaves the y = 0 plane by up to
-16 cm. Read clearance and reach error in 3-D — an x-z view of one run shows the
-arm grazing the obstacle at 0.8 cm where the real distance is 12.2 cm.
+No single projection is the geometry. Because y is vertical, an **x–z plot is a
+plan view from above**, not a side view, and the arm has been recorded **lifted
+16 cm** by the +y component of the Gaussian — invisible from above. Read
+clearance and reach error in 3-D: an x–z view of one run shows the arm grazing
+the obstacle at 0.8 cm where the true distance is 12.2 cm.
 
 ## Files
 
 | File | |
 |---|---|
 | `GUI_MultiVMC_Config_button.py` / `_person.py` | the elements, their values, the conditions |
-| `plot_button_and_person.ipynb` | analysis — discovers `outputs/`, takes positions from the data and the measurement window from the Ctrl+C mark |
+| `plot_button_and_person.ipynb` | analysis — discovers `outputs/`, takes positions from the data and the measurement window from the Ctrl+C mark, falling back to the longest untouched stretch for runs without one |
 | `collect_run.py` | moves an unnamed `experiments/z_*` pair into `outputs/` |
 
 The scripted state machine that used to drive this folder is in the git history.
