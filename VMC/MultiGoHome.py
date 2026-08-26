@@ -15,6 +15,7 @@ Usage:
 """
 
 import argparse
+import sys
 import time
 from dynamixel_sdk import PortHandler, PacketHandler, COMM_SUCCESS
 
@@ -41,19 +42,21 @@ MODE_EXT_POSITION    = 4  # "extended position control" for XL330 series
 # Motion tuning
 POSITION_THRESHOLD = 10   # ticks
 PROFILE_VELOCITY   = 40   # ~9 rpm (slow/safe)
+TICKS_PER_TURN     = 4096 # one full revolution -- a miss that is a multiple of
+                          # this is a turn error, not a mechanical failure
 
 # --- HOME POSITION (ABSOLUTE ticks) -----------------------------------------
 # Update: put robot in desired home pose, run with --read, copy values here.
 HOME_POSITION = {
- 11: 2411,
- 12: 3294,
- 13: 4068,
- 14: 835,
- 15: 1629,
- 16: 3972,
- 17: 418,
- 18: 2596,
- 19: 3273,
+ 11: 3739,
+ 12: 3858,
+ 13: 309,
+ 14: 1905,
+ 15: 2587,
+ 16: 3573,
+ 17: 972,
+ 18: 3192,
+ 19: 4054,
 }
 
 def init_bus():
@@ -116,6 +119,56 @@ def wait_until_home(ph, pk, timeout=10.0):
     return False
 
 
+def home_error(ph, pk):
+    """
+    Per motor: (present - HOME_POSITION) in ticks, and whether that miss is a
+    whole number of turns.
+
+    Extended position control (mode 4) does take multi-turn goals, so the tick
+    values in HOME_POSITION are commanded exactly as written -- but the
+    revolution count behind them lives in the servo's RAM, not in the encoder.
+    A power cycle or a reboot re-derives the position from the single-turn
+    absolute encoder, so ticks captured in one session can mean a pose one or
+    more turns away in the next. That miss is silent unless it is checked for,
+    which is what this is: a delta of ~4096 is 2*pi in the wrong place, not a
+    motor that failed to arrive.
+    """
+    pos = read_positions_abs(ph, pk)
+    out = {}
+    for mid in MOTOR_IDS:
+        if pos[mid] is None:
+            out[mid] = (None, None, False)
+            continue
+        delta = pos[mid] - HOME_POSITION[mid]
+        turns = round(delta / TICKS_PER_TURN)
+        is_turn = turns != 0 and abs(delta - turns * TICKS_PER_TURN) <= POSITION_THRESHOLD
+        out[mid] = (pos[mid], delta, is_turn)
+    return out
+
+
+def report_home(ph, pk):
+    """Print where every motor actually landed. True when all are within
+    POSITION_THRESHOLD of the commanded ticks."""
+    errs = home_error(ph, pk)
+    ok = True
+    print(f"\n{'motor':>6} {'commanded':>10} {'present':>10} {'delta':>8}")
+    for mid in MOTOR_IDS:
+        present, delta, is_turn = errs[mid]
+        if present is None:
+            print(f"{mid:>6} {HOME_POSITION[mid]:>10} {'READ ERROR':>10} {'--':>8}")
+            ok = False
+            continue
+        note = ""
+        if is_turn:
+            note = f"  <-- OFF BY {round(delta / TICKS_PER_TURN):+d} TURN(S), not a missed move"
+            ok = False
+        elif abs(delta) > POSITION_THRESHOLD:
+            note = "  <-- did not arrive"
+            ok = False
+        print(f"{mid:>6} {HOME_POSITION[mid]:>10} {present:>10} {delta:>+8}{note}")
+    return ok
+
+
 def set_current_mode_zero(ph, pk):
     for mid in MOTOR_IDS:
         pk.write1ByteTxRx(ph, mid, ADDR_TORQUE_ENABLE, 0)
@@ -149,10 +202,23 @@ def main():
         send_home_abs(ph, pk)
         print("Moving to home...")
 
-        if wait_until_home(ph, pk, timeout=args.timeout):
-            print("Home reached.")
-        else:
-            print("Warning: timeout before reaching home.")
+        reached = wait_until_home(ph, pk, timeout=args.timeout)
+        if not report_home(ph, pk):
+            # Do NOT hand over. In current mode the arm goes limp, and whatever
+            # pose it is actually in becomes the zero reference the moment
+            # dynamixel_node starts -- so a home that is a turn out silently
+            # becomes the model's "straight arm". Left in position mode the
+            # motors keep holding, and start_arm.sh (set -e) stops here.
+            print("\n[FAIL] not at the commanded home. Motors left holding in "
+                  "extended position mode -- NOT handed over to current mode.\n"
+                  "       A delta that is a multiple of 4096 means the turn count was "
+                  "lost since HOME_POSITION was captured:\n"
+                  "       power-cycle, re-place the arm by hand, and re-capture with --read.")
+            sys.exit(1)
+
+        print(f"\nHome reached: every motor within {POSITION_THRESHOLD} ticks of "
+              f"the commanded value."
+              + ("" if reached else "  (arrived after the wait timed out)"))
 
         if not args.no_torque_mode:
             set_current_mode_zero(ph, pk)
