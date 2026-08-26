@@ -53,19 +53,18 @@ VIRTUAL_COMPONENTS = [
 ]
 
 # ── Conditions ───────────────────────────────────────────────────────────────
-# The Gaussian strength each run name stands for. `--run mid_2` starts both
+# The Gaussian strength each run name stands for. `--run medium` starts both
 # Gaussians at 1000 N/m -- no slider work needed to set up a named run; the
 # sliders are still live if you want to move off it.
 #
 # Three conditions here, not the button's four: with a person as the obstacle
 # every run costs someone standing still with an arm in the way, so the sweep
-# drops the button's weakest point. The numbering is the button's own, so mid_2
-# and mid_3 are the same two fields in both experiments -- which is why mid_1
-# is missing here rather than the rest being renumbered.
+# drops the button's `weak` point. `medium` and `strong` are the button's own
+# two, unchanged, so the two experiments can be compared at an identical field.
 GAUSS_CONDITIONS = {
-    "no_gauss": 0.0,
-    "mid_2":    1000.0,
-    "mid_3":    2000.0,
+    "no_gauss":    0.0,
+    "medium":   1000.0,
+    "strong":   2000.0,
 }
 CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
 

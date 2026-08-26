@@ -12,7 +12,7 @@ strengths are swept:
 |---|---|---|
 | obstacle | a fixture | a person's arm |
 | load cell | yes (`/force_shear`) | no |
-| runs | `no_gauss`, `weak`, `mid`, `strong` | `no_gauss`, `mid`, `strong` |
+| runs | `no_gauss`, `weak`, `medium`, `strong` | `no_gauss`, `medium`, `strong` |
 | runs land in | `outputs/button_pressing/` | `outputs/person_avoiding/` |
 
 `GUI_MultiVMC_Config_person.py` is generated from the button one, so nothing can
@@ -43,18 +43,18 @@ the GUI.
 
 | `--run` | strength | | `--run` | strength |
 |---|---|---|---|---|
-| `no_gauss` | 0 | | `mid` | 1000 |
+| `no_gauss` | 0 | | `medium` | 1000 |
 | `weak` | 500 | | `strong` | 2000 |
 
 `_person` — three. Every run needs someone holding an arm still in front of a
-moving robot, so the sweep drops `weak`. `mid` and `strong` are the button's
+moving robot, so the sweep drops `weak`. `medium` and `strong` are the button's
 own two, unchanged, so the fixture and the person can be compared at an
 identical field:
 
 | `--run` | strength |
 |---|---|
 | `no_gauss` | 0 |
-| `mid` | 1000 |
+| `medium` | 1000 |
 | `strong` | 2000 |
 
 The name sets the strength: `--run` applies `GAUSS_CONDITIONS` to both
@@ -72,7 +72,7 @@ strength 0 under a name that reads like a condition:
 
 ```
 [ERROR] --run 'mid_1' is not a condition of GUI_MultiVMC_Config_button.
-        this config knows: no_gauss (0), weak (500), mid (1000), strong (2000)
+        this config knows: no_gauss (0), weak (500), medium (1000), strong (2000)
 ```
 
 Drop `--run` altogether for a timestamped scratch run in `experiments/`. For
@@ -115,13 +115,13 @@ python3 ../LoadCell/arduino_force.py
 **Terminal 3** — torque node
 
 ```bash
-python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run mid
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run medium
 ```
 
 **Terminal 4** — GUI
 
 ```bash
-python3 ../VMC/GUI_MultiVMC.py --config _button --run mid
+python3 ../VMC/GUI_MultiVMC.py --config _button --run medium
 ```
 
 Terminals 3 and 4 must name the same variant and the same run. Terminal 3 spends
@@ -130,12 +130,12 @@ its first half-minute in sympy building the Jacobians, then logs what it loaded
 
 ```
 [INFO] config: GUI_MultiVMC_Config_button
-[INFO] run: mid -- saving to outputs/button_pressing/mid.{png,npz}, overwriting any previous mid
+[INFO] run: medium -- saving to outputs/button_pressing/medium.{png,npz}, overwriting any previous medium
 [INFO] gravity compensation: gravity pulls along -y in the robot frame
 [INFO] building Jacobians (sympy -- takes a while, Ctrl+C to abort)
 [INFO] condition mid: gauss_seg1, gauss_seg2 -> strength 1000.0, ramped in over 5 s
 [INFO] Jacobians ready in 31 s
-[INFO] Ctrl+C in THIS terminal: mark 'Target reached?' -> end the run, write mid.npz
+[INFO] Ctrl+C in THIS terminal: mark 'Target reached?' -> end the run, write medium.npz
 ```
 
 A Ctrl+C during that build just aborts — nothing has been recorded yet, so it
