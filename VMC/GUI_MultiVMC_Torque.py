@@ -415,8 +415,8 @@ class VMCTorqueNode(Node):
             now    = time.perf_counter()
             self._marks.append((now, time.time(), label))
             when = ("before the GUI connected" if self._t0 is None
-                    else f"t = {now - self._t0:.1f} s")
-            print(f"\n  [mark {len(self._marks)}] {label!r} at {when}\n"
+                    else f"at t = {now - self._t0:.1f} s")
+            print(f"\n  [mark {len(self._marks)}] {label!r} {when}\n"
                   f"  {self._next_instruction()}", flush=True)
 
         signal.signal(signal.SIGINT, on_sigint)
