@@ -126,7 +126,7 @@ GAUSS_GOAL_Z = float(rest_pose(0.5)[2])   # [m] = 0.2175, between sections 1 and
 # off the obstacle, and only then does the goal walk out to the button. Moving
 # both at once is a different experiment.
 GOAL_MOVE_COMPONENT = "lin_tip"
-GOAL_MOVE_TO        = (-0.30, 0.0)   # [m] x/y = (across, up); z stays TIP_GOAL_Z
+GOAL_MOVE_TO        = (-0.40, 0.0)   # [m] x/y = (across, up); z stays TIP_GOAL_Z
 GOAL_MOVE_AFTER_S   = 10.0           # [s] held at the start x/y first
 GOAL_MOVE_SPEED     = 5.0            # [cm/s] the GUI's own default drag speed
 
