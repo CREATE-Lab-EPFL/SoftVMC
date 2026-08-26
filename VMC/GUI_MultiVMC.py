@@ -77,26 +77,6 @@ for _group in getattr(_cfg, "GOAL_LINK", []):
         LINKED[_i] = list(_idx)
 PUBLISH_ON_START = bool(getattr(_cfg, "PUBLISH_ON_START", True))
 
-# The GUI publishes /VC_ref_pos only when a goal is clicked or dragged. A folder
-# whose goals are fixed in the config therefore publishes NOTHING: the torque
-# node never learns t = 0, and a scripted run has nothing to wait on. With this
-# set, the GUI re-asserts the current goals every refresh while "Publisher
-# Active" is ticked. Off by default, so folders that drive by dragging are
-# untouched.
-PUBLISH_CONTINUOUS = bool(getattr(_cfg, "PUBLISH_CONTINUOUS", False))
-
-# Scripted goal move: hold one component's goal where it starts for
-# GOAL_MOVE_AFTER_S, then walk it to GOAL_MOVE_TO at GOAL_MOVE_SPEED. It takes
-# the same speed-capped path a hand drag takes -- the stepper below is the drag
-# stepper -- so a run can be recorded without anyone touching the canvas, and
-# the order (let the other elements act first, move this one afterwards) is
-# preserved instead of being whatever the hand did that day. A config that names
-# no component leaves the GUI exactly as it was.
-GOAL_MOVE_COMPONENT = getattr(_cfg, "GOAL_MOVE_COMPONENT", None)
-GOAL_MOVE_TO        = getattr(_cfg, "GOAL_MOVE_TO", None)
-GOAL_MOVE_AFTER_S   = float(getattr(_cfg, "GOAL_MOVE_AFTER_S", 0.0))
-GOAL_MOVE_SPEED     = float(getattr(_cfg, "GOAL_MOVE_SPEED", 5.0))   # [cm/s]
-
 # --run NAME may name a condition (GAUSS_CONDITIONS): its strength becomes the
 # slider's starting value, so the GUI and the torque node agree from the start.
 _STRENGTH = condition_strength(_cfg, run_name_from_argv())
@@ -199,13 +179,7 @@ class GUINode(Node):
         """Publish [x1,y1,z1,…,xN,yN,zN]. goals shape: (N,3)."""
         msg = Float64MultiArray()
         msg.data = goals.reshape(-1).tolist()
-        try:
-            self._pub_refpos.publish(msg)
-        except Exception:
-            # Tk's timer can fire once more after rclpy has shut down -- a
-            # scripted run terminates this process -- and a dead context is not
-            # worth a traceback on the way out.
-            pass
+        self._pub_refpos.publish(msg)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -226,20 +200,6 @@ class RobotGUI:
         # ── Mutable state ─────────────────────────────────────────────────────
         self._ref_pos      = DEFAULT_START.copy()   # (N,3) published goal
         self._mouse_target = DEFAULT_START.copy()   # (N,3) raw mouse XY during drag
-
-        # Scripted goal move, if this config asks for one.
-        self._move_idx     = None
-        self._move_t0      = None   # stamped on the first publish
-        self._move_last_t  = None   # previous step, for a time-based speed
-        self._move_done    = GOAL_MOVE_COMPONENT is None or GOAL_MOVE_TO is None
-        if not self._move_done:
-            names = [c.name for c in _cfg.VIRTUAL_COMPONENTS]
-            if GOAL_MOVE_COMPONENT in names:
-                self._move_idx = names.index(GOAL_MOVE_COMPONENT)
-            else:
-                print(f"[goal] GOAL_MOVE_COMPONENT {GOAL_MOVE_COMPONENT!r} is not one of "
-                      f"{names} -- no scripted move", flush=True)
-                self._move_done = True
         self._k_vals    = list(SPRING_PARAM_INIT)
         self._c_vals    = list(DAMPER_PARAM_INIT)
         self._pub_active   = tk.BooleanVar(value=PUBLISH_ON_START)
@@ -827,13 +787,6 @@ class RobotGUI:
                 if self._pub_active.get():
                     self.node.publish_ref_pos(self._ref_pos)
 
-        self._step_scripted_move()
-
-        if PUBLISH_CONTINUOUS and self._pub_active.get():
-            if self._move_t0 is None:
-                self._move_t0 = time.perf_counter()
-            self.node.publish_ref_pos(self._ref_pos)
-
         self._update_cell3(q, t_now)
 
         if fts is not None:
@@ -848,51 +801,6 @@ class RobotGUI:
                 self._update_cell4(tau, t_now)
 
         self._after_id = self.root.after(self._UPDATE_MS, self._update_loop)
-
-    def _step_scripted_move(self):
-        """One tick of the scripted goal move -- the drag stepper, no hand.
-
-        Held until GOAL_MOVE_AFTER_S have passed since the first published
-        reference (which is t = 0 in the torque node's log), so the delay means
-        the same thing on both sides. A hand on the canvas takes precedence.
-        """
-        if self._move_done or self._move_idx is None or self._dragging:
-            return
-        if self._move_t0 is None or not self._pub_active.get():
-            return
-        now     = time.perf_counter()
-        elapsed = now - self._move_t0
-        if elapsed < GOAL_MOVE_AFTER_S:
-            return
-
-        # Step by elapsed TIME, not per tick. _UPDATE_MS is only the delay Tk
-        # waits AFTER the callback returns, and the 3-D redraws inside it can
-        # take the best part of a second, so a per-tick step runs at whatever
-        # rate the plots happen to allow -- measured at ~0.5 cm/s where 5 was
-        # asked for. A stall is clamped so the goal never teleports after one.
-        dt = 0.0 if self._move_last_t is None else min(now - self._move_last_t, 0.5)
-        self._move_last_t = now
-
-        idx      = self._move_idx
-        max_step = (GOAL_MOVE_SPEED / 100.0) * dt
-        diff     = np.asarray(GOAL_MOVE_TO, dtype=float) - self._ref_pos[idx, :2]
-        dist     = float(np.linalg.norm(diff))
-        if dist <= 1e-6:
-            self._move_done = True
-            print(f"[goal] {GOAL_MOVE_COMPONENT} goal reached "
-                  f"({self._ref_pos[idx, 0]:+.3f}, {self._ref_pos[idx, 1]:+.3f}) "
-                  f"at t = {elapsed:.1f} s", flush=True)
-            return
-        if dt == 0.0:                       # first step: announce, move next tick
-            print(f"[goal] moving {GOAL_MOVE_COMPONENT} to {tuple(GOAL_MOVE_TO)} "
-                  f"at {GOAL_MOVE_SPEED:.1f} cm/s ({dist * 100:.1f} cm to go)", flush=True)
-            return
-
-        step = diff / dist * min(dist, max_step)
-        for j in LINKED[idx]:
-            self._ref_pos[j, :2] += step
-            self._xy_pts[j].set_data([self._ref_pos[j, 0]], [self._ref_pos[j, 1]])
-        self._canvas_xy.draw_idle()
 
 
     # ─────────────────────────────────────────────────────────────────────────

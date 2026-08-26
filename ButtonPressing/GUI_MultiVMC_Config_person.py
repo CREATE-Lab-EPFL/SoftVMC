@@ -14,7 +14,7 @@ Everything positional -- where the button is, where the obstacle is, how far
 past the surface to aim -- is set by dragging in the GUI, so none of it is
 hardcoded here.
 
-  lin_tip     (s=1.0)  linear spring, goal scripted: held, then walked out
+  lin_tip     (s=1.0)  linear spring, drag its goal onto the button
   gauss_seg1  (s=1/3)  repulsive Gaussian, drag its centre onto the person's arm
   gauss_seg2  (s=2/3)  the same, further up the body
 
@@ -106,29 +106,14 @@ PLOT_FORCE     = False   # no load cell in this variant
 # ── GUI placement constraints ────────────────────────────────────────────────
 # Only two points are placed by hand per run: the tip's x/y and one shared
 # centre for both Gaussians.
-#   - the button's height is known, so the tip goal's z is held at it
+#   - the button's distance along the arm's axis is known, so the tip
+#     goal's z is held at it (z is not height: gravity is -y)
 #   - the two Gaussians share ONE goal, held at the midpoint between the tips
 #     of section 1 and section 2 (z is linear in s on the straight arm, so that
 #     midpoint is just rest_pose(0.5))
 TIP_GOAL_Z   = 0.38                       # [m] button distance from the base, along
                                           #     the arm's axis -- z is NOT height here
 GAUSS_GOAL_Z = float(rest_pose(0.5)[2])   # [m] = 0.2175, between sections 1 and 2
-
-# The run is scripted rather than dragged, so a condition can be recorded
-# without touching the GUI and every run in the sweep follows the same path.
-# That is what makes the strengths comparable: dragged by hand, the tip lands
-# somewhere slightly different each run and presses a different spot on the cell
-# at a different angle, which moves the shear reading for reasons that have
-# nothing to do with the Gaussian.
-#
-# The order matters and is the order that was used by hand: the tip goal is held
-# straight ahead at the rest x/y while the Gaussians ramp in and push the arm
-# off the obstacle, and only then does the goal walk out to the button. Moving
-# both at once is a different experiment.
-GOAL_MOVE_COMPONENT = "lin_tip"
-GOAL_MOVE_TO        = (-0.40, 0.0)   # [m] x/y = (across, up); z stays TIP_GOAL_Z
-GOAL_MOVE_AFTER_S   = 10.0           # [s] held at the start x/y first
-GOAL_MOVE_SPEED     = 5.0            # [cm/s] the GUI's own default drag speed
 
 GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,
                "gauss_seg1": GAUSS_GOAL_Z,
@@ -144,12 +129,6 @@ GOAL_LINK   = [GAUSS_COMPONENTS]
 # soon as the torque node is up -- and a named run's Gaussians are already at
 # their strength. Untick "Publisher Active" in the GUI to place goals quietly.
 PUBLISH_ON_START = True
-
-# The tip goal is fixed in this config and nothing gets dragged, so the GUI has
-# no interaction to publish on. Without this it would publish nothing at all and
-# the torque node would never see a reference (no t = 0, and run_condition.py
-# would wait forever). Re-asserts the goals every GUI refresh instead.
-PUBLISH_CONTINUOUS = True
 
 # ── GUI framing ──────────────────────────────────────────────────────────────
 XY_RANGE = (-0.35, 0.35)   # [m]
