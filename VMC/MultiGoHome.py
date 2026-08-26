@@ -45,15 +45,15 @@ PROFILE_VELOCITY   = 40   # ~9 rpm (slow/safe)
 # --- HOME POSITION (ABSOLUTE ticks) -----------------------------------------
 # Update: put robot in desired home pose, run with --read, copy values here.
 HOME_POSITION = {
- 11: 1400,
- 12: 741,
- 13: 650,
- 14: 1996,
- 15: 573,
- 16: 3730,
- 17: 671,
- 18: 2,
- 19: 2733,
+ 11: 1874,
+ 12: 661,
+ 13: 583,
+ 14: 2079,
+ 15: 1834,
+ 16: 0,
+ 17: 1507,
+ 18: 1028,
+ 19: 3623,
 }
 
 def init_bus():
