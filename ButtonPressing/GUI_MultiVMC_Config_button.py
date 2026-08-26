@@ -49,8 +49,8 @@ VIRTUAL_COMPONENTS = [
 
 # ── Conditions ───────────────────────────────────────────────────────────────
 # The Gaussian strength each run name stands for. `--run mid_1` starts both
-# Gaussians at 5 N/m -- no slider work needed to set up a named run; the sliders
-# are still live if you want to move off it.
+# Gaussians at 1000 N/m -- no slider work needed to set up a named run; the
+# sliders are still live if you want to move off it.
 GAUSS_CONDITIONS = {
     "no_gauss": 0.0,
     "mid_1":    1000.0,

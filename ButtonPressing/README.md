@@ -4,18 +4,20 @@ A linear spring reaching for a button, plus two repulsive Gaussians pushing the
 arm's body off an obstacle. Sweeping the Gaussian strength trades reach against
 clearance. Driven live from the GUI.
 
-The two variants carry **identical values** — same target, stiffness,
-conditions, torque limit, pretension, ramp — and differ only in what the
-obstacle is:
+The two variants carry **identical values** — same target, stiffness, torque
+limit, pretension, ramp — and differ only in what the obstacle is and how many
+strengths are swept:
 
 | | `_button` | `_person` |
 |---|---|---|
 | obstacle | a fixture | a person's arm |
 | load cell | yes (`/force_shear`) | no |
+| runs | `no_gauss`, `mid_1`, `mid_2`, `strong` | `no_gauss`, `mid`, `strong` |
 | runs land in | `outputs/button_pressing/` | `outputs/person_avoiding/` |
 
 `GUI_MultiVMC_Config_person.py` is generated from the button one, so nothing can
-drift between them: edit a value in one and copy it across.
+drift between them: edit a value in one and copy it across. `GAUSS_CONDITIONS`
+is the **one** field that is deliberately different.
 
 ## Elements
 
@@ -37,10 +39,22 @@ the GUI.
 
 ## Run names
 
+`_button` — four:
+
 | `--run` | strength | | `--run` | strength |
 |---|---|---|---|---|
 | `no_gauss` | 0 | | `mid_2` | 2000 |
 | `mid_1` | 1000 | | `strong` | 5000 |
+
+`_person` — three. Every run needs someone holding an arm still in front of a
+moving robot, so the sweep is off / middle / hard rather than a fine one. `mid`
+is `mid_2`'s strength, so the two experiments still share a point:
+
+| `--run` | strength |
+|---|---|
+| `no_gauss` | 0 |
+| `mid` | 2000 |
+| `strong` | 5000 |
 
 The name sets the strength: `--run` applies `GAUSS_CONDITIONS` to both
 Gaussians, in the torque node and on the GUI sliders. It is **ramped in from 0

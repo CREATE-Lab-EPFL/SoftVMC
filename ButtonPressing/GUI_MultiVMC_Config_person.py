@@ -5,8 +5,9 @@ Reaching for the button with a person in the way -- driven live from the GUI.
     python3 ../VMC/GUI_MultiVMC.py        --config _person
 
 Every value here is identical to GUI_MultiVMC_Config_button.py -- same target,
-same stiffness, same conditions, same torque limit -- so the two runs differ
-only in what the obstacle is. Keep them in step.
+same stiffness, same torque limit -- so the two runs differ only in what the
+obstacle is. Keep them in step. The one exception is GAUSS_CONDITIONS: the
+person is swept at three strengths, not four.
 
 This file sets the three virtual elements and their parameters, nothing else.
 Everything positional -- where the button is, where the obstacle is, how far
@@ -52,13 +53,17 @@ VIRTUAL_COMPONENTS = [
 ]
 
 # ── Conditions ───────────────────────────────────────────────────────────────
-# The Gaussian strength each run name stands for. `--run mid_1` starts both
-# Gaussians at 5 N/m -- no slider work needed to set up a named run; the sliders
-# are still live if you want to move off it.
+# The Gaussian strength each run name stands for. `--run mid` starts both
+# Gaussians at 2000 N/m -- no slider work needed to set up a named run; the
+# sliders are still live if you want to move off it.
+#
+# Three conditions here, not the button's four: with a person as the obstacle
+# every run costs someone standing still with an arm in the way, so the sweep
+# is off / middle / hard rather than a fine one. `mid` is the button's `mid_2`
+# strength, so the two experiments still have a strength in common.
 GAUSS_CONDITIONS = {
     "no_gauss": 0.0,
-    "mid_1":    1000.0,
-    "mid_2":    2000.0,
+    "mid":      2000.0,
     "strong":   5000.0,
 }
 CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
