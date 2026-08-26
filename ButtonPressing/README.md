@@ -44,7 +44,8 @@ the GUI.
 
 The name sets the strength: `--run` applies `GAUSS_CONDITIONS` to both
 Gaussians, in the torque node and on the GUI sliders. It is **ramped in from 0
-over `GAUSS_RAMP_S` = 5 s** rather than applied at once — the obstacle centre is
+over `GAUSS_RAMP_S` = 5 s** (which happens as soon as terminal 3 is up, so it
+lands at `t < 0` in the log, before the GUI connects) rather than applied at once — the obstacle centre is
 already placed, so a field switched on at full strength would shove the arm off
 it in a single tick. Touching **Apply Parameters** cancels the ramp and hands
 control to the sliders; `k_params` records what was actually applied.
@@ -103,10 +104,21 @@ anything:
 
 The GUI publishes from the start, so the arm takes up the 5.5 cm to its goal
 as soon as the torque node is up (≈1.65 N at `K_REACH = 30`), with the run's
-Gaussian strength already applied. Drag `lin_tip` to the button, then leave it alone — the longest
-stretch you don't touch is the measurement window. **Ctrl+C terminal 3 once**
-to write the run. Untick **Publisher Active** to move goals without the arm
-following.
+Gaussian strength already applied. Drag `lin_tip` to the button, then leave it
+alone. Untick **Publisher Active** to move goals without the arm following.
+
+**Ctrl+C in terminal 3 does two things, in order** (`MARK_PROMPTS` in the
+config; terminal 3 prints the protocol when it starts, and what to press next
+after each one):
+
+| press | |
+|---|---|
+| 1st | marks *"Target reached?"* — press it once the tip is on the button |
+| 2nd | ends the run and writes it — **once**, then wait |
+
+The mark is what tells the analysis where the measurement window starts.
+Without one it has to be guessed as the longest stretch you did not touch
+anything, which cannot tell "on the button" from "let go of the mouse".
 
 For the other variant, swap `_button` for `_person` in terminals 3 and 4, and
 skip terminal 2.
@@ -124,29 +136,47 @@ that run. Without it, output is a timestamped `experiments/z_<stamp>` pair for
 `collect_run.py` to move. Needs `COLLECTED_DATA = False`; set it `True` once the
 reported runs are recorded and nothing can overwrite them.
 
-Saving happens **only on exit**, so Ctrl+C once and wait — a second Ctrl+C
-truncates the write, and `kill -9` loses everything. The `.npz` goes first, so
-an interrupt costs the figure rather than the run. Launch T3 from this folder;
-paths are relative to it.
+The full log is checkpointed to `NAME.autosave.npz` every `AUTOSAVE_S` = 30 s
+while the run goes, with a status line printed, so a crash or a `kill -9` now
+costs the last few seconds rather than the run. That file is deleted once the
+real one is written, so **a leftover `.autosave.npz` means the run did not exit
+cleanly** — rename it over `NAME.npz` to recover it. A `NAME.npz.part.npz` is a
+write that was interrupted: truncated, unreadable, delete it. Writing through
+that temporary is why an interrupted save can no longer destroy a good `NAME.npz`.
+
+The final save still happens on exit, so Ctrl+C once (after the mark) and wait.
+The `.npz` goes first, so an interrupt costs the figure rather than the run.
+Launch T3 from this folder; paths are relative to it.
 
 | field | shape | |
 |---|---|---|
-| `t` | (n,) | s, from the first reference message |
-| `goal` | (n, 3, 3) | reference per component [m] — where the goals were |
-| `comp_pos` | (n, 3, 3) | actual FK position per component [m] |
+| `t` | (n,) | s, 0 at the first reference message. **`t < 0` is the stretch before the GUI connected**, when the arm was already being driven towards `DEFAULT_START` and the Gaussian ramp ran (kept: last `PRE_REFERENCE_S` = 60 s) |
+| `t_wall` | (n,) | unix time, to line the run up with other logs |
+| `goal` | (n, 3, 3) | reference per element [m] — where the goals were |
+| `comp_pos` / `comp_vel` | (n, 3, 3) | FK position [m] and task-space velocity [m/s] per element |
+| `f_comp` | (n, 3, 3) | **each element's force separately** [N]; `f_virtual` (n, 3) is still their sum |
+| `tau_comp` | (n, 3, 9) | each element's share of the torque [N·m] |
+| `tau_vmc` / `tau_grav` / `tau_pretension` | (n, 9) | the three terms, before the limiter |
+| `tau_raw` / `tau` | (n, 9) | asked for vs sent — clipping is `abs(tau_raw) > tau_limit` |
 | `q_motor` / `q_motor_dot` | (n, 9) | [rad], [rad/s] |
-| `tau` / `tau_grav` | (n, 9) | commanded torque and its gravity share [N·m] |
-| `force` | (n,) | load-cell shear, raw **grams** — ×`9.80665e-3` for N |
-| `f_virtual` | (n, 3) | task-space virtual force [N] |
-| `k_params` | (n, 3) | spring parameter per component over time |
-| `comp_names`, `comp_s_params`, `control_freq`, `tau_limit`, `gravity_dir` | | metadata |
+| `k_params` / `c_params` | (n, 3) | spring and damper parameter per element over time |
+| `force` / `force_age` | (n,) | load-cell shear, raw **grams** (×`9.80665e-3` for N), and how stale that reading was [s] |
+| `marks_t` / `marks_label` / `marks_wall` | (m,) | where Ctrl+C was pressed, on the same clock as `t` |
+| `comp_spec` | (1,) | every spring/damper type and value, as JSON |
+| `config_source` | (1,) | the whole config file, so a run stays readable after the numbers move on |
+| `comp_names`, `comp_s_params`, `control_freq`, `tau_limit`, `gravity_dir`, `config_name`, `run_name`, `condition_strength`, `ramp_s`, `pretension_weights` | | metadata |
+
+The projections are not the geometry: the tip goal is dragged in x-y at a locked
+z and gravity pulls along -y, so a recorded pose leaves the y = 0 plane by up to
+16 cm. Read clearance and reach error in 3-D — an x-z view of one run shows the
+arm grazing the obstacle at 0.8 cm where the real distance is 12.2 cm.
 
 ## Files
 
 | File | |
 |---|---|
 | `GUI_MultiVMC_Config_button.py` / `_person.py` | the elements, their values, the conditions |
-| `plot_button_and_person.ipynb` | analysis — discovers `outputs/`, takes positions and the steady window from the data |
+| `plot_button_and_person.ipynb` | analysis — discovers `outputs/`, takes positions from the data and the measurement window from the Ctrl+C mark |
 | `collect_run.py` | moves an unnamed `experiments/z_*` pair into `outputs/` |
 
 The scripted state machine that used to drive this folder is in the git history.
