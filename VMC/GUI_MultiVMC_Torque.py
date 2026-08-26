@@ -41,6 +41,7 @@ for _p in [_ROOT, _KINE]:
 import argparse
 import copy
 import json
+import signal
 import threading
 import time
 from datetime import datetime
@@ -105,12 +106,13 @@ AUTOSAVE_S = float(getattr(_cfg, "AUTOSAVE_S", 0.0))
 # recent PRE_REFERENCE_S so a node left idling cannot grow without bound.
 PRE_REFERENCE_S = float(getattr(_cfg, "PRE_REFERENCE_S", 60.0))
 
-# Prompts typed at in THIS terminal while the run goes, one per ENTER. A run is
-# ended with Ctrl+C, so without them nothing in the log says when the arm
-# actually arrived -- the measurement window has to be guessed from the longest
-# stretch nothing was touched, which cannot tell "on the button" from "let go
-# of the mouse". Empty (the default) means no prompt at all, so a folder that
-# does not set it behaves exactly as before.
+# Moments to mark with Ctrl+C in THIS terminal, in order: the first press marks
+# the first of these, the last press ends the run as it always did. Without a
+# mark nothing in the log says when the arm actually arrived, and the
+# measurement window has to be guessed from the longest stretch nothing was
+# touched -- which cannot tell "on the button" from "let go of the mouse".
+# Empty (the default) leaves Ctrl+C meaning exactly what it meant before, so a
+# folder that does not set this is untouched.
 MARK_PROMPTS = tuple(getattr(_cfg, "MARK_PROMPTS", ()))
 
 # Direction gravity pulls in the ROBOT frame. "-z" (the default) is the arm
@@ -204,13 +206,12 @@ class VMCTorqueNode(Node):
 
         # Operator marks: (perf_counter, unix time, label), re-based on save.
         self._marks = []
+        self._pending_marks = []
 
         # Named once, at the start: an unnamed run is stamped with when it began.
         self._base = self._run_name or ("z_" + datetime.now().strftime("%d_%H%M"))
-        if MARK_PROMPTS and sys.stdin is not None and sys.stdin.isatty():
-            threading.Thread(target=self._mark_loop, daemon=True).start()
-        elif MARK_PROMPTS:
-            self.get_logger().warn("stdin is not a terminal -- run marks disabled")
+        if MARK_PROMPTS:
+            self._install_mark_handler()
 
         self._stop_autosave = threading.Event()
         if AUTOSAVE_S > 0.0:
@@ -393,28 +394,41 @@ class VMCTorqueNode(Node):
         self._q_log.append(self._q.copy())
         self._q_dot_log.append(self._q_dot.copy())
 
-    def _mark_loop(self):
-        """Ask for a mark, wait on ENTER, stamp the moment it was pressed.
+    def _install_mark_handler(self):
+        """Ctrl+C in this terminal, once per moment worth marking, then once
+        more to end the run.
 
-        Runs on its own thread so the control loop never waits on a human. The
-        configured prompts are asked in order; after them ENTER keeps marking,
-        so nothing stops you noting more than the config planned for. Type a
-        label instead of pressing ENTER to name a mark yourself.
+        While a run goes this terminal is the only thing the operator can reach
+        that also holds the log -- the GUI is a window and the arm is a robot --
+        so Ctrl+C does both jobs. The handler runs in the main thread between
+        bytecodes; the control loop is not paused by it. When the prompts are
+        used up it raises KeyboardInterrupt, which is exactly what Ctrl+C did
+        before, and the run is written on the way out.
         """
-        i = 0
-        while True:
-            prompt = MARK_PROMPTS[i] if i < len(MARK_PROMPTS) else "Another mark?"
-            try:
-                label = input(f"\n>>> {prompt}  ENTER to mark (or type a label): ").strip()
-            except (EOFError, KeyboardInterrupt):
-                return
-            if not label:
-                label = prompt.rstrip("? ").strip().lower() or f"mark {i + 1}"
-            now = time.perf_counter()
+        self._pending_marks = list(MARK_PROMPTS)
+
+        def on_sigint(_signum, _frame):
+            if not self._pending_marks:
+                raise KeyboardInterrupt          # plain Ctrl+C: end the run
+            prompt = self._pending_marks.pop(0)
+            label  = prompt.rstrip("? ").strip().lower() or f"mark {len(self._marks) + 1}"
+            now    = time.perf_counter()
             self._marks.append((now, time.time(), label))
-            when = "before the GUI connected" if self._t0 is None else f"t = {now - self._t0:.1f} s"
-            print(f"    [mark {len(self._marks)}] {label!r} at {when}", flush=True)
-            i += 1
+            when = ("before the GUI connected" if self._t0 is None
+                    else f"t = {now - self._t0:.1f} s")
+            print(f"\n  [mark {len(self._marks)}] {label!r} at {when}\n"
+                  f"  {self._next_instruction()}", flush=True)
+
+        signal.signal(signal.SIGINT, on_sigint)
+        self.get_logger().info(
+            "Ctrl+C in THIS terminal: "
+            + " -> ".join([f"mark {p!r}" for p in MARK_PROMPTS]
+                          + [f"end the run, write {self._base}.npz"]))
+
+    def _next_instruction(self):
+        if self._pending_marks:
+            return f"Ctrl+C again to mark: {self._pending_marks[0]}"
+        return f"Ctrl+C again to end the run and write {self._base}.npz (once, then wait)"
 
     def _trim_pre_reference(self, now):
         """Keep the pre-reference buffer to the last PRE_REFERENCE_S seconds.
