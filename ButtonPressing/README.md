@@ -64,8 +64,10 @@ already placed, so a field switched on at full strength would shove the arm off
 it in a single tick. Touching **Apply Parameters** cancels the ramp and hands
 control to the sliders; `k_params` records what was actually applied.
 
-Any other name is a scratch run at the config's own strength. For `_person`,
-record `strong` first.
+Any other name is a scratch run at the config's own strength — terminal 3 warns
+when the name is not one of the config's conditions, so a `mid_1` typed at
+`_person` does not quietly record itself as a condition it is not. For
+`_person`, record `strong` first.
 
 ⚠ At `strong = 5000` the Gaussian torque is roughly **1.75 N·m, about 7×
 `TAU_LIMIT`** — the controller is hard-clipped and the arm's behaviour is set by

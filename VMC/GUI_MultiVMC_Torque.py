@@ -145,7 +145,9 @@ class VMCTorqueNode(Node):
         # strength shoves the arm off it within a single tick.
         self._cond_targets = condition_targets(_cfg)
         self._ramp_target  = condition_strength(_cfg, run_name)
-
+        self._ramp_s       = float(getattr(_cfg, "GAUSS_RAMP_S", 0.0))
+        self._ramp_t0      = None
+        self._ramp_done    = self._ramp_target is None
         # The two ButtonPressing variants no longer name the same conditions
         # (_person is swept at three strengths, _button at four), so a name
         # typed for the wrong one would otherwise run silently at the config's
@@ -156,9 +158,7 @@ class VMCTorqueNode(Node):
                 f"run {run_name!r} is not one of this config's conditions "
                 f"({', '.join(_conds)}) -- scratch run at the config's own "
                 f"strength, no condition applied")
-        self._ramp_s       = float(getattr(_cfg, "GAUSS_RAMP_S", 0.0))
-        self._ramp_t0      = None
-        self._ramp_done    = self._ramp_target is None
+
         if not self._ramp_done:
             ramping = self._ramp_s > 0.0
             self._set_condition(0.0 if ramping else self._ramp_target)
