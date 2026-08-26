@@ -199,7 +199,13 @@ class GUINode(Node):
         """Publish [x1,y1,z1,…,xN,yN,zN]. goals shape: (N,3)."""
         msg = Float64MultiArray()
         msg.data = goals.reshape(-1).tolist()
-        self._pub_refpos.publish(msg)
+        try:
+            self._pub_refpos.publish(msg)
+        except Exception:
+            # Tk's timer can fire once more after rclpy has shut down -- a
+            # scripted run terminates this process -- and a dead context is not
+            # worth a traceback on the way out.
+            pass
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -222,9 +228,10 @@ class RobotGUI:
         self._mouse_target = DEFAULT_START.copy()   # (N,3) raw mouse XY during drag
 
         # Scripted goal move, if this config asks for one.
-        self._move_idx  = None
-        self._move_t0   = None      # stamped on the first publish
-        self._move_done = GOAL_MOVE_COMPONENT is None or GOAL_MOVE_TO is None
+        self._move_idx     = None
+        self._move_t0      = None   # stamped on the first publish
+        self._move_last_t  = None   # previous step, for a time-based speed
+        self._move_done    = GOAL_MOVE_COMPONENT is None or GOAL_MOVE_TO is None
         if not self._move_done:
             names = [c.name for c in _cfg.VIRTUAL_COMPONENTS]
             if GOAL_MOVE_COMPONENT in names:
@@ -853,12 +860,21 @@ class RobotGUI:
             return
         if self._move_t0 is None or not self._pub_active.get():
             return
-        elapsed = time.perf_counter() - self._move_t0
+        now     = time.perf_counter()
+        elapsed = now - self._move_t0
         if elapsed < GOAL_MOVE_AFTER_S:
             return
 
+        # Step by elapsed TIME, not per tick. _UPDATE_MS is only the delay Tk
+        # waits AFTER the callback returns, and the 3-D redraws inside it can
+        # take the best part of a second, so a per-tick step runs at whatever
+        # rate the plots happen to allow -- measured at ~0.5 cm/s where 5 was
+        # asked for. A stall is clamped so the goal never teleports after one.
+        dt = 0.0 if self._move_last_t is None else min(now - self._move_last_t, 0.5)
+        self._move_last_t = now
+
         idx      = self._move_idx
-        max_step = (GOAL_MOVE_SPEED / 100.0) * (self._UPDATE_MS / 1000.0)
+        max_step = (GOAL_MOVE_SPEED / 100.0) * dt
         diff     = np.asarray(GOAL_MOVE_TO, dtype=float) - self._ref_pos[idx, :2]
         dist     = float(np.linalg.norm(diff))
         if dist <= 1e-6:
@@ -867,9 +883,10 @@ class RobotGUI:
                   f"({self._ref_pos[idx, 0]:+.3f}, {self._ref_pos[idx, 1]:+.3f}) "
                   f"at t = {elapsed:.1f} s", flush=True)
             return
-        if self._move_t0 is not None and elapsed - max(GOAL_MOVE_AFTER_S, 0.0) < self._UPDATE_MS / 1000.0:
+        if dt == 0.0:                       # first step: announce, move next tick
             print(f"[goal] moving {GOAL_MOVE_COMPONENT} to {tuple(GOAL_MOVE_TO)} "
                   f"at {GOAL_MOVE_SPEED:.1f} cm/s ({dist * 100:.1f} cm to go)", flush=True)
+            return
 
         step = diff / dist * min(dist, max_step)
         for j in LINKED[idx]:

@@ -23,7 +23,7 @@ is the **one** field that is deliberately different.
 
 | Component | Element | s | Goal |
 |---|---|---|---|
-| `lin_tip` | `LinearSpring(30)` | 1.0 | **fixed** at `TIP_GOAL_XY/Z` = `[-0.25, 0, 0.38]` |
+| `lin_tip` | `LinearSpring(30)` | 1.0 | starts `[0, 0, 0.38]`, **scripted** out to `[-0.25, 0, 0.38]` |
 | `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | starts `[-0.05, 0, 0.2175]` |
 | `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `gauss_seg1`'s goal** |
 
@@ -33,13 +33,21 @@ button's distance from the base, and the midpoint between the tips of sections 1
 and 2 (`rest_pose(0.5)`, which also puts both attachment points equidistant from
 the centre).
 
-**The tip goal is fixed in the config, not dragged.** `TIP_GOAL_XY = (-0.25,
-0.0)` — x/y is (across, up) — so every condition aims at exactly the same point
-and the strengths are comparable. Dragged by hand they were not: `weak` and
-`medium` landed 7.4 cm apart in x and 5.4 cm apart in y, pressing a different
-spot on the cell at a different angle, which moves the shear reading for reasons
-that have nothing to do with the Gaussian. Aim it a little past the surface, or
-the steady-state force decays to zero on arrival.
+**The tip goal is scripted, not dragged**, and the order is the one that was
+done by hand:
+
+| | |
+|---|---|
+| `t = 0` → `GOAL_MOVE_AFTER_S` (10 s) | tip goal **held** at `[0, 0, 0.38]` while the Gaussians ramp in and push the arm off the obstacle |
+| then | the goal **walks** to `GOAL_MOVE_TO = (-0.25, 0.0)` at `GOAL_MOVE_SPEED = 5` cm/s — the GUI's own drag speed, so 25 cm takes 5 s |
+
+Moving both at once is a different experiment, which is why the hold comes
+first. Scripting it also makes the conditions comparable: dragged by hand they
+were not — `weak` and `medium` landed 7.4 cm apart in x and 5.4 cm apart in y,
+pressing a different spot on the cell at a different angle, which moves the
+shear reading for reasons that have nothing to do with the Gaussian. Aim
+`GOAL_MOVE_TO` a little past the surface, or the steady-state force decays to
+zero on arrival.
 
 The Gaussian centre is still placed by hand. Its `GAUSS_GOAL_XY = (-0.05, 0.0)`
 default is a **starting point, not a placement** — it sits 5 cm off the arm's own
@@ -137,19 +145,22 @@ torque node and the GUI together, waits for the arm to settle at the fixed goal,
 marks, holds, saves and shuts both down. Nothing is dragged, so the run is
 repeatable and the conditions are comparable.
 
-| step | |
-|---|---|
-| | torque node + GUI up, same `--config` and `--run` |
-| | wait for `first reference received` — the GUI is publishing, `t = 0` |
-| `--settle` | 20 s for the arm to reach the goal and stop moving |
-| | Ctrl+C #1 → marks *"target reached"* |
-| `--hold` | **10 s — this is the measurement window** |
-| | Ctrl+C #2 → ends the run, writes `outputs/<folder>/<run>.{npz,png}` |
-| | GUI closed |
+| step | set by | |
+|---|---|---|
+| | | torque node + GUI up, same `--config` and `--run` |
+| | | wait for `first reference received` — the GUI is publishing, `t = 0` |
+| hold | `GOAL_MOVE_AFTER_S` | 10 s with the tip goal held straight ahead, Gaussians pushing |
+| move | `GOAL_MOVE_SPEED` | goal walks out to `GOAL_MOVE_TO`; the GUI logs `goal reached` |
+| settle | `--settle` | 10 s for the arm to follow it and stop moving |
+| | | Ctrl+C #1 → marks *"target reached"* |
+| hold | `--hold` | **10 s — this is the measurement window** |
+| | | Ctrl+C #2 → ends the run, writes `outputs/<folder>/<run>.{npz,png}` |
+| | | GUI closed |
 
-Both waits are flags: `--settle 30 --hold 20` if the arm needs longer. Ctrl+C on
-the launcher itself stops both children without saving — the `.autosave.npz`
-checkpoint is what survives that.
+The two waits either side of the mark are flags: `--settle 20 --hold 20` if the
+arm needs longer. The hold and the walk are config, so they are the same for
+every condition. Ctrl+C on the launcher itself stops both children without
+saving — the `.autosave.npz` checkpoint is what survives that.
 
 To drive it by hand instead, the two nodes are still what they were:
 
