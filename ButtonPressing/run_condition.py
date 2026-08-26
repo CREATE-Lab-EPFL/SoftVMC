@@ -6,14 +6,21 @@ One condition, start to finish, from one terminal.
     python3 run_condition.py strong --config _person
     python3 run_condition.py medium --hold 20
 
-Replaces terminals 3 and 4: starts the torque node and the GUI together, waits
-for the arm to settle at the config's fixed goal, marks, holds, saves, and shuts
-both down. Nothing is dragged, so every run in a sweep aims at exactly the same
-point and the conditions are comparable.
+Replaces terminals 3 and 4: starts the torque node and the GUI together, drives
+the scripted sequence, marks, holds, saves and shuts both down. Nothing is
+dragged, so every run in a sweep follows the same path and the conditions are
+comparable.
+
+The sequence is the one that was done by hand, in that order -- the Gaussians
+act first, the tip goal moves afterwards:
 
     torque node + GUI up
       -> wait for "first reference received" (the GUI is publishing, t = 0)
-      -> --settle seconds for the arm to reach the goal and stop moving
+      -> GOAL_MOVE_AFTER_S (config, 10 s): tip goal HELD at its start x/y
+         while the Gaussians ramp in and push the arm off the obstacle
+      -> the GUI walks the tip goal out to GOAL_MOVE_TO at GOAL_MOVE_SPEED,
+         the same speed-capped path a hand drag takes
+      -> --settle seconds for the arm to follow it and stop moving
       -> Ctrl+C #1 to the torque node: marks "target reached"
       -> --hold seconds: THIS is the measurement window
       -> Ctrl+C #2: ends the run and writes outputs/<folder>/<run>.{npz,png}
@@ -43,8 +50,8 @@ def _pump(stream, tag, q):
     for line in stream:
         line = line.rstrip("\n")
         print(f"[{tag}] {line}", flush=True)
-        q.put(line)
-    q.put(None)
+        q.put((tag, line))
+    q.put((tag, None))          # this child's output ended
 
 
 def _wait_for(q, needle, timeout, what):
@@ -52,11 +59,11 @@ def _wait_for(q, needle, timeout, what):
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            line = q.get(timeout=0.2)
+            tag, line = q.get(timeout=0.2)
         except queue.Empty:
             continue
         if line is None:
-            raise RuntimeError(f"the torque node exited before {what} "
+            raise RuntimeError(f"the {tag} process exited before {what} "
                                f"-- see its output above")
         if needle in line:
             return
@@ -68,12 +75,14 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("run", help="condition to record: no_gauss, weak, medium, strong")
     ap.add_argument("--config", default="_button", help="config variant (default: _button)")
-    ap.add_argument("--settle", type=float, default=20.0,
-                    help="[s] after the GUI starts publishing, before the mark (default: 20)")
+    ap.add_argument("--settle", type=float, default=10.0,
+                    help="[s] after the tip goal arrives, before the mark (default: 10)")
     ap.add_argument("--hold", type=float, default=10.0,
                     help="[s] measurement window, between the mark and the end (default: 10)")
     ap.add_argument("--startup-timeout", type=float, default=180.0,
                     help="[s] allowed for the sympy Jacobian build (default: 180)")
+    ap.add_argument("--move-timeout", type=float, default=180.0,
+                    help="[s] allowed for the hold-then-move of the tip goal (default: 180)")
     ap.add_argument("--no-gui", action="store_true",
                     help="do not start the GUI (then nothing publishes and the run never begins "
                          "-- only useful for checking the torque node comes up)")
@@ -115,13 +124,20 @@ def main():
         gui = subprocess.Popen(
             [sys.executable, os.path.join(_VMC, "GUI_MultiVMC.py"),
              "--config", args.config, "--run", args.run],
-            cwd=_HERE, env=env)
+            cwd=_HERE, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1)
+        # Into the same queue: the GUI is what announces the scripted move.
+        threading.Thread(target=_pump, args=(gui.stdout, "gui", q), daemon=True).start()
 
         # The GUI publishes DEFAULT_START as soon as it is up; that message is
         # t = 0 and the moment the arm starts moving towards the goal.
         _wait_for(q, "first reference received", args.startup_timeout, "the GUI to publish")
 
-        print(f"[run] settling for {args.settle:.0f} s...", flush=True)
+        print("[run] holding, then walking the tip goal out "
+              "(the GUI announces when it arrives)...", flush=True)
+        _wait_for(q, "goal reached", args.move_timeout, "the tip goal to arrive")
+
+        print(f"[run] settling {args.settle:.0f} s for the arm to follow...", flush=True)
         time.sleep(args.settle)
 
         print("[run] marking 'target reached'", flush=True)

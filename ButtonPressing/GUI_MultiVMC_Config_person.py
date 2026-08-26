@@ -14,7 +14,7 @@ Everything positional -- where the button is, where the obstacle is, how far
 past the surface to aim -- is set by dragging in the GUI, so none of it is
 hardcoded here.
 
-  lin_tip     (s=1.0)  linear spring, goal FIXED at TIP_GOAL_XY/Z
+  lin_tip     (s=1.0)  linear spring, goal scripted: held, then walked out
   gauss_seg1  (s=1/3)  repulsive Gaussian, drag its centre onto the person's arm
   gauss_seg2  (s=2/3)  the same, further up the body
 
@@ -114,13 +114,21 @@ TIP_GOAL_Z   = 0.38                       # [m] button distance from the base, a
                                           #     the arm's axis -- z is NOT height here
 GAUSS_GOAL_Z = float(rest_pose(0.5)[2])   # [m] = 0.2175, between sections 1 and 2
 
-# The tip goal is FIXED here rather than dragged, so a condition can be recorded
-# without touching the GUI and every run in the sweep aims at exactly the same
-# point. That is what makes the strengths comparable: dragged by hand, the tip
-# lands somewhere slightly different each run and presses a different spot on
-# the cell at a different angle, which moves the shear reading for reasons that
-# have nothing to do with the Gaussian.
-TIP_GOAL_XY = (-0.25, 0.0)   # [m] across, up -- aimed past the surface
+# The run is scripted rather than dragged, so a condition can be recorded
+# without touching the GUI and every run in the sweep follows the same path.
+# That is what makes the strengths comparable: dragged by hand, the tip lands
+# somewhere slightly different each run and presses a different spot on the cell
+# at a different angle, which moves the shear reading for reasons that have
+# nothing to do with the Gaussian.
+#
+# The order matters and is the order that was used by hand: the tip goal is held
+# straight ahead at the rest x/y while the Gaussians ramp in and push the arm
+# off the obstacle, and only then does the goal walk out to the button. Moving
+# both at once is a different experiment.
+GOAL_MOVE_COMPONENT = "lin_tip"
+GOAL_MOVE_TO        = (-0.25, 0.0)   # [m] x/y = (across, up); z stays TIP_GOAL_Z
+GOAL_MOVE_AFTER_S   = 10.0           # [s] held at the start x/y first
+GOAL_MOVE_SPEED     = 5.0            # [cm/s] the GUI's own default drag speed
 
 GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,
                "gauss_seg1": GAUSS_GOAL_Z,
@@ -154,8 +162,6 @@ for _i, _c in enumerate(VIRTUAL_COMPONENTS):        # start each goal where it b
         DEFAULT_START[_i, 2] = GOAL_Z_LOCK[_c.name]
     if _c.name in GAUSS_COMPONENTS:
         DEFAULT_START[_i, :2] = GAUSS_GOAL_XY
-    if _c.name == "lin_tip":
-        DEFAULT_START[_i, :2] = TIP_GOAL_XY
 N_VC          = len(VIRTUAL_COMPONENTS)
 
 (SPRING_PARAM_NAMES, DAMPER_PARAM_NAMES,

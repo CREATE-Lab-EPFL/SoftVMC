@@ -85,6 +85,18 @@ PUBLISH_ON_START = bool(getattr(_cfg, "PUBLISH_ON_START", True))
 # untouched.
 PUBLISH_CONTINUOUS = bool(getattr(_cfg, "PUBLISH_CONTINUOUS", False))
 
+# Scripted goal move: hold one component's goal where it starts for
+# GOAL_MOVE_AFTER_S, then walk it to GOAL_MOVE_TO at GOAL_MOVE_SPEED. It takes
+# the same speed-capped path a hand drag takes -- the stepper below is the drag
+# stepper -- so a run can be recorded without anyone touching the canvas, and
+# the order (let the other elements act first, move this one afterwards) is
+# preserved instead of being whatever the hand did that day. A config that names
+# no component leaves the GUI exactly as it was.
+GOAL_MOVE_COMPONENT = getattr(_cfg, "GOAL_MOVE_COMPONENT", None)
+GOAL_MOVE_TO        = getattr(_cfg, "GOAL_MOVE_TO", None)
+GOAL_MOVE_AFTER_S   = float(getattr(_cfg, "GOAL_MOVE_AFTER_S", 0.0))
+GOAL_MOVE_SPEED     = float(getattr(_cfg, "GOAL_MOVE_SPEED", 5.0))   # [cm/s]
+
 # --run NAME may name a condition (GAUSS_CONDITIONS): its strength becomes the
 # slider's starting value, so the GUI and the torque node agree from the start.
 _STRENGTH = condition_strength(_cfg, run_name_from_argv())
@@ -208,6 +220,19 @@ class RobotGUI:
         # ── Mutable state ─────────────────────────────────────────────────────
         self._ref_pos      = DEFAULT_START.copy()   # (N,3) published goal
         self._mouse_target = DEFAULT_START.copy()   # (N,3) raw mouse XY during drag
+
+        # Scripted goal move, if this config asks for one.
+        self._move_idx  = None
+        self._move_t0   = None      # stamped on the first publish
+        self._move_done = GOAL_MOVE_COMPONENT is None or GOAL_MOVE_TO is None
+        if not self._move_done:
+            names = [c.name for c in _cfg.VIRTUAL_COMPONENTS]
+            if GOAL_MOVE_COMPONENT in names:
+                self._move_idx = names.index(GOAL_MOVE_COMPONENT)
+            else:
+                print(f"[goal] GOAL_MOVE_COMPONENT {GOAL_MOVE_COMPONENT!r} is not one of "
+                      f"{names} -- no scripted move", flush=True)
+                self._move_done = True
         self._k_vals    = list(SPRING_PARAM_INIT)
         self._c_vals    = list(DAMPER_PARAM_INIT)
         self._pub_active   = tk.BooleanVar(value=PUBLISH_ON_START)
@@ -795,7 +820,11 @@ class RobotGUI:
                 if self._pub_active.get():
                     self.node.publish_ref_pos(self._ref_pos)
 
+        self._step_scripted_move()
+
         if PUBLISH_CONTINUOUS and self._pub_active.get():
+            if self._move_t0 is None:
+                self._move_t0 = time.perf_counter()
             self.node.publish_ref_pos(self._ref_pos)
 
         self._update_cell3(q, t_now)
@@ -812,6 +841,41 @@ class RobotGUI:
                 self._update_cell4(tau, t_now)
 
         self._after_id = self.root.after(self._UPDATE_MS, self._update_loop)
+
+    def _step_scripted_move(self):
+        """One tick of the scripted goal move -- the drag stepper, no hand.
+
+        Held until GOAL_MOVE_AFTER_S have passed since the first published
+        reference (which is t = 0 in the torque node's log), so the delay means
+        the same thing on both sides. A hand on the canvas takes precedence.
+        """
+        if self._move_done or self._move_idx is None or self._dragging:
+            return
+        if self._move_t0 is None or not self._pub_active.get():
+            return
+        elapsed = time.perf_counter() - self._move_t0
+        if elapsed < GOAL_MOVE_AFTER_S:
+            return
+
+        idx      = self._move_idx
+        max_step = (GOAL_MOVE_SPEED / 100.0) * (self._UPDATE_MS / 1000.0)
+        diff     = np.asarray(GOAL_MOVE_TO, dtype=float) - self._ref_pos[idx, :2]
+        dist     = float(np.linalg.norm(diff))
+        if dist <= 1e-6:
+            self._move_done = True
+            print(f"[goal] {GOAL_MOVE_COMPONENT} goal reached "
+                  f"({self._ref_pos[idx, 0]:+.3f}, {self._ref_pos[idx, 1]:+.3f}) "
+                  f"at t = {elapsed:.1f} s", flush=True)
+            return
+        if self._move_t0 is not None and elapsed - max(GOAL_MOVE_AFTER_S, 0.0) < self._UPDATE_MS / 1000.0:
+            print(f"[goal] moving {GOAL_MOVE_COMPONENT} to {tuple(GOAL_MOVE_TO)} "
+                  f"at {GOAL_MOVE_SPEED:.1f} cm/s ({dist * 100:.1f} cm to go)", flush=True)
+
+        step = diff / dist * min(dist, max_step)
+        for j in LINKED[idx]:
+            self._ref_pos[j, :2] += step
+            self._xy_pts[j].set_data([self._ref_pos[j, 0]], [self._ref_pos[j, 1]])
+        self._canvas_xy.draw_idle()
 
 
     # ─────────────────────────────────────────────────────────────────────────
