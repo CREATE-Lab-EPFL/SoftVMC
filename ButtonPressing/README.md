@@ -23,7 +23,7 @@ is the **one** field that is deliberately different.
 
 | Component | Element | s | Goal |
 |---|---|---|---|
-| `lin_tip` | `LinearSpring(30)` | 1.0 | starts `[0, 0, 0.38]`; drag x/y onto the button |
+| `lin_tip` | `LinearSpring(30)` | 1.0 | **fixed** at `TIP_GOAL_XY/Z` = `[-0.25, 0, 0.38]` |
 | `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | starts `[-0.05, 0, 0.2175]` |
 | `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `gauss_seg1`'s goal** |
 
@@ -31,13 +31,20 @@ is the **one** field that is deliberately different.
 arm's axis**, not height (see [Gravity and axes](#gravity-and-axes)): the
 button's distance from the base, and the midpoint between the tips of sections 1
 and 2 (`rest_pose(0.5)`, which also puts both attachment points equidistant from
-the centre). Everything else is dragged: x/y is (across, up), so the tip goal is
-placed on the button's face and the Gaussian centre on the real obstacle. The
-`GAUSS_GOAL_XY = (-0.05, 0.0)` default is a **starting point, not a placement** —
-it sits 5 cm off the arm's own rest axis with zero y offset, which leaves the
-direction the arm escapes in barely determined. Drag it onto the obstacle. Aim
-the tip a little past the surface, or the steady-state force decays to zero on
-arrival.
+the centre).
+
+**The tip goal is fixed in the config, not dragged.** `TIP_GOAL_XY = (-0.25,
+0.0)` — x/y is (across, up) — so every condition aims at exactly the same point
+and the strengths are comparable. Dragged by hand they were not: `weak` and
+`medium` landed 7.4 cm apart in x and 5.4 cm apart in y, pressing a different
+spot on the cell at a different angle, which moves the shear reading for reasons
+that have nothing to do with the Gaussian. Aim it a little past the surface, or
+the steady-state force decays to zero on arrival.
+
+The Gaussian centre is still placed by hand. Its `GAUSS_GOAL_XY = (-0.05, 0.0)`
+default is a **starting point, not a placement** — it sits 5 cm off the arm's own
+rest axis with zero y offset, which leaves the direction the arm escapes in
+barely determined. Drag it onto the obstacle.
 
 `K_REACH = 30` N/m, `C_DAMP = 1.0` N·s/m, `TAU_LIMIT = 0.25` N·m,
 `PRETENSION_WEIGHTS = 0.010` N·m/rad. Springs and dampers are live sliders in
@@ -99,7 +106,7 @@ down to 34% before `k` multiplies).
 
 ## Running
 
-Four terminals, each starting from:
+Three terminals, each starting from:
 
 ```bash
 conda activate finger
@@ -118,21 +125,42 @@ bash ../start_arm.sh
 python3 ../LoadCell/arduino_force.py
 ```
 
-**Terminal 3** — torque node
+**Terminal 3** — the whole run
 
 ```bash
-python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run medium
+python3 run_condition.py medium                  # _button
+python3 run_condition.py strong --config _person
 ```
 
-**Terminal 4** — GUI
+`run_condition.py` replaces what used to be terminals 3 and 4: it starts the
+torque node and the GUI together, waits for the arm to settle at the fixed goal,
+marks, holds, saves and shuts both down. Nothing is dragged, so the run is
+repeatable and the conditions are comparable.
+
+| step | |
+|---|---|
+| | torque node + GUI up, same `--config` and `--run` |
+| | wait for `first reference received` — the GUI is publishing, `t = 0` |
+| `--settle` | 20 s for the arm to reach the goal and stop moving |
+| | Ctrl+C #1 → marks *"target reached"* |
+| `--hold` | **10 s — this is the measurement window** |
+| | Ctrl+C #2 → ends the run, writes `outputs/<folder>/<run>.{npz,png}` |
+| | GUI closed |
+
+Both waits are flags: `--settle 30 --hold 20` if the arm needs longer. Ctrl+C on
+the launcher itself stops both children without saving — the `.autosave.npz`
+checkpoint is what survives that.
+
+To drive it by hand instead, the two nodes are still what they were:
 
 ```bash
-python3 ../VMC/GUI_MultiVMC.py --config _button --run medium
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run medium   # terminal 3
+python3 ../VMC/GUI_MultiVMC.py        --config _button --run medium   # terminal 4
 ```
 
-Terminals 3 and 4 must name the same variant and the same run. Terminal 3 spends
-its first half-minute in sympy building the Jacobians, then logs what it loaded
-— check the config, the run and the gravity line before moving anything:
+Either way the torque node spends its first half-minute in sympy building the
+Jacobians, then logs what it loaded — check the config, the run and the gravity
+line:
 
 ```
 [INFO] building Jacobians (sympy -- takes a while, Ctrl+C to abort)
@@ -152,12 +180,18 @@ exits with one line rather than a sympy traceback.
 The torque node drives the arm from its **first tick**, before the GUI is up: the
 goal is already `DEFAULT_START`, so the arm takes up the 5.5 cm to it (≈1.65 N at
 `K_REACH = 30`) and the run's Gaussian ramps in, all of it logged at `t < 0`.
-Drag `lin_tip` to the button, then leave it alone. Untick **Publisher Active** to
-move goals without the arm following.
+Untick **Publisher Active** in the GUI to move goals without the arm following.
 
-**Ctrl+C in terminal 3 does two things, in order** (`MARK_PROMPTS` in the
-config; terminal 3 prints the protocol when it starts, and what to press next
-after each one):
+`t = 0` is the GUI's first `/VC_ref_pos`. The GUI normally publishes only when a
+goal is clicked or dragged, which publishes nothing at all when the goals are
+fixed in the config — so both variants set **`PUBLISH_CONTINUOUS = True`** and
+the GUI re-asserts the goals every refresh (10 Hz) while Publisher Active is
+ticked. That is what marks `t = 0` and what `run_condition.py` waits on. The
+flag is off by default, so the folders that drive by dragging are unaffected.
+
+**Ctrl+C in the torque node's terminal does two things, in order**
+(`MARK_PROMPTS` in the config; it prints the protocol when it starts, and what
+to press next after each one). `run_condition.py` sends both for you:
 
 | press | |
 |---|---|
@@ -238,6 +272,7 @@ the obstacle at 0.8 cm where the true distance is 12.2 cm.
 |---|---|
 | `GUI_MultiVMC_Config_button.py` / `_person.py` | the elements, their values, the conditions |
 | `plot_button_and_person.ipynb` | analysis — discovers `outputs/`, takes positions from the data and the measurement window from the Ctrl+C mark, falling back to the longest untouched stretch for runs without one |
+| `run_condition.py` | one condition start to finish from one terminal: both nodes, settle, mark, hold, save, shut down |
 | `collect_run.py` | moves an unnamed `experiments/z_*` pair into `outputs/` |
 
 The scripted state machine that used to drive this folder is in the git history.

@@ -137,6 +137,12 @@ GOAL_LINK   = [GAUSS_COMPONENTS]
 # their strength. Untick "Publisher Active" in the GUI to place goals quietly.
 PUBLISH_ON_START = True
 
+# The tip goal is fixed in this config and nothing gets dragged, so the GUI has
+# no interaction to publish on. Without this it would publish nothing at all and
+# the torque node would never see a reference (no t = 0, and run_condition.py
+# would wait forever). Re-asserts the goals every GUI refresh instead.
+PUBLISH_CONTINUOUS = True
+
 # ── GUI framing ──────────────────────────────────────────────────────────────
 XY_RANGE = (-0.35, 0.35)   # [m]
 Z_RANGE  = (0.15, 0.50)    # [m]

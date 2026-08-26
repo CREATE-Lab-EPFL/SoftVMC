@@ -77,6 +77,14 @@ for _group in getattr(_cfg, "GOAL_LINK", []):
         LINKED[_i] = list(_idx)
 PUBLISH_ON_START = bool(getattr(_cfg, "PUBLISH_ON_START", True))
 
+# The GUI publishes /VC_ref_pos only when a goal is clicked or dragged. A folder
+# whose goals are fixed in the config therefore publishes NOTHING: the torque
+# node never learns t = 0, and a scripted run has nothing to wait on. With this
+# set, the GUI re-asserts the current goals every refresh while "Publisher
+# Active" is ticked. Off by default, so folders that drive by dragging are
+# untouched.
+PUBLISH_CONTINUOUS = bool(getattr(_cfg, "PUBLISH_CONTINUOUS", False))
+
 # --run NAME may name a condition (GAUSS_CONDITIONS): its strength becomes the
 # slider's starting value, so the GUI and the torque node agree from the start.
 _STRENGTH = condition_strength(_cfg, run_name_from_argv())
@@ -786,6 +794,9 @@ class RobotGUI:
                 self._canvas_xy.draw_idle()
                 if self._pub_active.get():
                     self.node.publish_ref_pos(self._ref_pos)
+
+        if PUBLISH_CONTINUOUS and self._pub_active.get():
+            self.node.publish_ref_pos(self._ref_pos)
 
         self._update_cell3(q, t_now)
 
