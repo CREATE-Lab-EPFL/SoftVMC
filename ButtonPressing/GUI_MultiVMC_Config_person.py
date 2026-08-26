@@ -14,7 +14,7 @@ Everything positional -- where the button is, where the obstacle is, how far
 past the surface to aim -- is set by dragging in the GUI, so none of it is
 hardcoded here.
 
-  lin_tip     (s=1.0)  linear spring, drag its goal onto the button
+  lin_tip     (s=1.0)  linear spring, goal FIXED at TIP_GOAL_XY/Z
   gauss_seg1  (s=1/3)  repulsive Gaussian, drag its centre onto the person's arm
   gauss_seg2  (s=2/3)  the same, further up the body
 
@@ -110,8 +110,17 @@ PLOT_FORCE     = False   # no load cell in this variant
 #   - the two Gaussians share ONE goal, held at the midpoint between the tips
 #     of section 1 and section 2 (z is linear in s on the straight arm, so that
 #     midpoint is just rest_pose(0.5))
-TIP_GOAL_Z   = 0.38                       # [m] button height
+TIP_GOAL_Z   = 0.38                       # [m] button distance from the base, along
+                                          #     the arm's axis -- z is NOT height here
 GAUSS_GOAL_Z = float(rest_pose(0.5)[2])   # [m] = 0.2175, between sections 1 and 2
+
+# The tip goal is FIXED here rather than dragged, so a condition can be recorded
+# without touching the GUI and every run in the sweep aims at exactly the same
+# point. That is what makes the strengths comparable: dragged by hand, the tip
+# lands somewhere slightly different each run and presses a different spot on
+# the cell at a different angle, which moves the shear reading for reasons that
+# have nothing to do with the Gaussian.
+TIP_GOAL_XY = (-0.25, 0.0)   # [m] across, up -- aimed past the surface
 
 GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,
                "gauss_seg1": GAUSS_GOAL_Z,
@@ -139,6 +148,8 @@ for _i, _c in enumerate(VIRTUAL_COMPONENTS):        # start each goal where it b
         DEFAULT_START[_i, 2] = GOAL_Z_LOCK[_c.name]
     if _c.name in GAUSS_COMPONENTS:
         DEFAULT_START[_i, :2] = GAUSS_GOAL_XY
+    if _c.name == "lin_tip":
+        DEFAULT_START[_i, :2] = TIP_GOAL_XY
 N_VC          = len(VIRTUAL_COMPONENTS)
 
 (SPRING_PARAM_NAMES, DAMPER_PARAM_NAMES,

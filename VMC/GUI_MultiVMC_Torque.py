@@ -314,6 +314,9 @@ class VMCTorqueNode(Node):
         if len(data) == 3 * N_VC:
             if self._t0 is None:
                 self._t0 = time.perf_counter()
+                # t = 0. Also the cue a scripted run waits on: the publisher is
+                # up, so the arm is now being driven at the configured goal.
+                self.get_logger().info("first reference received -- t = 0")
             self._goal = data.copy()
         else:
             self.get_logger().warn(
