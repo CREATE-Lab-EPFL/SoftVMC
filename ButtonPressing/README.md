@@ -114,6 +114,59 @@ down to 34% before `k` multiplies).
 
 ## Running
 
+Two ways: the **sweep** records every condition unattended and is what the
+reported data should come from; the **manual** route is four terminals and a
+mouse, for exploring.
+
+### The sweep
+
+```bash
+conda activate finger
+cd ButtonPressing
+python3 ../LoadCell/arduino_force.py     # its own terminal, `_button` only
+
+python3 run_sweep.py                     # _button: no_gauss, weak, medium, strong
+python3 run_sweep.py --config _person    # _person: no_gauss, medium, strong
+python3 run_sweep.py --only weak strong
+python3 run_sweep.py --dry-run           # print the plan, touch no hardware
+```
+
+**Do not run `start_arm.sh`** — the sweep owns `dynamixel_node`, because the
+driver cannot change operating mode while running and holds `/dev/ttyUSB0`
+exclusively. Per condition it does:
+
+| step | set by | |
+|---|---|---|
+| | | launch the driver (torque mode), wait for `/joint_positions` |
+| | | launch the torque node with `--run <condition>` |
+| | | publish `/VC_ref_pos` from the script — **no GUI** — tip goal at the straight-arm tip `[0, 0, 0.435]`, so the linear spring pulls **nothing** |
+| settle | `--settle-gauss` 15 s | the Gaussians ramp in and push the arm off the obstacle, alone |
+| move | `--ramp-speed` 2 cm/s | tip goal walks to `[-0.30, 0, 0.38]`, 30.5 cm, 15 s |
+| settle | `--settle-arrive` 15 s | the arm follows it and stops |
+| | | Ctrl+C #1 → marks *"target reached"* |
+| window | `--window` 20 s | **the measurement window** |
+| | | Ctrl+C #2 → writes `outputs/<folder>/<condition>.{npz,png}` |
+| | | kill the driver to free the bus |
+| home | `--home-velocity` 10 | extended position mode, ~2.3 rpm, back to `HOME_POSITION`, **verified tick for tick** |
+| settle | `--settle-home` 5 s | hand back in current mode, next condition |
+
+≈118 s per condition: **7.8 min** for the button's four, **5.9 min** for the
+person's three. The homing leg is the longest single item (~30 s) because the
+arm ends a run about 1.15 turns wound.
+
+Every condition therefore starts from the same pose and drives to the same
+target, which is the point — the only difference between them is the Gaussian
+strength. Recorded by hand they were not comparable: `weak` and `medium` landed
+7.4 cm apart in x and 5.4 cm apart in y, pressing a different spot on the cell
+at a different angle.
+
+Any failure — homing lands a turn out, a motor does not arrive, the torque node
+dies — **aborts the sweep**, leaves the motors holding, does not restart the
+driver, and names the conditions already recorded. Nothing is recorded from a
+zero that was not verified.
+
+### By hand
+
 Four terminals, each starting from:
 
 ```bash
@@ -258,6 +311,7 @@ the obstacle at 0.8 cm where the true distance is 12.2 cm.
 |---|---|
 | `GUI_MultiVMC_Config_button.py` / `_person.py` | the elements, their values, the conditions |
 | `plot_button_and_person.ipynb` | analysis — discovers `outputs/`, takes positions from the data and the measurement window from the Ctrl+C mark, falling back to the longest untouched stretch for runs without one |
-| `collect_run.py` | moves an unnamed `experiments/z_*` pair into `outputs/` |
+| `run_sweep.py` | the unattended sweep: every condition, same start pose, same target, homed and verified between |
+| `collect_run.py` | moves an unnamed `experiments/z_*` pair into `outputs/` (only the by-hand route makes those; the sweep always names its runs) |
 
 The scripted state machine that used to drive this folder is in the git history.

@@ -79,7 +79,7 @@ bash start_arm.sh            # homes arm, sets latency, starts dynamixel_node
 
 # Terminal 2 and 3 — from the SAME experiment directory:
 cd LinearSpring               # or TanhSpring, ConstrainedSpring, etc.
-python3 ../VMC/GUI_MultiVMC_Torque.py   # or GUI_MultiVMC_Noisy_Torque.py
+python3 ../VMC/GUI_MultiVMC_Torque.py
 python3 ../VMC/GUI_MultiVMC.py
 ```
 
@@ -115,7 +115,6 @@ On exit, the torque node saves a timestamped `.npz` + `.png` snapshot into an
 | `MultiGoHome.py` | Position-mode homing routine (run before torque experiments) |
 | `GUI_MultiVMC.py` | tkinter GUI + ROS 2 bridge |
 | `GUI_MultiVMC_Torque.py` | Main torque computation node |
-| `GUI_MultiVMC_Noisy_Torque.py` | Torque node with configurable sensor noise injection |
 | `MultiVMC_MovingGoal_Pub.py` | Ramps `/VC_ref_pos` step-by-step from `DEFAULT_START` to `DEFAULT_GOALS` (and back, if `LOOP_BACK=True`) |
 | `MultiVMC_publish_0.py` | Publishes zero reference (park position) |
 | `read_npz.py` | Quick CLI viewer for saved `.npz` experiment files |
