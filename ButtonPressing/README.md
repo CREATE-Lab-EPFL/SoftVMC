@@ -23,7 +23,7 @@ is the **one** field that is deliberately different.
 
 | Component | Element | s | Goal |
 |---|---|---|---|
-| `lin_tip` | `LinearSpring(30)` | 1.0 | starts `[0, 0, 0.38]`, **scripted** out to `[-0.25, 0, 0.38]` |
+| `lin_tip` | `LinearSpring(30)` | 1.0 | starts `[0, 0, 0.38]`; drag x/y onto the button |
 | `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | starts `[-0.05, 0, 0.2175]` |
 | `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `gauss_seg1`'s goal** |
 
@@ -33,21 +33,21 @@ button's distance from the base, and the midpoint between the tips of sections 1
 and 2 (`rest_pose(0.5)`, which also puts both attachment points equidistant from
 the centre).
 
-**The tip goal is scripted, not dragged**, and the order is the one that was
-done by hand:
+Only x/y is placed by hand, and x/y is (across, **up**). The order matters and
+is the one to keep: let the Gaussians ramp in and push the arm off the obstacle
+first, wait for it to settle, and only then drag `lin_tip` out to the button.
+Moving both at once is a different experiment. Aim the tip a little past the
+surface, or the steady-state force decays to zero on arrival.
 
-| | |
-|---|---|
-| `t = 0` → `GOAL_MOVE_AFTER_S` (10 s) | tip goal **held** at `[0, 0, 0.38]` while the Gaussians ramp in and push the arm off the obstacle |
-| then | the goal **walks** to `GOAL_MOVE_TO = (-0.25, 0.0)` at `GOAL_MOVE_SPEED = 5` cm/s — the GUI's own drag speed, so 25 cm takes 5 s |
+The Gaussian centre is placed by hand too. Its `GAUSS_GOAL_XY = (-0.05, 0.0)`
+default is a **starting point, not a placement** — it sits 5 cm off the arm's own
+rest axis with zero y offset, which leaves the direction the arm escapes in
+barely determined. Drag it onto the obstacle.
 
-Moving both at once is a different experiment, which is why the hold comes
-first. Scripting it also makes the conditions comparable: dragged by hand they
-were not — `weak` and `medium` landed 7.4 cm apart in x and 5.4 cm apart in y,
-pressing a different spot on the cell at a different angle, which moves the
-shear reading for reasons that have nothing to do with the Gaussian. Aim
-`GOAL_MOVE_TO` a little past the surface, or the steady-state force decays to
-zero on arrival.
+⚠ Dragging is what makes the conditions hard to compare: `weak` and `medium`
+landed 7.4 cm apart in x and 5.4 cm apart in y, pressing a different spot on the
+cell at a different angle, which moves the shear reading for reasons that have
+nothing to do with the Gaussian. Get the tip to the same place each run.
 
 The Gaussian centre is still placed by hand. Its `GAUSS_GOAL_XY = (-0.05, 0.0)`
 default is a **starting point, not a placement** — it sits 5 cm off the arm's own
@@ -114,7 +114,7 @@ down to 34% before `k` multiplies).
 
 ## Running
 
-Three terminals, each starting from:
+Four terminals, each starting from:
 
 ```bash
 conda activate finger
@@ -133,45 +133,21 @@ bash ../start_arm.sh
 python3 ../LoadCell/arduino_force.py
 ```
 
-**Terminal 3** — the whole run
+**Terminal 3** — torque node
 
 ```bash
-python3 run_condition.py medium                  # _button
-python3 run_condition.py strong --config _person
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run medium
 ```
 
-`run_condition.py` replaces what used to be terminals 3 and 4: it starts the
-torque node and the GUI together, waits for the arm to settle at the fixed goal,
-marks, holds, saves and shuts both down. Nothing is dragged, so the run is
-repeatable and the conditions are comparable.
-
-| step | set by | |
-|---|---|---|
-| | | torque node + GUI up, same `--config` and `--run` |
-| | | wait for `first reference received` — the GUI is publishing, `t = 0` |
-| hold | `GOAL_MOVE_AFTER_S` | 10 s with the tip goal held straight ahead, Gaussians pushing |
-| move | `GOAL_MOVE_SPEED` | goal walks out to `GOAL_MOVE_TO`; the GUI logs `goal reached` |
-| settle | `--settle` | 10 s for the arm to follow it and stop moving |
-| | | Ctrl+C #1 → marks *"target reached"* |
-| hold | `--hold` | **10 s — this is the measurement window** |
-| | | Ctrl+C #2 → ends the run, writes `outputs/<folder>/<run>.{npz,png}` |
-| | | GUI closed |
-
-The two waits either side of the mark are flags: `--settle 20 --hold 20` if the
-arm needs longer. The hold and the walk are config, so they are the same for
-every condition. Ctrl+C on the launcher itself stops both children without
-saving — the `.autosave.npz` checkpoint is what survives that.
-
-To drive it by hand instead, the two nodes are still what they were:
+**Terminal 4** — GUI
 
 ```bash
-python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run medium   # terminal 3
-python3 ../VMC/GUI_MultiVMC.py        --config _button --run medium   # terminal 4
+python3 ../VMC/GUI_MultiVMC.py --config _button --run medium
 ```
 
-Either way the torque node spends its first half-minute in sympy building the
-Jacobians, then logs what it loaded — check the config, the run and the gravity
-line:
+Terminals 3 and 4 must name the same variant and the same run. Terminal 3 spends
+its first half-minute in sympy building the Jacobians, then logs what it loaded
+— check the config, the run and the gravity line before moving anything:
 
 ```
 [INFO] building Jacobians (sympy -- takes a while, Ctrl+C to abort)
@@ -193,16 +169,15 @@ goal is already `DEFAULT_START`, so the arm takes up the 5.5 cm to it (≈1.65 N
 `K_REACH = 30`) and the run's Gaussian ramps in, all of it logged at `t < 0`.
 Untick **Publisher Active** in the GUI to move goals without the arm following.
 
-`t = 0` is the GUI's first `/VC_ref_pos`. The GUI normally publishes only when a
-goal is clicked or dragged, which publishes nothing at all when the goals are
-fixed in the config — so both variants set **`PUBLISH_CONTINUOUS = True`** and
-the GUI re-asserts the goals every refresh (10 Hz) while Publisher Active is
-ticked. That is what marks `t = 0` and what `run_condition.py` waits on. The
-flag is off by default, so the folders that drive by dragging are unaffected.
+`t = 0` in the log is the GUI's **first** `/VC_ref_pos`, and the GUI publishes
+only when a goal is clicked or dragged — so `t = 0` is the moment you first
+touch the canvas, not when the GUI opened. Everything before it, including the
+take-up and the Gaussian ramp, is at `t < 0`; `t_reference_ok` is False for a
+run where nothing was ever dragged.
 
-**Ctrl+C in the torque node's terminal does two things, in order**
-(`MARK_PROMPTS` in the config; it prints the protocol when it starts, and what
-to press next after each one). `run_condition.py` sends both for you:
+**Ctrl+C in terminal 3 does two things, in order** (`MARK_PROMPTS` in the
+config; terminal 3 prints the protocol when it starts, and what to press next
+after each one):
 
 | press | |
 |---|---|
@@ -283,7 +258,6 @@ the obstacle at 0.8 cm where the true distance is 12.2 cm.
 |---|---|
 | `GUI_MultiVMC_Config_button.py` / `_person.py` | the elements, their values, the conditions |
 | `plot_button_and_person.ipynb` | analysis — discovers `outputs/`, takes positions from the data and the measurement window from the Ctrl+C mark, falling back to the longest untouched stretch for runs without one |
-| `run_condition.py` | one condition start to finish from one terminal: both nodes, settle, mark, hold, save, shut down |
 | `collect_run.py` | moves an unnamed `experiments/z_*` pair into `outputs/` |
 
 The scripted state machine that used to drive this folder is in the git history.
