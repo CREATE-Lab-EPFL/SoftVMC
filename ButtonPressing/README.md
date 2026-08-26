@@ -65,9 +65,17 @@ already placed, so a field switched on at full strength would shove the arm off
 it in a single tick. Touching **Apply Parameters** cancels the ramp and hands
 control to the sliders; `k_params` records what was actually applied.
 
-Any other name is a scratch run at the config's own strength — terminal 3 warns
-when the name is not one of the config's conditions, so a `weak` typed at
-`_person` does not quietly record itself as a condition it is not. For
+A name this config has no condition for is **refused**, in a second, before
+anything is built — so a `weak` typed at `_person`, or the retired `mid_1`
+anywhere, stops with the valid names listed instead of quietly recording at
+strength 0 under a name that reads like a condition:
+
+```
+[ERROR] --run 'mid_1' is not a condition of GUI_MultiVMC_Config_button.
+        this config knows: no_gauss (0), weak (500), mid (1000), strong (2000)
+```
+
+Drop `--run` altogether for a timestamped scratch run in `experiments/`. For
 `_person`, record `strong` first.
 
 ⚠ These strengths sweep how far the arm is pushed off the obstacle, not how
@@ -116,15 +124,22 @@ python3 ../VMC/GUI_MultiVMC_Torque.py --config _button --run mid
 python3 ../VMC/GUI_MultiVMC.py --config _button --run mid
 ```
 
-Terminals 3 and 4 must name the same variant and the same run. Terminal 3 logs
-what it loaded — check the config, the run and the gravity line before moving
-anything:
+Terminals 3 and 4 must name the same variant and the same run. Terminal 3 spends
+its first half-minute in sympy building the Jacobians, then logs what it loaded
+— check the config, the run and the gravity line before moving anything:
 
 ```
 [INFO] config: GUI_MultiVMC_Config_button
 [INFO] run: mid -- saving to outputs/button_pressing/mid.{png,npz}, overwriting any previous mid
 [INFO] gravity compensation: gravity pulls along -y in the robot frame
+[INFO] building Jacobians (sympy -- takes a while, Ctrl+C to abort)
+[INFO] condition mid: gauss_seg1, gauss_seg2 -> strength 1000.0, ramped in over 5 s
+[INFO] Jacobians ready in 31 s
+[INFO] Ctrl+C in THIS terminal: mark 'Target reached?' -> end the run, write mid.npz
 ```
+
+A Ctrl+C during that build just aborts — nothing has been recorded yet, so it
+exits with one line rather than a sympy traceback.
 
 The GUI publishes from the start, so the arm takes up the 5.5 cm to its goal
 as soon as the torque node is up (≈1.65 N at `K_REACH = 30`), with the run's

@@ -148,16 +148,8 @@ class VMCTorqueNode(Node):
         self._ramp_s       = float(getattr(_cfg, "GAUSS_RAMP_S", 0.0))
         self._ramp_t0      = None
         self._ramp_done    = self._ramp_target is None
-        # The two ButtonPressing variants no longer name the same conditions
-        # (_person is swept at three strengths, _button at four), so a name
-        # typed for the wrong one would otherwise run silently at the config's
-        # own strength -- usually 0 -- and look like a real condition.
-        _conds = getattr(_cfg, "GAUSS_CONDITIONS", None)
-        if _conds and run_name and run_name not in _conds:
-            self.get_logger().warn(
-                f"run {run_name!r} is not one of this config's conditions "
-                f"({', '.join(_conds)}) -- scratch run at the config's own "
-                f"strength, no condition applied")
+        self.get_logger().info("building Jacobians (sympy -- takes a while, Ctrl+C to abort)")
+        _t_build = time.perf_counter()
 
         if not self._ramp_done:
             ramping = self._ramp_s > 0.0
@@ -174,6 +166,7 @@ class VMCTorqueNode(Node):
         self._grav_comp = MultiGravComp(
             R_world_to_system=rotation_for_gravity_dir(gravity_dir)
         )
+        self.get_logger().info(f"Jacobians ready in {time.perf_counter() - _t_build:.0f} s")
         self._pub_cfg = self.create_publisher(String, "/vmc_config", CONFIG_QOS)
         self._pub_cfg.publish(String(data=_cfg.__name__))
         self.get_logger().info(f"config: {_cfg.__name__}")
@@ -851,10 +844,41 @@ def _parse_args():
     return args
 
 
+def check_run_name(run_name):
+    """Refuse a --run this config has no condition for, before anything slow runs.
+
+    The two ButtonPressing variants no longer name the same conditions, so a
+    name typed for the wrong one used to be accepted and recorded at the
+    config's own strength -- usually 0 -- under a name that reads like a
+    condition. Configs that define no conditions at all are unaffected: any
+    name is a valid run there, as before.
+    """
+    conds = getattr(_cfg, "GAUSS_CONDITIONS", None)
+    if not conds or not run_name or run_name in conds:
+        return
+    sys.exit(
+        f"\n[ERROR] --run {run_name!r} is not a condition of {_cfg.__name__}.\n"
+        f"        this config knows: {', '.join(f'{k} ({v:g})' for k, v in conds.items())}\n"
+        f"        running it anyway would record at the config's own strength "
+        f"({getattr(_cfg, 'K_GAUSS', 0):g}) under a name that reads like a condition.\n"
+        f"        Drop --run for a timestamped scratch run in experiments/ instead.\n")
+
+
 def main():
     args = _parse_args()
+    check_run_name(args.run)      # before rclpy, before the Jacobians
+
     rclpy.init()
-    node = VMCTorqueNode(gravity_dir=args.gravity_dir, run_name=args.run)
+    try:
+        node = VMCTorqueNode(gravity_dir=args.gravity_dir, run_name=args.run)
+    except KeyboardInterrupt:
+        # Startup spends ~30 s in sympy building the Jacobians. A Ctrl+C in
+        # there used to dump the whole lambdify traceback; there is no run to
+        # save yet, so just leave.
+        print("\n[INFO] interrupted during startup -- nothing recorded")
+        if rclpy.ok():
+            rclpy.shutdown()
+        return
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
