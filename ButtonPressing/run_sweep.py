@@ -389,8 +389,11 @@ class Sweep:
             # SerialException from deep inside the SDK.
             wait_for_port_free(timeout=5.0)
 
-            for i, cond in enumerate(conditions, 1):
-                print(f"\n{'=' * 70}\n[sweep] {i}/{len(conditions)}  {cond} "
+            reps = max(1, self.a.repeats)
+            plan = [(r, c) for r in range(1, reps + 1) for c in conditions]
+            for i, (rep_i, cond) in enumerate(plan, 1):
+                name = cond if reps == 1 else f"{cond}_r{rep_i}"
+                print(f"\n{'=' * 70}\n[sweep] {i}/{len(plan)}  {name} "
                       f"(strength {self.cfg.GAUSS_CONDITIONS[cond]:.0f})\n{'=' * 70}",
                       flush=True)
                 # Home BEFORE recording, not after: homing afterwards left the
@@ -399,7 +402,7 @@ class Sweep:
                 # to avoid.
                 self.go_home()
                 self.start_driver()
-                self.record(cond)
+                self.record(name)
                 self.stop_driver()
 
             self.go_home()          # leave the arm at home, not wound up
@@ -423,7 +426,10 @@ class Sweep:
                       "homing left them, in extended position mode.\n"
                       "        python3 VMC/MultiGoHome.py    # re-home and hand "
                       "back in current mode", flush=True)
-            missing = [c for c in conditions if c not in self.recorded]
+            reps = max(1, self.a.repeats)
+            want = [c if reps == 1 else f"{c}_r{r}"
+                    for r in range(1, reps + 1) for c in conditions]
+            missing = [c for c in want if c not in self.recorded]
             if missing:
                 print(f"        python3 run_sweep.py --only {' '.join(missing)}", flush=True)
             return 1
@@ -450,6 +456,13 @@ def parse_args():
     p.add_argument("--config", default="_button", help="config variant (default: _button)")
     p.add_argument("--only", nargs="+", metavar="RUN",
                    help="record only these conditions, in this order")
+    # Each repeat is a separate recording named <condition>_r<N>, so nothing
+    # overwrites and the analysis can group them back by condition. `_button` is
+    # the quantitative one and wants several; `_person` costs someone standing
+    # in front of a moving robot, so it stays at 1.
+    p.add_argument("--repeats", type=int, default=None, metavar="N",
+                   help="record the whole cycle N times (default: the config's "
+                        "SWEEP_REPEATS -- 5 for _button, 1 for _person)")
     p.add_argument("--dry-run", action="store_true",
                    help="print the plan and the timings, touch no hardware")
 
@@ -493,6 +506,9 @@ def main():
                       f"cfg{a.config}")
     gh  = load_module(os.path.join(_VMC, "MultiGoHome.py"), "multigohome")
 
+    if a.repeats is None:
+        a.repeats = int(getattr(cfg, "SWEEP_REPEATS", 1))
+
     known = list(cfg.GAUSS_CONDITIONS)
     conditions = a.only or known
     bad = [c for c in conditions if c not in cfg.GAUSS_CONDITIONS]
@@ -507,15 +523,18 @@ def main():
     home_s = 1.15 * 60 / (a.home_velocity * 0.229) + a.settle_home
     per = (3 + 6.3 + a.settle_gauss + sweep.travel * 100 / a.ramp_speed
            + a.settle_arrive + a.window + 8 + home_s)
+    reps = max(1, a.repeats)
     print(f"[sweep] {cfg.__name__}: {len(conditions)} condition(s) -- "
-          f"{', '.join(conditions)}")
+          f"{', '.join(conditions)}"
+          + (f"  x{reps} repeats = {len(conditions) * reps} recordings" if reps > 1 else ""))
     print(f"[sweep] start  {np.round(sweep.goal_start[sweep.tip], 3)}  "
           f"(rest tip -- the linear spring pulls nothing)")
     print(f"[sweep] target {np.round(sweep.goal_end[sweep.tip], 3)}  "
           f"({sweep.travel * 100:.1f} cm at {a.ramp_speed:.1f} cm/s)")
-    print(f"[sweep] ~{per:.0f} s per condition, "
-          f"~{(per * len(conditions) + home_s) / 60:.1f} min total "
-          f"({len(conditions) + 1} homings, assuming ~1.15 turns of wind each)")
+    n = len(conditions) * reps
+    print(f"[sweep] ~{per:.0f} s per recording, "
+          f"~{(per * n + home_s) / 60:.1f} min total "
+          f"({n + 1} homings, assuming ~1.15 turns of wind each)")
 
     if a.dry_run:
         print("[sweep] --dry-run: stopping here, nothing touched.")

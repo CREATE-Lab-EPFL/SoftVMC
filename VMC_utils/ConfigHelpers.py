@@ -138,7 +138,23 @@ def condition_strength(cfg, run_name):
     if not conds or run_name is None:
         return None
     v = conds.get(run_name)
+    if v is None:
+        v = conds.get(strip_repeat(run_name))
     return None if v is None else float(v)
+
+
+def strip_repeat(run_name):
+    """`weak_r3` -> `weak`.
+
+    A repeated sweep records the same condition several times, and each
+    recording needs its own name so it does not overwrite the last. The repeat
+    index lives in a `_r<N>` suffix, so the condition it belongs to is still
+    recoverable -- by the torque node when it looks the strength up, and by the
+    analysis when it groups the repeats back together. Names without the suffix
+    are returned unchanged, so nothing else is affected.
+    """
+    import re as _re
+    return _re.sub(r"_r\d+$", "", run_name or "")
 
 
 def condition_targets(cfg):

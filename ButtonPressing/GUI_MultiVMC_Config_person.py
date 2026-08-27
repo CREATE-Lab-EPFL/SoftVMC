@@ -94,6 +94,11 @@ COLLECTED_DATA = False   # True = never save, the recorded runs are final
 # not exit cleanly. The write runs on its own thread, off the control loop.
 AUTOSAVE_S     = 30.0    # [s] 0 disables
 
+# How many times run_sweep.py records the whole cycle; --repeats overrides.
+# qualitative, and every run costs someone standing still in
+# front of a moving robot.
+SWEEP_REPEATS  = 1
+
 # Asked in terminal 3, one per ENTER, while the run goes. The run ends with
 # Ctrl+C, so nothing else in the log says when the tip actually arrived: press
 # ENTER once the tip is on the button and the analysis takes the measurement

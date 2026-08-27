@@ -860,8 +860,11 @@ def check_run_name(run_name):
     name is a valid run there, as before.
     """
     conds = getattr(_cfg, "GAUSS_CONDITIONS", None)
-    if not conds or not run_name or run_name in conds:
+    if not conds or not run_name:
         return
+    from VMC_utils.ConfigHelpers import strip_repeat
+    if run_name in conds or strip_repeat(run_name) in conds:
+        return          # `weak_r3` is the `weak` condition, third repeat
     sys.exit(
         f"\n[ERROR] --run {run_name!r} is not a condition of {_cfg.__name__}.\n"
         f"        this config knows: {', '.join(f'{k} ({v:g})' for k, v in conds.items())}\n"
