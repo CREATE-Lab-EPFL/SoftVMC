@@ -12,4 +12,11 @@ HumanManipulationVMC/
 MultiVMC/plots/not_used/
 settings.json
 .claude/
-*.MOV
+# Videos are not committed -- they live in AdditionalMediaSoftVMC/ only.
+# The pattern must be case-insensitive: gitignore is case-sensitive on Linux,
+# so a bare *.MOV left the lowercase ButtonPressing*.mov files untracked but
+# NOT ignored, cluttering every `git status`.
+*.[Mm][Oo][Vv]
+*.[Mm][Pp]4
+*.[Aa][Vv][Ii]
+*.[Mm][Kk][Vv]
