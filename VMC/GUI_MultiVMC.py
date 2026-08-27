@@ -90,11 +90,26 @@ PUBLISH_ON_START = bool(getattr(_cfg, "PUBLISH_ON_START", True))
 # which any /VC_Param message would cancel.
 LOCK_PARAMS = bool(getattr(_cfg, "LOCK_PARAMS", False))
 
-# --run NAME may name a condition (GAUSS_CONDITIONS): its strength becomes the
-# GUI's starting value, so the GUI and the torque node agree from the start.
-# Where the config holds one strength for every run this is that strength, and
-# setting it changes nothing.
-_RAMP_NAMES, _STRENGTH, _ = ramp_spec(_cfg, run_name_from_argv())
+# --run NAME may name a level (GAUSS_CONDITIONS): its strength becomes the GUI's
+# starting value, so the GUI and the torque node agree from the start.
+#
+# They HAVE to agree. The GUI publishes all N stiffnesses at once on "Apply
+# Parameters", so a GUI that thinks the Gaussians are at the config's own
+# strength -- 0, when the level is what sets them -- silently zeroes the field
+# the first time anything is applied. A config whose runs are levels therefore
+# demands the level here too, and says so rather than starting wrong.
+_run_name = run_name_from_argv()
+if getattr(_cfg, "REQUIRE_RUN_NAME", False) and not _run_name:
+    _conds = getattr(_cfg, "GAUSS_CONDITIONS", {})
+    raise SystemExit(
+        f"\n[ERROR] --run is required by {_cfg.__name__}: the GUI has to be told which\n"
+        f"        level is running, or it will show -- and apply -- the wrong stiffnesses.\n"
+        f"        pick the SAME one the torque node was given: "
+        f"{', '.join(f'{k} ({v:g})' for k, v in _conds.items())}\n"
+        f"        e.g. python3 ../VMC/GUI_MultiVMC.py --config "
+        f"_{getattr(_cfg, 'CONFIG_NAME', '')} --run {next(iter(_conds), 'NAME')}\n")
+
+_RAMP_NAMES, _STRENGTH, _ = ramp_spec(_cfg, _run_name)
 if _STRENGTH is not None:
     SPRING_PARAM_INIT = [_STRENGTH if nm in _RAMP_NAMES else v
                          for nm, v in zip(_NAMES, SPRING_PARAM_INIT)]

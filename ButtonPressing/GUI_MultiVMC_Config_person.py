@@ -2,7 +2,11 @@
 Whole-body shaping around a person's arm -- driven live from the GUI.
 
     python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run <level>   # terminal 2
-    python3 ../VMC/GUI_MultiVMC.py        --config _person                 # terminal 3
+    python3 ../VMC/GUI_MultiVMC.py        --config _person --run <level>   # terminal 3
+
+Both get the SAME --run: the GUI publishes all three stiffnesses at once, so one
+told the wrong level would apply the wrong field. REQUIRE_RUN_NAME makes both
+refuse to start without it.
 
 The person's arm is held still and is the working area the robot must keep out
 of. The tip is driven to the button by hand from the GUI; the body is kept off

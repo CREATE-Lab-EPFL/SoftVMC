@@ -92,10 +92,21 @@ python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run medium
 python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run strong
 ```
 
-**Terminal 3** — the GUI
+**Terminal 3** — the GUI. **`--run` must be the same level as terminal 2**: the
+GUI applies all three stiffnesses at once, so one told the wrong level would
+apply the wrong field the first time you press *Apply Parameters*. It refuses
+to start without it.
 
 ```bash
-python3 ../VMC/GUI_MultiVMC.py --config _person
+python3 ../VMC/GUI_MultiVMC.py --config _person --run no_gauss
+```
+
+```bash
+python3 ../VMC/GUI_MultiVMC.py --config _person --run medium
+```
+
+```bash
+python3 ../VMC/GUI_MultiVMC.py --config _person --run strong
 ```
 
 ### Then, in order
