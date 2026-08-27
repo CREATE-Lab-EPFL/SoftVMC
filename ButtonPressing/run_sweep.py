@@ -64,8 +64,14 @@ from rclpy.executors import SingleThreadedExecutor    # noqa: E402
 from rclpy.node import Node                           # noqa: E402
 from std_msgs.msg import Float64MultiArray            # noqa: E402
 
+SERIAL_PORT = "/dev/ttyUSB0"
+
 # The driver's launch line, kept identical to start_arm.sh so the motor
 # calibration cannot drift between the two ways of starting the arm.
+# NOTE `ros2 run` is a launcher: it execs the real dynamixel_node as a CHILD.
+# Signalling the wrapper alone orphans the node, which keeps /dev/ttyUSB0 open
+# and keeps commanding the last torque -- so the driver is started in its own
+# session and the whole process GROUP is signalled.
 DRIVER_CMD = [
     "ros2", "run", "dynamixel_interface", "dynamixel_node", "--ros-args",
     "-p", "baudrate:=1000000",
@@ -91,6 +97,50 @@ def pump(stream, tag, q):
         print(f"[{tag}] {line}", flush=True)
         q.put((tag, line))
     q.put((tag, None))
+
+
+def port_holders(dev=SERIAL_PORT):
+    """PIDs with `dev` open, read straight from /proc.
+
+    pyserial's `exclusive=True` is an advisory flock, and the C++ driver opens
+    the port without taking one -- so an exclusive open SUCCEEDS while the
+    driver still has it, and the first real read then fails with a bare
+    "device reports readiness to read but returned no data". /proc is the only
+    check that actually answers the question.
+    """
+    import glob as _glob
+    holders = set()
+    for fd in _glob.glob("/proc/[0-9]*/fd/*"):
+        try:
+            if os.readlink(fd) == dev:
+                holders.add(int(fd.split("/")[2]))
+        except OSError:
+            continue
+    return sorted(holders)
+
+
+def describe(pid):
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as fh:
+            cmd = fh.read().replace(b"\x00", b" ").decode(errors="replace").strip()
+        return f"{pid} ({cmd[:60]})"
+    except OSError:
+        return str(pid)
+
+
+def wait_for_port_free(dev=SERIAL_PORT, timeout=15.0):
+    """Block until nothing holds the bus. Waiting on the driver's exit is not
+    enough -- `ros2 run` execs the node as a child, so signalling the wrapper
+    can leave the node orphaned and still holding the port."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        held = [p for p in port_holders(dev) if p != os.getpid()]
+        if not held:
+            return
+        time.sleep(0.3)
+    held = [p for p in port_holders(dev) if p != os.getpid()]
+    raise SweepError(f"{dev} is still held after {timeout:.0f} s by "
+                     f"{', '.join(describe(p) for p in held)} -- kill it before retrying")
 
 
 def wait_for(q, needle, timeout, what):
@@ -187,7 +237,8 @@ class Sweep:
     def start_driver(self):
         print("[sweep] starting dynamixel_node (torque mode)", flush=True)
         self.driver = subprocess.Popen(DRIVER_CMD, stdout=subprocess.DEVNULL,
-                                       stderr=subprocess.DEVNULL)
+                                       stderr=subprocess.DEVNULL,
+                                       start_new_session=True)   # own process group
         self.pub.forget_driver()
         self.pub.wait_for_driver(self.a.driver_timeout)
         print("[sweep] driver up, /joint_positions flowing", flush=True)
@@ -197,14 +248,24 @@ class Sweep:
             self.driver = None
             return
         print("[sweep] stopping dynamixel_node to free the bus", flush=True)
-        self.driver.terminate()
         try:
-            self.driver.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            self.driver.kill()
-            self.driver.wait(timeout=5)
+            pgid = os.getpgid(self.driver.pid)
+        except ProcessLookupError:
+            pgid = None
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            if pgid is None:
+                break
+            try:
+                os.killpg(pgid, sig)          # the wrapper AND the node it execs
+            except ProcessLookupError:
+                break
+            try:
+                self.driver.wait(timeout=10)
+                break
+            except subprocess.TimeoutExpired:
+                continue
         self.driver = None
-        time.sleep(self.a.bus_settle)      # let the port close before reopening
+        wait_for_port_free(timeout=self.a.bus_settle + 15.0)
 
     def go_home(self):
         """Position control, slowly, back to HOME_POSITION -- verified."""
@@ -318,12 +379,18 @@ class Sweep:
                 self.go_home()
             print(f"\n[sweep] DONE. recorded: {', '.join(self.recorded)}", flush=True)
             return 0
-        except SweepError as exc:
-            print(f"\n[sweep] ABORTED -- {exc}", flush=True)
+        except Exception as exc:
+            print(f"\n[sweep] ABORTED -- {type(exc).__name__}: {exc}", flush=True)
             print(f"[sweep] recorded before the failure: "
                   f"{', '.join(self.recorded) or '(none)'}", flush=True)
-            print("[sweep] the driver is not being restarted; check the arm "
-                  "before running anything else.", flush=True)
+            held = [p for p in port_holders() if p != os.getpid()]
+            print("[sweep] the arm is still energised: the driver holds the last "
+                  "commanded torque, and killing it does not zero the current.\n"
+                  "        recover with, from the repo root:\n"
+                  + (f"          kill {' '.join(str(p) for p in held)}\n" if held else "")
+                  + "          python3 VMC/MultiGoHome.py\n"
+                  "        then re-run with --only for the conditions still missing.",
+                  flush=True)
             return 1
         except KeyboardInterrupt:
             print("\n[sweep] interrupted", flush=True)
@@ -347,7 +414,10 @@ def parse_args():
     p.add_argument("--dry-run", action="store_true",
                    help="print the plan and the timings, touch no hardware")
 
-    p.add_argument("--target-x", type=float, default=-0.30, help="[m] (default: -0.30)")
+    # -0.40 is ~12 cm beyond the arm's 43.5 cm reach, so it does not move the tip
+    # (already at full extension at -0.30) -- it sets how hard the tip pulls once
+    # it gets there: 5.94 N against 2.94 N, well inside TAU_LIMIT either way.
+    p.add_argument("--target-x", type=float, default=-0.40, help="[m] (default: -0.40)")
     p.add_argument("--target-y", type=float, default=0.0,   help="[m] (default: 0)")
 
     p.add_argument("--settle-gauss",  type=float, default=15.0,
@@ -368,7 +438,8 @@ def parse_args():
     p.add_argument("--home-timeout",    type=float, default=180.0)
     p.add_argument("--save-timeout",    type=float, default=180.0)
     p.add_argument("--bus-settle",      type=float, default=2.0,
-                   help="[s] after killing the driver, before reopening the port")
+                   help="[s] grace after killing the driver; the port is then "
+                        "polled for up to 15 s more until it is actually free")
     return p.parse_args()
 
 

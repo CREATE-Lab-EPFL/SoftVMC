@@ -28,6 +28,11 @@ axis, **not height** (see [Gravity and axes](#gravity-and-axes)).
 N·m, `PRETENSION_WEIGHTS = 0.010` N·m/rad. All from the config — the sweep runs
 no GUI, so nothing is adjustable mid-run.
 
+**The target is `--target-x/y`, default `(-0.40, 0)`** — and it is deliberately
+**beyond the arm's reach**: 55.2 cm from the base against a 43.5 cm straight
+length. The tip stops at full extension either way, so the target sets how hard
+it pulls there (5.94 N, against 2.94 N at `-0.30`), not where it ends up.
+
 **Set `GAUSS_GOAL_XY` to where the obstacle actually is.** The `(-0.05, 0.0)`
 default sits 5 cm off the arm's rest axis with zero y offset, which leaves the
 direction the arm escapes in barely determined.
@@ -55,13 +60,20 @@ for is refused in a second, before anything is built:
         this config knows: no_gauss (0), weak (500), medium (1000), strong (2000)
 ```
 
-⚠ **These strengths sweep how far the arm is pushed off, not how hard it
-presses.** At the rest pose the Gaussian torque is 0.418 N·m per 1000 N/m against
-a tip torque of 0.346 N·m, so the field outweighs the reach at ≈ 830 N/m and the
-arm settles 23 cm short with **zero** contact force. A press is the tip spring
-working on its overshoot — 0.15–1.5 N, needing strengths of order 12–124. So
-check the shear is still above zero at `strong`; if not, the sweep shows on/off
-rather than modulation, and the fix is a larger overshoot or a smaller `SIGMA`.
+**Where the crossover sits.** At the pose the arm actually reaches (measured from
+`no_gauss`), the Gaussian is worth 0.248 N·m per 1000 N/m of strength, against a
+tip torque of 0.174 N·m at `--target-x -0.40`. So the field overtakes the reach
+at **≈ 700 N/m**, which puts the crossover between `weak` and `medium`: one
+condition where the tip wins, two where the field does.
+
+This is why the target matters. At `-0.30` the tip torque is only 0.087 N·m and
+the crossover falls to ≈ 350 — below every configured strength, so all three
+conditions sit on the same side and the sweep shows no transition.
+
+⚠ These strengths still sweep how far the arm is pushed off, not how hard it
+presses. Check the shear is above zero at `strong`; if it is not, the sweep shows
+on/off rather than modulation, and the fix is a target further out (more pull at
+full extension) or a smaller `SIGMA`.
 
 ## Running
 
@@ -104,14 +116,14 @@ change operating mode while running and holds `/dev/ttyUSB0` exclusively.
 | | | driver up (torque mode), torque node up with `--run <condition>` |
 | | | publish `/VC_ref_pos` from the script; tip goal at the rest tip `[0, 0, 0.435]`, so the linear spring pulls **nothing** |
 | settle | `--settle-gauss` 15 s | the Gaussians ramp in and push the arm off, alone |
-| move | `--ramp-speed` 2 cm/s | tip goal walks to `[-0.30, 0, 0.38]` — 30.5 cm, 15 s |
+| move | `--ramp-speed` 2 cm/s | tip goal walks to `--target-x/y` at `TIP_GOAL_Z` — 40.4 cm, 20 s |
 | settle | `--settle-arrive` 15 s | the arm follows and stops |
 | window | `--window` 20 s | between the two Ctrl+Cs — **the measurement window** |
 | | | writes `outputs/<folder>/<condition>.{npz,png}`, kills the driver |
 | home | `--home-velocity` 10 | extended position mode, ~2.3 rpm, back to `HOME_POSITION`, **verified tick for tick** |
 | settle | `--settle-home` 5 s | hand back in current mode, next condition |
 
-≈118 s per condition: **7.8 min** for the button's four, **5.9 min** for the
+≈123 s per condition: **8.2 min** for the button's four, **6.1 min** for the
 person's three. Homing is the longest leg (~30 s) — the arm ends a run about 1.15
 turns wound. Every condition therefore starts from the same pose and drives to
 the same target, which is the point; dragged by hand, `weak` and `medium` landed

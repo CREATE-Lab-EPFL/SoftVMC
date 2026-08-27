@@ -183,7 +183,7 @@ void loop() {
   Serial.print(zeroed, 4);   Serial.print(",");
   Serial.println(t.pressed);
 
-  if (zeroed > 0.05){
+  if (zeroed > 0.07){
     digitalWrite(LED_PIN, HIGH);
   }
   else{
