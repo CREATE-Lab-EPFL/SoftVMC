@@ -15,6 +15,9 @@ Usage:
 """
 
 import argparse
+import glob
+import os
+import signal
 import sys
 import time
 from dynamixel_sdk import PortHandler, PacketHandler, COMM_SUCCESS
@@ -87,13 +90,15 @@ def read_positions_abs(ph, pk):
             positions[mid] = None
     return positions
 
-def set_extended_position_mode(ph, pk):
+def set_extended_position_mode(ph, pk, velocity=None):
+    velocity = PROFILE_VELOCITY if velocity is None else int(velocity)
     for mid in MOTOR_IDS:
         pk.write1ByteTxRx(ph, mid, ADDR_TORQUE_ENABLE, 0)
         pk.write1ByteTxRx(ph, mid, ADDR_OPERATING_MODE, MODE_EXT_POSITION)
-        pk.write4ByteTxRx(ph, mid, ADDR_PROFILE_VELOCITY, PROFILE_VELOCITY)
+        pk.write4ByteTxRx(ph, mid, ADDR_PROFILE_VELOCITY, velocity)
         pk.write1ByteTxRx(ph, mid, ADDR_TORQUE_ENABLE, 1)
-    print("[home] motors in extended position mode")
+    print(f"[home] motors in extended position mode, PROFILE_VELOCITY={velocity} "
+          f"(~{velocity * 0.229:.1f} rpm)")
 
 
 def send_home_abs(ph, pk):
@@ -206,53 +211,150 @@ def set_current_mode_zero(ph, pk):
     print("[home] handed back in current mode, zero current")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Bus ownership
+#
+# Homing talks to the servos over the raw serial port, and dynamixel_node holds
+# that port for as long as it runs -- so whoever wants to home has to take the
+# bus off it first. Kept here rather than in a caller because getting it wrong
+# fails as a bare "device reports readiness to read but returned no data",
+# minutes into a run.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def port_holders(dev=DEVICE_PORT):
+    """PIDs with `dev` open, read straight from /proc.
+
+    pyserial's `exclusive=True` is an advisory flock, and the C++ driver opens
+    the port without taking one -- so an exclusive open SUCCEEDS while the
+    driver still has it. /proc is the only check that actually answers the
+    question.
+    """
+    holders = set()
+    for fd in glob.glob("/proc/[0-9]*/fd/*"):
+        try:
+            if os.readlink(fd) == dev:
+                holders.add(int(fd.split("/")[2]))
+        except OSError:
+            continue
+    return sorted(h for h in holders if h != os.getpid())
+
+
+def describe(pid):
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as fh:
+            cmd = fh.read().replace(b"\x00", b" ").decode(errors="replace").strip()
+        return f"{pid} ({cmd[:60]})"
+    except OSError:
+        return str(pid)
+
+
+def release_port(dev=DEVICE_PORT, timeout=12.0, log=print):
+    """Take the bus off whoever holds it, and return only once it is free.
+
+    `ros2 run` execs the node as a child, so signalling the wrapper can leave
+    the node orphaned and still holding the port -- the wrapper exiting proves
+    nothing. The only success condition is the bus actually being free, so
+    every signal is judged by re-reading /proc, and the whole process group is
+    signalled rather than the pid.
+    """
+    held = port_holders(dev)
+    if not held:
+        return
+    log(f"[home] {dev} is held by {', '.join(describe(p) for p in held)} -- releasing it")
+    for sig, grace in ((signal.SIGTERM, timeout), (signal.SIGKILL, 10.0)):
+        for pid in port_holders(dev):
+            try:
+                os.killpg(os.getpgid(pid), sig)
+            except (ProcessLookupError, PermissionError):
+                try:
+                    os.kill(pid, sig)
+                except (ProcessLookupError, PermissionError):
+                    pass
+        deadline = time.time() + grace
+        while time.time() < deadline:
+            if not port_holders(dev):
+                log(f"[home] {dev} free")
+                return
+            time.sleep(0.3)
+        log(f"[home] still held after {sig.name}, escalating")
+    still = port_holders(dev)
+    raise RuntimeError(f"{dev} is still held by "
+                       f"{', '.join(describe(p) for p in still)} -- kill it by hand")
+
+
+def home_sequence(velocity=PROFILE_VELOCITY, timeout=60.0, hand_back=True, log=print):
+    """Extended position control, slowly, back to HOME_POSITION -- verified.
+
+    Raises rather than returning False when the arm is not where it was told to
+    go: in current mode the arm goes limp and whatever pose it is actually in
+    becomes the model's zero the moment dynamixel_node starts, so a home that
+    is a turn out must never be handed over. Left in position mode the motors
+    keep holding.
+    """
+    ph, pk = init_bus()
+    try:
+        set_extended_position_mode(ph, pk, velocity)
+        send_home_abs(ph, pk)
+        log("[home] moving...")
+        # Judge by arrival, not by the clock: a wound motor at 9 rpm needs far
+        # longer than the old 15 s default.
+        reached = wait_until_home(ph, pk, timeout=timeout)
+        if not report_home(ph, pk):
+            raise RuntimeError("the arm is not at the commanded home (see the table above)")
+        log(f"[home] every motor within {POSITION_THRESHOLD} ticks of the commanded value"
+            + ("" if reached else "  (arrived after the wait timed out)"))
+        if hand_back:
+            # Hand back in CURRENT mode. The driver rewrites the operating mode
+            # at startup without disabling torque first, and mode is an EEPROM
+            # register, so that write is rejected unless the motors are already
+            # in the mode it wants.
+            set_current_mode_zero(ph, pk)
+    finally:
+        ph.closePort()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--read", action="store_true",
                         help="Read and print current absolute positions (ticks) and exit.")
-    parser.add_argument("--timeout", type=float, default=15.0)
+    parser.add_argument("--timeout", type=float, default=60.0,
+                        help="seconds to wait for the arm to arrive (default 60)")
+    parser.add_argument("--velocity", type=int, default=PROFILE_VELOCITY,
+                        metavar="V",
+                        help=f"PROFILE_VELOCITY, 0.229 rpm per unit "
+                             f"(default {PROFILE_VELOCITY}, ~{PROFILE_VELOCITY * 0.229:.1f} rpm)")
     parser.add_argument("--no-torque-mode", action="store_true",
                         help="Do not switch back to current mode at the end.")
     args = parser.parse_args()
 
-    ph, pk = init_bus()
-    try:
-        print(f"Opening {DEVICE_PORT} @ {BAUDRATE}, protocol {PROTOCOL}")
-        if args.read:
+    print(f"Opening {DEVICE_PORT} @ {BAUDRATE}, protocol {PROTOCOL}")
+    if args.read:
+        ph, pk = init_bus()
+        try:
             pos = read_positions_abs(ph, pk)
             print("Current absolute positions (ticks):")
             for mid in MOTOR_IDS:
                 print(f" {mid}: {pos[mid] if pos[mid] is not None else 'READ ERROR'},")
             print("\nCopy these into HOME_POSITION for your desired home pose.")
-            return
+        finally:
+            ph.closePort()
+        return
 
-        set_extended_position_mode(ph, pk)
-        send_home_abs(ph, pk)
-        print("[home] moving...")
-
-        reached = wait_until_home(ph, pk, timeout=args.timeout)
-        if not report_home(ph, pk):
-            # Do NOT hand over. In current mode the arm goes limp, and whatever
-            # pose it is actually in becomes the zero reference the moment
-            # dynamixel_node starts -- so a home that is a turn out silently
-            # becomes the model's "straight arm". Left in position mode the
-            # motors keep holding, and start_arm.sh (set -e) stops here.
-            print("\n[FAIL] not at the commanded home. Motors left holding in "
-                  "extended position mode -- NOT handed over to current mode.\n"
-                  "       A delta that is a multiple of 4096 means the turn count was "
-                  "lost since HOME_POSITION was captured:\n"
-                  "       power-cycle, re-place the arm by hand, and re-capture with --read.")
-            sys.exit(1)
-
-        print(f"\nHome reached: every motor within {POSITION_THRESHOLD} ticks of "
-              f"the commanded value."
-              + ("" if reached else "  (arrived after the wait timed out)"))
-
-        if not args.no_torque_mode:
-            set_current_mode_zero(ph, pk)
-
-    finally:
-        ph.closePort()
+    try:
+        home_sequence(velocity=args.velocity, timeout=args.timeout,
+                      hand_back=not args.no_torque_mode)
+    except RuntimeError as exc:
+        # Do NOT hand over. In current mode the arm goes limp, and whatever
+        # pose it is actually in becomes the zero reference the moment
+        # dynamixel_node starts -- so a home that is a turn out silently
+        # becomes the model's "straight arm". Left in position mode the motors
+        # keep holding, and start_arm.sh (set -e) stops here.
+        print(f"\n[FAIL] {exc}. Motors left holding in extended position mode "
+              "-- NOT handed over to current mode.\n"
+              "       A delta that is a multiple of 4096 means the turn count was "
+              "lost since HOME_POSITION was captured:\n"
+              "       power-cycle, re-place the arm by hand, and re-capture with --read.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
