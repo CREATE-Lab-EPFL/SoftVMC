@@ -128,35 +128,46 @@ def run_name_from_argv(argv=None):
     return None
 
 
-def condition_strength(cfg, run_name):
+def component_names(cfg):
+    """Each virtual component's name, with the GUI's VC<N> fallback."""
+    return [c.name or f"VC{i + 1}"
+            for i, c in enumerate(cfg.VIRTUAL_COMPONENTS)]
+
+
+def ramp_spec(cfg):
     """
-    The spring strength a run name stands for, from the config's
-    GAUSS_CONDITIONS, or None when this config names no conditions (or the run
-    is not one of them) -- in which case nothing is overridden.
+    Springs brought up from 0 over the first seconds of a run:
+    ``(names, target strength, seconds)``.
+
+    A repulsive field switched on at full strength shoves the arm off the
+    obstacle within a single tick, so the config names which components are
+    eased in (RAMP_COMPONENTS) and over how long (RAMP_S). The target is
+    simply the strength the config already gives them: there is one number for
+    the whole run, not one per run name.
+
+    Opt-in and inert by default -- a config that names no RAMP_COMPONENTS gets
+    ``((), None, 0.0)``, and every strength stays exactly as it was set.
     """
-    conds = getattr(cfg, "GAUSS_CONDITIONS", None)
-    if not conds or run_name is None:
-        return None
-    v = conds.get(run_name)
-    if v is None:
-        v = conds.get(strip_repeat(run_name))
-    return None if v is None else float(v)
+    names = tuple(getattr(cfg, "RAMP_COMPONENTS", ()))
+    secs  = float(getattr(cfg, "RAMP_S", 0.0))
+    if not names or secs <= 0.0:
+        return (), None, 0.0
+    targets = {float(v) for n, v in zip(component_names(cfg), cfg.SPRING_PARAM_INIT)
+               if n in names}
+    if len(targets) != 1:
+        raise ValueError(
+            f"RAMP_COMPONENTS {names} are ramped together to one strength, "
+            f"but the config gives them {sorted(targets)}")
+    return names, targets.pop(), secs
 
 
 def strip_repeat(run_name):
     """`weak_r3` -> `weak`.
 
-    A repeated sweep records the same condition several times, and each
-    recording needs its own name so it does not overwrite the last. The repeat
-    index lives in a `_r<N>` suffix, so the condition it belongs to is still
-    recoverable -- by the torque node when it looks the strength up, and by the
-    analysis when it groups the repeats back together. Names without the suffix
-    are returned unchanged, so nothing else is affected.
+    Runs recorded by the old strength sweep are named `<condition>_r<N>`, so
+    the condition they belong to is still recoverable when the analysis groups
+    them back together. Names without the suffix -- everything recorded from
+    the GUI -- are returned unchanged.
     """
     import re as _re
     return _re.sub(r"_r\d+$", "", run_name or "")
-
-
-def condition_targets(cfg):
-    """Component names that a condition's strength applies to."""
-    return tuple(getattr(cfg, "CONDITION_APPLIES_TO", ()))
