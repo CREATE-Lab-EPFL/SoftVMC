@@ -68,6 +68,7 @@ PLOT_VIRTUAL_FORCES = getattr(_cfg, "PLOT_VIRTUAL_FORCES", True)
 #   LOCK_PARAMS   bool               True = k and c are the config's, read-only
 #   GAUSS_TOGGLE  bool               True = offer a tickbox that switches
 #                                    RAMP_COMPONENTS between their strength and 0
+#   DRAG_SPEED_MAX  float            top of the drag-speed slider [cm/s]
 #   HOME_BUTTON   bool               True = offer "Home & Quit" (see below)
 #   PUBLISH_ON_START  bool           False = place the goals before the arm moves
 _NAMES   = [c.name or f"VC{i+1}" for i, c in enumerate(VIRTUAL_COMPONENTS)]
@@ -113,6 +114,11 @@ RAMP_S       = float(getattr(_cfg, "RAMP_S", 5.0)) or 5.0
 HOME_BUTTON   = bool(getattr(_cfg, "HOME_BUTTON", False))
 HOME_VELOCITY = int(getattr(_cfg, "HOME_VELOCITY", 40))   # x0.229 rpm
 HOME_TIMEOUT  = float(getattr(_cfg, "HOME_TIMEOUT", 120.0))
+
+# Top of the drag-speed slider: how fast a dragged goal is allowed to chase the
+# mouse. The default is what every folder had; a config that needs to cover a
+# lot of ground raises it.
+DRAG_SPEED_MAX = float(getattr(_cfg, "DRAG_SPEED_MAX", 10.0))
 
 from FK_Multi import FK_Multi
 
@@ -245,6 +251,10 @@ class RobotGUI:
         self._gauss_on     = tk.BooleanVar(value=True)
         self._gauss_frac   = 1.0
         self._gauss_goal   = 1.0
+        # The strength to come back up to. The tickbox owns WHETHER the field is
+        # on, the entries own HOW STRONG it is when it is -- so this follows
+        # what was last applied rather than pinning the config's value.
+        self._gauss_level  = {i: SPRING_PARAM_INIT[i] for i in _RAMP_IDX}
 
         # ── Logging for torque / force plots ─────────────────────────────────
         self._t0          = time.perf_counter()
@@ -342,7 +352,7 @@ class RobotGUI:
 
         if GAUSS_TOGGLE:
             self._gauss_chk = ttk.Checkbutton(
-                f, text=f"Gaussians active  ({_STRENGTH:g} N/m, {RAMP_S:.0f} s in and out)",
+                f, text=f"Gaussians active  (walked over {RAMP_S:.0f} s, in and out)",
                 variable=self._gauss_on, command=self._gauss_toggled)
             self._gauss_chk.grid(row=N_VC+1, column=0, columnspan=4, pady=(6, 0),
                                  sticky="w", padx=6)
@@ -362,7 +372,9 @@ class RobotGUI:
     def _gauss_toggled(self):
         """Tickbox moved: aim the walk at the new end, the loop does the rest."""
         self._gauss_goal = 1.0 if self._gauss_on.get() else 0.0
-        print(f"[gui] Gaussians -> {_STRENGTH * self._gauss_goal:g} N/m "
+        levels = ", ".join(f"{self._gauss_level[i] * self._gauss_goal:g}"
+                           for i in _RAMP_IDX)
+        print(f"[gui] {', '.join(_RAMP_NAMES)} -> {levels} N/m "
               f"over {RAMP_S:.0f} s", flush=True)
 
     def _step_gauss(self):
@@ -375,7 +387,7 @@ class RobotGUI:
         else:
             self._gauss_frac = max(self._gauss_goal, self._gauss_frac - step)
         for i in _RAMP_IDX:
-            self._k_vals[i] = _STRENGTH * self._gauss_frac
+            self._k_vals[i] = self._gauss_level[i] * self._gauss_frac
             self._k_vars[i].set(f"{self._k_vals[i]:.2f}")
         self.node.publish_params(self._k_vals, self._c_vals)
 
@@ -383,11 +395,27 @@ class RobotGUI:
         try:
             k = [float(v.get()) for v in self._k_vars]
             c = [float(v.get()) for v in self._c_vars]
-            self._k_vals, self._c_vals = k, c
-            self.node.publish_params(k, c)
-            self._param_status.config(text="✓ Published", foreground="green")
         except ValueError as exc:
             self._param_status.config(text=f"✗ {exc}", foreground="red")
+            return
+
+        note = ""
+        if GAUSS_TOGGLE:
+            # A strength typed while the field is switched off is taken as what
+            # to come back up to, not as something to apply behind the
+            # tickbox's back -- otherwise Apply would silently switch it on.
+            for i in _RAMP_IDX:
+                if k[i] > 0.0:
+                    self._gauss_level[i] = k[i]
+                k[i] = self._gauss_level[i] * self._gauss_frac
+            if self._gauss_frac < 1.0:
+                note = " (Gaussians held off -- tick the box to bring them up)"
+                for i in _RAMP_IDX:
+                    self._k_vars[i].set(f"{k[i]:.2f}")
+
+        self._k_vals, self._c_vals = k, c
+        self.node.publish_params(k, c)
+        self._param_status.config(text="✓ Published" + note, foreground="green")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Cell 2 — Position Control
@@ -412,9 +440,9 @@ class RobotGUI:
         # ── Drag speed cap ────────────────────────────────────────────────────
         ttk.Separator(top, orient="vertical").pack(side="left", fill="y", padx=8)
         ttk.Label(top, text="Drag speed:").pack(side="left")
-        ttk.Scale(top, from_=0.5, to=10.0, orient="horizontal",
+        ttk.Scale(top, from_=0.5, to=DRAG_SPEED_MAX, orient="horizontal",
                   variable=self._goal_speed, length=150).pack(side="left", padx=4)
-        self._speed_lbl = ttk.Label(top, text="5.0 cm/s", width=9)
+        self._speed_lbl = ttk.Label(top, text="5.0 cm/s", width=11)
         self._speed_lbl.pack(side="left")
         self._goal_speed.trace_add(
             "write",

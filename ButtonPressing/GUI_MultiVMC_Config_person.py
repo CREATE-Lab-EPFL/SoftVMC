@@ -1,24 +1,28 @@
 """
 Reaching for the button with a person in the way -- driven live from the GUI.
 
-    python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run <name>   # terminal 2
-    python3 ../VMC/GUI_MultiVMC.py        --config _person                # terminal 3
+    python3 ../VMC/GUI_MultiVMC_Torque.py --config _person   # terminal 2
+    python3 ../VMC/GUI_MultiVMC.py        --config _person   # terminal 3
 
-One run is one continuous recording of a session at the GUI. There is no
-strength sweep and no condition: both Gaussians are held at K_GAUSS = 500 N/m
-throughout, and the only things that move are the two goals, dragged by hand:
+One run is one continuous recording of a session at the GUI, and there is only
+one of them: it needs no --run, and lands in
+outputs/person_avoiding/person_avoiding.{npz,png}.
 
   lin_tip     (s=1.0)  linear spring -- drag its goal onto the button
   gauss_seg1  (s=1/3)  repulsive Gaussian, centre on the person's arm
   gauss_seg2  (s=2/3)  the same, further up the body -- SHARES seg1's centre
 
-x and y of those two points are the whole interface. Every z is locked, and
-LOCK_PARAMS makes the stiffnesses read-only, so what the log holds is exactly
-what was done and nothing else could have changed.
+Live from the GUI: x and y of those two points, the tip stiffness, the two
+Gaussian strengths, and a tickbox that switches the Gaussians off and back on.
+Every z is locked, and both Gaussians share one centre. Everything the hand did
+is in the log -- the goals in `goal`, the stiffnesses in `k_params` -- so a run
+reads back as what was actually done, not as what the config said.
 
-Every value here is identical to GUI_MultiVMC_Config_button.py -- same target,
-same stiffnesses, same torque limit -- so the two differ only in what the
-obstacle is, and in that this one has no load cell. Keep them in step.
+The elements, the geometry and the controller are GUI_MultiVMC_Config_button.py's,
+unchanged, so the two experiments are comparable. What differs is the protocol:
+the button sweeps four named Gaussian strengths unattended (run_sweep.py) and
+records the load cell; this one starts at a single strength, is driven by hand,
+and has no load cell.
 """
 
 import sys, os
@@ -51,20 +55,20 @@ VIRTUAL_COMPONENTS = [
                      s_param=2.0 / 3.0, name="gauss_seg2"),
 ]
 
-# ── Fixed strengths ──────────────────────────────────────────────────────────
-# There is no strength sweep and no per-run condition: K_GAUSS is the field,
-# every run. LOCK_PARAMS makes the GUI show the three k and c values without
-# letting them be edited, and stops it publishing /VC_Param at all -- so the
-# torque node keeps exactly what this file gave it, and a run cannot silently
-# become a different experiment halfway through.
-LOCK_PARAMS = True
+# ── Strengths ────────────────────────────────────────────────────────────────
+# There is no strength sweep and no per-run condition: these are where the run
+# STARTS, and the GUI can move them from there -- K_REACH and both K_GAUSS are
+# editable in cell (1) and take effect on "Apply Parameters". k_params records
+# what was applied tick by tick, so the log says which value was live when.
+LOCK_PARAMS = False
 
-# One exception to LOCK_PARAMS: a "Gaussians active" tickbox in the GUI, so the
-# same reach can be shown with the field and without it, in one recording and
-# with nothing else changed. Both Gaussians follow it together, and either way
-# the strength is walked over RAMP_S rather than stepped -- switching 500 N/m
-# on in a single tick is exactly what the start-up ramp exists to avoid.
-# k_params records the walk, so the analysis can see which stretch was which.
+# A "Gaussians active" tickbox in the GUI, so the same reach can be shown with
+# the field and without it, in one recording and with nothing else changed. The
+# tickbox owns WHETHER the field is on, the entries own HOW STRONG it is when it
+# is -- so it comes back up to whatever was last applied, not to K_GAUSS. Either
+# way the strength is walked over RAMP_S rather than stepped: switching a placed
+# 500 N/m field on in a single tick is exactly what the start-up ramp exists to
+# avoid, and switching it off that way drops the arm.
 GAUSS_TOGGLE = True
 
 # K_GAUSS cannot be switched on at once: the obstacle centre is already placed,
@@ -117,8 +121,8 @@ PLOT_FORCE     = False   # no load cell in this variant
 #   - lin_tip's x/y      -- the target, dragged onto the button
 #   - the Gaussians' x/y -- the obstacle, shared by both (GOAL_LINK), so
 #                           dragging either moves both
-# Everything else is held: all three z are locked (z is the reach out along the
-# arm's axis, NOT height -- gravity is -y), and the stiffnesses are LOCK_PARAMS.
+# The z of all three is held (z is the reach out along the arm's axis, NOT
+# height -- gravity is -y), so only x and y are ever dragged.
 #   - the button's distance along the arm's axis is known, so the tip goal's z
 #     is held at it
 #   - the two Gaussians share ONE goal, held at the midpoint between the tips
@@ -159,6 +163,8 @@ HOME_VELOCITY = 40      # x0.229 rpm -> ~9.2 rpm
 HOME_TIMEOUT  = 120.0   # [s] the arm ends a run about 1.15 turns wound
 
 # ── GUI framing ──────────────────────────────────────────────────────────────
+DRAG_SPEED_MAX = 100.0     # [cm/s] top of the drag-speed slider -- the goal
+                           #        crosses the whole range in a second at it
 XY_RANGE = (-0.70, 0.70)   # [m] the x-y plot's extent, and the clamp on a
                            #     dragged goal -- so it has to reach past the
                            #     target, which sits beyond the arm on purpose

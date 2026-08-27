@@ -134,6 +134,8 @@ GOAL_LINK   = [GAUSS_COMPONENTS]
 PUBLISH_ON_START = True
 
 # ── GUI framing ──────────────────────────────────────────────────────────────
+DRAG_SPEED_MAX = 100.0     # [cm/s] top of the drag-speed slider -- the goal
+                           #        crosses the whole range in a second at it
 XY_RANGE = (-0.70, 0.70)   # [m] the x-y plot's extent, and the clamp on a
                            #     dragged goal -- so it has to reach past the
                            #     target, which sits beyond the arm on purpose
