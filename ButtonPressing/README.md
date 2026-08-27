@@ -116,12 +116,12 @@ change operating mode while running and holds `/dev/ttyUSB0` exclusively.
 | settle | `--settle-arrive` 15 s | the arm follows and stops |
 | window | `--window` 20 s | between the two Ctrl+Cs — **the measurement window** |
 | | | writes `outputs/<folder>/<condition>.{npz,png}`, kills the driver |
-| home | `--home-velocity` 10 | extended position mode, ~2.3 rpm, back to `HOME_POSITION`, **verified tick for tick** |
+| home | `--home-velocity` 40 | extended position mode, ~9.2 rpm, back to `HOME_POSITION`, **verified tick for tick** |
 | settle | `--settle-home` 5 s | hand back in current mode, next condition |
 
-≈123 s per condition: **8.2 min** for the button's four, **6.1 min** for the
-person's three. Homing is the longest leg (~30 s) — the arm ends a run about 1.15
-turns wound. Every condition therefore starts from the same pose and drives to
+≈96 s per condition: **6.7 min** for the button's four, **5.1 min** for the
+person's three. The arm ends a run about 1.15 turns wound, which takes ~8 s to
+undo at 9.2 rpm. Every condition therefore starts from the same pose and drives to
 the same target, which is the point; dragged by hand, `weak` and `medium` landed
 7.4 cm apart in x and 5.4 cm apart in y.
 

@@ -458,7 +458,7 @@ def parse_args():
     # is 1.73 N and 0.015 N.m against a 0.25 limit -- and it puts the
     # Gaussian/reach crossover at strength ~78, below every configured
     # condition, so the field dominates throughout the sweep.
-    p.add_argument("--target-x", type=float, default=-0.50, help="[m] (default: -0.30)")
+    p.add_argument("--target-x", type=float, default=-0.60, help="[m] (default: -0.30)")
     p.add_argument("--target-y", type=float, default=0.0,   help="[m] (default: 0)")
 
     p.add_argument("--settle-gauss",  type=float, default=15.0,
@@ -469,8 +469,12 @@ def parse_args():
                    help="[s] after the goal arrives, before the mark (default: 15)")
     p.add_argument("--window",        type=float, default=20.0,
                    help="[s] measurement window (default: 20)")
-    p.add_argument("--home-velocity", type=int,   default=10,
-                   help="PROFILE_VELOCITY for homing, 0.229 rpm each (default: 10)")
+    # MultiGoHome's own default. The homing leg is not part of any measurement,
+    # so there is nothing to gain from crawling it: 40 is ~9.2 rpm, which is what
+    # start_arm.sh has always homed at.
+    p.add_argument("--home-velocity", type=int,   default=40,
+                   help="PROFILE_VELOCITY for homing, 0.229 rpm each (default: 40, "
+                        "~9.2 rpm -- the same as MultiGoHome.py on its own)")
     p.add_argument("--settle-home",   type=float, default=5.0,
                    help="[s] after homing (default: 5)")
 
