@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-The whole condition sweep, unattended, with no GUI.
+The whole condition sweep, unattended, with no GUI. This is the `_button`
+protocol -- `_person` is driven from the GUI instead and has no conditions to
+sweep (see the README).
 
-    python3 run_sweep.py                        # _button: no_gauss, weak, medium, strong
-    python3 run_sweep.py --config _person       # _person: no_gauss, medium, strong
+    python3 run_sweep.py                        # no_gauss, weak, medium, strong
     python3 run_sweep.py --only weak strong
     python3 run_sweep.py --dry-run              # print the plan and the timings, touch nothing
 
@@ -453,16 +454,16 @@ class Sweep:
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--config", default="_button", help="config variant (default: _button)")
+    p.add_argument("--config", default="_button",
+                   help="config variant (default: _button). It has to be one that "
+                        "sweeps named conditions -- _person does not.")
     p.add_argument("--only", nargs="+", metavar="RUN",
                    help="record only these conditions, in this order")
     # Each repeat is a separate recording named <condition>_r<N>, so nothing
-    # overwrites and the analysis can group them back by condition. `_button` is
-    # the quantitative one and wants several; `_person` costs someone standing
-    # in front of a moving robot, so it stays at 1.
+    # overwrites and the analysis can group them back by condition.
     p.add_argument("--repeats", type=int, default=None, metavar="N",
                    help="record the whole cycle N times (default: the config's "
-                        "SWEEP_REPEATS -- 5 for _button, 1 for _person)")
+                        "SWEEP_REPEATS -- 5 for _button)")
     p.add_argument("--dry-run", action="store_true",
                    help="print the plan and the timings, touch no hardware")
 
@@ -508,6 +509,15 @@ def main():
 
     if a.repeats is None:
         a.repeats = int(getattr(cfg, "SWEEP_REPEATS", 1))
+
+    if not getattr(cfg, "GAUSS_CONDITIONS", None):
+        sys.exit(f"[ERROR] {cfg.__name__} sweeps no conditions -- there is nothing "
+                 "for this script to step through.\n"
+                 "        It holds one Gaussian strength for every run and is driven "
+                 "from the GUI:\n"
+                 f"          terminal 2: python3 ../VMC/GUI_MultiVMC_Torque.py "
+                 f"--config {a.config} --run <name>\n"
+                 f"          terminal 3: python3 ../VMC/GUI_MultiVMC.py --config {a.config}\n")
 
     known = list(cfg.GAUSS_CONDITIONS)
     conditions = a.only or known
