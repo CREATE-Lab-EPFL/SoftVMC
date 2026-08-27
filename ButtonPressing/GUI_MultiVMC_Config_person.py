@@ -121,7 +121,11 @@ GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,
 
 # The obstacle is pre-placed, so a run can start without dragging anything.
 # Drag either Gaussian in the GUI to move it; both follow.
-GAUSS_GOAL_XY = (-0.05, 0.0)   # [m]
+GAUSS_GOAL_XY = (-0.15, 0.0)   # [m] x is chosen so the field OPPOSES the
+                               # reach: repulsion pushes the attachment point
+                               # away from the centre, so the centre must sit
+                               # at more negative x than the body ever reaches,
+                               # or the push points at the button instead.
 GOAL_LINK   = [GAUSS_COMPONENTS]
 
 # Live from the start, like every other folder. The tip goal sits 5.5 cm below

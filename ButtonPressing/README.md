@@ -18,7 +18,7 @@ across. `GAUSS_CONDITIONS` is the one field deliberately different.
 | Component | Element | s | Goal |
 |---|---|---|---|
 | `lin_tip` | `LinearSpring(30)` | 1.0 | starts `[0, 0, 0.435]`, walked to `--target-x/y` at `TIP_GOAL_Z` |
-| `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | `GAUSS_GOAL_XY` + `GAUSS_GOAL_Z` = `[-0.05, 0, 0.2175]` |
+| `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | `GAUSS_GOAL_XY` + `GAUSS_GOAL_Z` = `[-0.15, 0, 0.2175]` |
 | `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `gauss_seg1`'s goal** |
 
 `tau = sum_i J_i^T F_i`. Both z are locked; z is the reach out along the arm's
@@ -58,14 +58,18 @@ for is refused in a second, before anything is built:
         this config knows: no_gauss (0), weak (250), medium (500), strong (1000)
 ```
 
-⚠ **Check where `GAUSS_GOAL_XY` is relative to the arm, not to its rest axis.**
-In the recorded `no_gauss`/`weak`/`medium` set the body had already curved past
-the obstacle — `gauss_seg1` at x = −4.1 cm against a centre at −5.0 cm — so
-"away from the obstacle" pointed *at* the button. The field then **assisted** the
-reach (+3.07 N along tip→target at `weak`, +6.14 N at `medium`), and shear rose
-with strength (0.31 → 0.36 → 0.60 N) while reach error fell (9.6 → 7.4 → 5.8 cm).
-Monotonic, but not avoidance. For the field to oppose the reach the centre has to
-sit at larger −x than the body passes.
+⚠ **`GAUSS_GOAL_XY` has to sit at more negative x than the body ever reaches**,
+or the repulsion points *at* the button instead of away from it. At the old
+`-0.05` it did exactly that: the body had already curved past the centre, the
+field **assisted** the reach (+3.07 N along tip→target at `weak`, +6.14 N at
+`medium`), and shear rose with strength (0.31 → 0.36 → 0.60 N) while reach error
+fell (9.6 → 7.4 → 5.8 cm) — monotonic, but not avoidance.
+
+At `-0.15`, `gauss_seg1` (measured range −5.6…+3.2 cm) is cleanly opposed.
+`gauss_seg2` ranges −16.8…+8.5 cm, so it still straddles the centre and its sign
+can reverse between runs; clearing both would need x ≲ −0.20, at which point
+`seg1` is too far away to feel anything. Check `f_comp` against the tip→target
+direction on the first run.
 
 ## Running
 
