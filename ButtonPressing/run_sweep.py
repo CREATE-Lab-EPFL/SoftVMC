@@ -200,11 +200,17 @@ class GoalPublisher(Node):
 
 
 def spin_in_background(node):
+    """Spin on a thread, and hand back the thread so it can be JOINED.
+
+    Destroying the node while the executor thread is still in spin() lets the
+    C++ side tear down under it -- "terminate called without an active
+    exception", then an abort, after the sweep had otherwise finished cleanly.
+    """
     ex = SingleThreadedExecutor()
     ex.add_node(node)
     t = threading.Thread(target=ex.spin, daemon=True)
     t.start()
-    return ex
+    return ex, t
 
 
 # ── the sweep ─────────────────────────────────────────────────────────────────
@@ -376,7 +382,7 @@ class Sweep:
     def run(self, conditions):
         rclpy.init()
         self.pub = GoalPublisher(self.goal_start)
-        ex = spin_in_background(self.pub)
+        ex, spin_thread = spin_in_background(self.pub)
         try:
             # Nothing may be on the bus before the first home. A driver left over
             # from an earlier session would otherwise surface as an opaque
@@ -403,14 +409,23 @@ class Sweep:
             print(f"\n[sweep] ABORTED -- {type(exc).__name__}: {exc}", flush=True)
             print(f"[sweep] recorded before the failure: "
                   f"{', '.join(self.recorded) or '(none)'}", flush=True)
+            # Say what is actually true where it failed, not a fixed guess: the
+            # arm is energised either way, but by whom depends on whether the
+            # driver was still up.
             held = [p for p in port_holders() if p != os.getpid()]
-            print("[sweep] the arm is still energised: the driver holds the last "
-                  "commanded torque, and killing it does not zero the current.\n"
-                  "        recover with, from the repo root:\n"
-                  + (f"          kill {' '.join(str(p) for p in held)}\n" if held else "")
-                  + "          python3 VMC/MultiGoHome.py\n"
-                  "        then re-run with --only for the conditions still missing.",
-                  flush=True)
+            if held:
+                print("[sweep] the driver is still running and holding the last "
+                      "commanded torque; killing it does not zero the current.\n"
+                      f"        kill {' '.join(str(p) for p in held)}\n"
+                      "        python3 VMC/MultiGoHome.py", flush=True)
+            else:
+                print("[sweep] the bus is free. The motors are holding wherever "
+                      "homing left them, in extended position mode.\n"
+                      "        python3 VMC/MultiGoHome.py    # re-home and hand "
+                      "back in current mode", flush=True)
+            missing = [c for c in conditions if c not in self.recorded]
+            if missing:
+                print(f"        python3 run_sweep.py --only {' '.join(missing)}", flush=True)
             return 1
         except KeyboardInterrupt:
             print("\n[sweep] interrupted", flush=True)
@@ -418,7 +433,11 @@ class Sweep:
         finally:
             self.stop_driver()
             ex.shutdown()
-            self.pub.destroy_node()
+            spin_thread.join(timeout=5.0)      # let spin() return before teardown
+            try:
+                self.pub.destroy_node()
+            except Exception:
+                pass
             if rclpy.ok():
                 rclpy.shutdown()
 
@@ -434,10 +453,12 @@ def parse_args():
     p.add_argument("--dry-run", action="store_true",
                    help="print the plan and the timings, touch no hardware")
 
-    # -0.40 is ~12 cm beyond the arm's 43.5 cm reach, so it does not move the tip
-    # (already at full extension at -0.30) -- it sets how hard the tip pulls once
-    # it gets there: 5.94 N against 2.94 N, well inside TAU_LIMIT either way.
-    p.add_argument("--target-x", type=float, default=-0.40, help="[m] (default: -0.40)")
+    # Beyond the arm's 43.5 cm reach on purpose: the tip stops at full extension
+    # either way, so this sets how HARD it pulls there, not where it ends up.
+    # At -0.50 that is 7.64 N and 0.131 N.m against a 0.25 limit, and it puts the
+    # Gaussian/reach crossover at strength ~546 -- just above `weak`, so the
+    # sweep brackets it.
+    p.add_argument("--target-x", type=float, default=-0.50, help="[m] (default: -0.50)")
     p.add_argument("--target-y", type=float, default=0.0,   help="[m] (default: 0)")
 
     p.add_argument("--settle-gauss",  type=float, default=15.0,

@@ -40,7 +40,11 @@ MODE_CURRENT_CONTROL = 0
 MODE_EXT_POSITION    = 4  # "extended position control" for XL330 series
 
 # Motion tuning
-POSITION_THRESHOLD = 10   # ticks
+# 150 ticks = 0.69 mm of tendon = about 9 mm at the tip. A tendon-loaded servo
+# settles with a steady-state error of ~55 ticks in position mode, so the old
+# 10-tick window rejected a perfectly good homing. A lost turn is 4096 ticks
+# (151 mm at the tip, 45x the residual), so this still separates the two easily.
+POSITION_THRESHOLD = 150  # ticks
 PROFILE_VELOCITY   = 40   # ~9 rpm (slow/safe)
 TICKS_PER_TURN     = 4096 # one full revolution -- a miss that is a multiple of
                           # this is a turn error, not a mechanical failure
@@ -89,7 +93,7 @@ def set_extended_position_mode(ph, pk):
         pk.write1ByteTxRx(ph, mid, ADDR_OPERATING_MODE, MODE_EXT_POSITION)
         pk.write4ByteTxRx(ph, mid, ADDR_PROFILE_VELOCITY, PROFILE_VELOCITY)
         pk.write1ByteTxRx(ph, mid, ADDR_TORQUE_ENABLE, 1)
-    print("Motors set to extended position mode")
+    print("[home] motors in extended position mode")
 
 
 def send_home_abs(ph, pk):
@@ -97,7 +101,7 @@ def send_home_abs(ph, pk):
         if mid not in HOME_POSITION:
             raise KeyError(f"Missing HOME_POSITION for motor {mid}")
         pk.write4ByteTxRx(ph, mid, ADDR_GOAL_POSITION, int(HOME_POSITION[mid]))
-    print("Home (absolute ticks) command sent")
+    print("[home] goal ticks sent")
 
 
 def wait_until_home(ph, pk, timeout=10.0):
@@ -146,12 +150,30 @@ def home_error(ph, pk):
     return out
 
 
+def tip_error_mm(deltas):
+    """What the residual ticks mean where it matters: at the tip.
+
+    Ticks are not comparable across the arm -- the same tick error on a
+    proximal motor moves the tip further than on a distal one -- so the table
+    ends with the one number that is."""
+    try:
+        import numpy as np
+        from FK_Multi import FK_Multi
+    except Exception:
+        return None
+    q = np.array([deltas.get(m, 0) for m in MOTOR_IDS], dtype=float) / 4096.0 * 2 * np.pi
+    home = np.asarray(FK_Multi(np.zeros(9), 1.0)).reshape(-1)[:3]
+    here = np.asarray(FK_Multi(q, 1.0)).reshape(-1)[:3]
+    return float(np.linalg.norm(here - home) * 1000.0)
+
+
 def report_home(ph, pk):
     """Print where every motor actually landed. True when all are within
     POSITION_THRESHOLD of the commanded ticks."""
     errs = home_error(ph, pk)
     ok = True
     print(f"\n{'motor':>6} {'commanded':>10} {'present':>10} {'delta':>8}")
+    deltas = {}
     for mid in MOTOR_IDS:
         present, delta, is_turn = errs[mid]
         if present is None:
@@ -165,7 +187,13 @@ def report_home(ph, pk):
         elif abs(delta) > POSITION_THRESHOLD:
             note = "  <-- did not arrive"
             ok = False
+        deltas[mid] = delta
         print(f"{mid:>6} {HOME_POSITION[mid]:>10} {present:>10} {delta:>+8}{note}")
+
+    tip_mm = tip_error_mm(deltas)
+    if tip_mm is not None:
+        print(f"{'':>6} {'':>10} {'':>10} {'':>8}   -> {tip_mm:.1f} mm at the tip "
+              f"(tolerance {POSITION_THRESHOLD} ticks)")
     return ok
 
 
@@ -175,7 +203,7 @@ def set_current_mode_zero(ph, pk):
         pk.write1ByteTxRx(ph, mid, ADDR_OPERATING_MODE, MODE_CURRENT_CONTROL)
         pk.write2ByteTxRx(ph, mid, ADDR_GOAL_CURRENT, 0)
         pk.write1ByteTxRx(ph, mid, ADDR_TORQUE_ENABLE, 1)
-    print("Motors set to current/torque mode (zero current)")
+    print("[home] handed back in current mode, zero current")
 
 
 def main():
@@ -200,7 +228,7 @@ def main():
 
         set_extended_position_mode(ph, pk)
         send_home_abs(ph, pk)
-        print("Moving to home...")
+        print("[home] moving...")
 
         reached = wait_until_home(ph, pk, timeout=args.timeout)
         if not report_home(ph, pk):
