@@ -244,28 +244,35 @@ class Sweep:
         print("[sweep] driver up, /joint_positions flowing", flush=True)
 
     def stop_driver(self):
-        if self.driver is None or self.driver.poll() is not None:
-            self.driver = None
+        if self.driver is None:
             return
         print("[sweep] stopping dynamixel_node to free the bus", flush=True)
         try:
             pgid = os.getpgid(self.driver.pid)
         except ProcessLookupError:
             pgid = None
-        for sig in (signal.SIGTERM, signal.SIGKILL):
-            if pgid is None:
-                break
+
+        # The wrapper exiting proves NOTHING: `ros2 run` execs the node as a
+        # child, so SIGTERM can reap the wrapper while the node lives on holding
+        # the port. Waiting on the wrapper is what let an orphan survive and
+        # gave MultiGoHome "multiple access on port". The only success condition
+        # is the bus actually being free.
+        for sig, grace in ((signal.SIGTERM, self.a.bus_settle + 8.0),
+                           (signal.SIGKILL, 10.0)):
+            if pgid is not None:
+                try:
+                    os.killpg(pgid, sig)
+                except ProcessLookupError:
+                    pass
             try:
-                os.killpg(pgid, sig)          # the wrapper AND the node it execs
-            except ProcessLookupError:
-                break
-            try:
-                self.driver.wait(timeout=10)
-                break
-            except subprocess.TimeoutExpired:
-                continue
+                wait_for_port_free(timeout=grace)
+                self.driver.poll()                 # reap the wrapper if it went
+                self.driver = None
+                return
+            except SweepError:
+                print(f"[sweep] still held after {sig.name}, escalating", flush=True)
         self.driver = None
-        wait_for_port_free(timeout=self.a.bus_settle + 15.0)
+        wait_for_port_free(timeout=3.0)            # raises, naming who holds it
 
     def go_home(self):
         """Position control, slowly, back to HOME_POSITION -- verified."""
