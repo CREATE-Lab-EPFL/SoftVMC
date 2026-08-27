@@ -135,6 +135,15 @@ GOAL_LINK   = [GAUSS_COMPONENTS]
 # Active" in the GUI to place the goals quietly.
 PUBLISH_ON_START = True
 
+# ── Ending a session ─────────────────────────────────────────────────────────
+# "Home & Quit" in the GUI: back to MultiGoHome.HOME_POSITION in extended
+# position control, then the window closes. Half the speed the button sweep
+# homes at (run_sweep.py --home-velocity 80, ~18.3 rpm) -- that one runs with
+# nobody near the arm, this one ends with a person standing in front of it.
+HOME_BUTTON   = True
+HOME_VELOCITY = 40      # x0.229 rpm -> ~9.2 rpm
+HOME_TIMEOUT  = 120.0   # [s] the arm ends a run about 1.15 turns wound
+
 # ── GUI framing ──────────────────────────────────────────────────────────────
 XY_RANGE = (-0.35, 0.35)   # [m]
 Z_RANGE  = (0.15, 0.50)    # [m]
