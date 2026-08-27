@@ -34,7 +34,7 @@ from mpl_toolkits.mplot3d import Axes3D          # noqa – registers 3-D projec
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64, Float64MultiArray
+from std_msgs.msg import Bool, Float64, Float64MultiArray
 
 from VMC_utils.ConfigHelpers import config_from_argv, ramp_spec, run_name_from_argv
 
@@ -69,6 +69,8 @@ PLOT_VIRTUAL_FORCES = getattr(_cfg, "PLOT_VIRTUAL_FORCES", True)
 #   GAUSS_TOGGLE  bool               True = offer a tickbox that switches
 #                                    RAMP_COMPONENTS between their strength and 0
 #   DRAG_SPEED_MAX  float            top of the drag-speed slider [cm/s]
+#   END_RUN_ON_CLOSE  bool           True = closing this window also ends and
+#                                    saves the torque node's run
 #   HOME_BUTTON   bool               True = offer "Home & Quit" (see below)
 #   PUBLISH_ON_START  bool           False = place the goals before the arm moves
 _NAMES   = [c.name or f"VC{i+1}" for i, c in enumerate(VIRTUAL_COMPONENTS)]
@@ -120,6 +122,12 @@ HOME_TIMEOUT  = float(getattr(_cfg, "HOME_TIMEOUT", 120.0))
 # lot of ground raises it.
 DRAG_SPEED_MAX = float(getattr(_cfg, "DRAG_SPEED_MAX", 10.0))
 
+# Closing this window ends the run in the torque node's terminal too, so one
+# action finishes the session instead of a Ctrl+C in each. Off by default: a
+# folder where the GUI is opened and closed freely mid-run would lose its log.
+END_RUN_ON_CLOSE = bool(getattr(_cfg, "END_RUN_ON_CLOSE", False))
+END_RUN_TIMEOUT  = float(getattr(_cfg, "END_RUN_TIMEOUT", 30.0))   # [s] to save in
+
 from FK_Multi import FK_Multi
 
 
@@ -140,6 +148,9 @@ class GUINode(Node):
         # ── Publishers ────────────────────────────────────────────────────────
         self._pub_param  = self.create_publisher(Float64MultiArray, "/VC_Param",   10)
         self._pub_refpos = self.create_publisher(Float64MultiArray, "/VC_ref_pos", 10)
+        # Transient-local: the torque node gets it even if this is published
+        # microseconds before the GUI process goes away.
+        self._pub_end    = self.create_publisher(Bool, "/vmc_end_run", 10)
 
         # ── Subscribers ───────────────────────────────────────────────────────
         self.create_subscription(
@@ -211,6 +222,10 @@ class GUINode(Node):
         msg.data = list(k_vals) + list(c_vals)
         self._pub_param.publish(msg)
 
+    def publish_end_run(self):
+        """Ask the torque node to write its run and exit."""
+        self._pub_end.publish(Bool(data=True))
+
     def publish_ref_pos(self, goals: np.ndarray):
         """Publish [x1,y1,z1,…,xN,yN,zN]. goals shape: (N,3)."""
         msg = Float64MultiArray()
@@ -241,6 +256,7 @@ class RobotGUI:
         self._pub_active   = tk.BooleanVar(value=PUBLISH_ON_START)
         self._selected_vc  = tk.IntVar(value=0)
         self._dragging     = False
+        self._run_ended    = False   # /vmc_end_run is sent once, whichever way out
         self._ignore_z     = False   # guard against programmatic slider set()
         self._goal_speed   = tk.DoubleVar(value=5.0)  # cm/s
 
@@ -614,29 +630,34 @@ class RobotGUI:
     # ── End of session: home, then close ──────────────────────────────────────
 
     def _home_and_quit(self):
-        """Put the arm back on HOME_POSITION, slowly, then close the GUI.
+        """End the run, put the arm back on HOME_POSITION, close everything.
 
-        This ends the session: it kills whatever holds the serial bus --
-        dynamixel_node, started by start_arm.sh -- because homing drives the
-        servos directly in extended position control and the driver holds the
-        port exclusively. Nothing restarts it, so the run is over either way.
+        This is the whole end of a session, in the order that keeps the log
+        safe:
 
-        The torque node is left alone: with the driver gone its /goal_torque
-        reaches nothing, and it still owns the log, which is saved the usual
-        way with Ctrl+C in its own terminal.
+            1. the torque node is told to write its run and exit  (terminal 2)
+            2. whatever holds the serial bus is stopped           (terminal 1)
+            3. the arm is homed in extended position control
+            4. this window closes                                 (terminal 3)
+
+        The run is saved before anything is stopped, because saving is the one
+        step that cannot be redone. Homing has to come after: it drives the
+        servos over the raw serial port, which dynamixel_node holds for as long
+        as it lives, so the driver is stopped either way -- and stopping it
+        takes start_arm.sh with it.
         """
         if not messagebox.askokcancel(
                 "Home & Quit",
-                f"Return the arm to HOME_POSITION at ~{HOME_VELOCITY * 0.229:.1f} rpm, "
-                "then close this window?\n\n"
-                "This stops dynamixel_node to take the serial bus, so the session "
-                "ends here. Save the run with Ctrl+C in the torque node's terminal "
-                "first if you have not."):
+                "End the session?\n\n"
+                "  1. save the run and close the torque node\n"
+                "  2. stop dynamixel_node (closes start_arm.sh)\n"
+                f"  3. home the arm at ~{HOME_VELOCITY * 0.229:.1f} rpm\n"
+                "  4. close this window"):
             return
 
         self._home_btn.state(["disabled"])
         self._pub_active.set(False)          # stop driving towards the goals
-        self._hover_lbl.config(text="homing -- watch the terminal")
+        self._hover_lbl.config(text="ending the run -- watch the terminals")
         threading.Thread(target=self._home_worker, daemon=True).start()
 
     def _home_worker(self):
@@ -648,12 +669,40 @@ class RobotGUI:
         import MultiGoHome as gh
         ok, why = True, ""
         try:
+            self._end_run("[quit] telling the torque node to save and exit")
             gh.release_port(timeout=12.0)
             gh.home_sequence(velocity=HOME_VELOCITY, timeout=HOME_TIMEOUT)
         except Exception as exc:                     # noqa: BLE001 -- reported, then shown
             ok, why = False, f"{type(exc).__name__}: {exc}"
             print(f"[home] FAILED -- {why}", flush=True)
         self.root.after(0, self._home_done, ok, why)
+
+    def _end_run(self, why):
+        """Tell the torque node to write its run, and give it time to do it.
+
+        A few MB of compressed npz takes seconds, and the node exits when it is
+        done -- so /goal_torque going quiet is what "saved" looks like from
+        here. Waited on rather than guessed at, because the next step kills the
+        bus and the step after that moves the arm.
+        """
+        if self._run_ended:
+            return
+        self._run_ended = True
+        print(why, flush=True)
+        self.node.publish_end_run()
+        _, ts = self.node.get_latest_torque()
+        if ts is None or time.perf_counter() - ts > 5.0:
+            print("[quit] no torque node was publishing -- nothing to wait for", flush=True)
+            return
+        deadline = time.time() + END_RUN_TIMEOUT
+        while time.time() < deadline:
+            _, ts = self.node.get_latest_torque()
+            if ts is None or time.perf_counter() - ts > 1.5:
+                print("[quit] torque node has stopped -- run saved", flush=True)
+                return
+            time.sleep(0.25)
+        print(f"[quit] torque node still publishing after {END_RUN_TIMEOUT:.0f} s "
+              "-- carrying on; check its terminal", flush=True)
 
     def _home_done(self, ok, why):
         if ok:
@@ -974,7 +1023,25 @@ class RobotGUI:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _on_close(self):
-        self.root.after_cancel(self._after_id)
+        if END_RUN_ON_CLOSE:
+            self._end_run("[quit] window closing -- telling the torque node to save")
+        try:
+            self.root.after_cancel(self._after_id)
+        except Exception:
+            pass
+        # Matplotlib schedules its redraws with after_idle. One still pending
+        # when the widgets go away fires into nothing and Tk prints
+        # `invalid command name ...idle_draw` for each -- three of them, every
+        # time the GUI was closed. Cancelled here rather than left to be
+        # complained about.
+        for canvas in list(vars(self).values()):
+            draw_id = getattr(canvas, "_idle_draw_id", None)
+            if draw_id:
+                try:
+                    self.root.after_cancel(draw_id)
+                except Exception:
+                    pass
+                canvas._idle_draw_id = None
         self.root.destroy()
 
 

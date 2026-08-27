@@ -510,13 +510,14 @@ def main():
     if a.repeats is None:
         a.repeats = int(getattr(cfg, "SWEEP_REPEATS", 1))
 
-    if not getattr(cfg, "GAUSS_CONDITIONS", None):
-        sys.exit(f"[ERROR] {cfg.__name__} sweeps no conditions -- there is nothing "
-                 "for this script to step through.\n"
-                 "        It holds one Gaussian strength for every run and is driven "
-                 "from the GUI:\n"
+    # SWEEP_REPEATS is what marks a config as one this script drives. _person
+    # names levels too, but they are recorded one at a time from the GUI, with
+    # the goals placed by hand -- which is the whole point of that experiment.
+    if not getattr(cfg, "GAUSS_CONDITIONS", None) or not hasattr(cfg, "SWEEP_REPEATS"):
+        sys.exit(f"[ERROR] {cfg.__name__} is not swept by this script.\n"
+                 "        Its runs are recorded one at a time from the GUI:\n"
                  f"          terminal 2: python3 ../VMC/GUI_MultiVMC_Torque.py "
-                 f"--config {a.config} --run <name>\n"
+                 f"--config {a.config} --run <level>\n"
                  f"          terminal 3: python3 ../VMC/GUI_MultiVMC.py --config {a.config}\n")
 
     known = list(cfg.GAUSS_CONDITIONS)

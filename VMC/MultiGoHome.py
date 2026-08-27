@@ -264,7 +264,19 @@ def release_port(dev=DEVICE_PORT, timeout=12.0, log=print):
     for sig, grace in ((signal.SIGTERM, timeout), (signal.SIGKILL, 10.0)):
         for pid in port_holders(dev):
             try:
-                os.killpg(os.getpgid(pid), sig)
+                pgid = os.getpgid(pid)
+            except ProcessLookupError:
+                continue
+            try:
+                # The group, not the pid: `ros2 run` execs the node as a child,
+                # and start_arm.sh is its parent, so signalling the group is
+                # what actually ends that terminal. Unless it is OUR group --
+                # everything launched from one terminal -- in which case that
+                # would kill the caller mid-homing.
+                if pgid == os.getpgid(0):
+                    os.kill(pid, sig)
+                else:
+                    os.killpg(pgid, sig)
             except (ProcessLookupError, PermissionError):
                 try:
                     os.kill(pid, sig)

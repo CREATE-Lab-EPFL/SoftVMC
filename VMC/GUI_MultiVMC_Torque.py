@@ -51,7 +51,7 @@ import matplotlib.pyplot as plt
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64, Float64MultiArray, String
+from std_msgs.msg import Bool, Float64, Float64MultiArray, String
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
 
 # Latched, so a driver starting later still learns which config is live.
@@ -128,6 +128,10 @@ DEFAULT_RUN_NAME = getattr(_cfg, "DEFAULT_RUN_NAME", None)
 # laid on its side pulls along "-y".
 GRAVITY_DIR = getattr(_cfg, "GRAVITY_DIR", "-z")
 
+# How often the torque limiter is allowed to say so. It fires per tick, so at
+# CONTROL_FREQUENCY an unthrottled warning is hundreds of lines a second.
+CLIP_WARN_S = float(getattr(_cfg, "CLIP_WARN_S", 2.0))
+
 
 class VMCTorqueNode(Node):
     """
@@ -202,6 +206,8 @@ class VMCTorqueNode(Node):
         self._comp_pos_log   = []    # (N_VC, 3) [m] FK position of each attachment point
         self._comp_vel_log   = []    # (N_VC, 3) [m/s] its task-space velocity
         self._f_comp_log     = []    # (N_VC, 3) [N] each element's task-space force
+        self._clip_warned    = 0.0   # perf_counter of the last clipping warning
+        self._clip_ticks     = 0     # ticks clipped since then
         self._force_shear    = 0.0   # latest value from /force_shear
         self._force_stamp    = None  # when it arrived -- a flat channel may be a dead node
         self._force_log      = []    # (1,) sampled at control-loop rate
@@ -237,6 +243,11 @@ class VMCTorqueNode(Node):
             Float64MultiArray, "/joint_velocities",  self._cb_vel,         10)
         self.create_subscription(
             Float64,           "/force_shear",       self._cb_force_shear, 10)
+        # The GUI asks for the run to end here when it closes, so one action
+        # finishes the session instead of a Ctrl+C in each terminal. Nothing
+        # publishes it unless a config opts in, so this is inert everywhere else.
+        self.create_subscription(
+            Bool,              "/vmc_end_run",       self._cb_end_run,     10)
 
         # ── Publishers ────────────────────────────────────────────────────────
         self._pub_hw     = self.create_publisher(Float64MultiArray, "/goal_torque",     10)
@@ -333,6 +344,20 @@ class VMCTorqueNode(Node):
         self._force_shear = float(msg.data)
         self._force_stamp = time.perf_counter()
 
+    def _cb_end_run(self, _msg: Bool):
+        """Someone else (the GUI, closing) is ending the run.
+
+        Raising here leaves through rclpy.spin exactly as the last Ctrl+C does,
+        so the run is written by the same path that has always written it --
+        marks, checkpoint cleanup and all.
+        """
+        self.get_logger().info("/vmc_end_run received -- ending the run and saving")
+        try:
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+        except (ValueError, OSError):
+            pass                                 # not the main thread; the finally still covers it
+        raise KeyboardInterrupt
+
     # ── Control loop ──────────────────────────────────────────────────────────
 
     def _control_loop(self):
@@ -363,7 +388,18 @@ class VMCTorqueNode(Node):
         tau_raw         = tau_vmc + tau_grav - tau_pretension
 
         if np.any(np.abs(tau_raw) > TAU_LIMIT):
-            self.get_logger().warn("Torque limit exceeded — clipping.")
+            # Once per CLIP_WARN_S, not once per tick: at 330 Hz the untrottled
+            # warning buried every other message in the terminal, including the
+            # mark prompts the operator is meant to read. The status line and
+            # `tau_raw` carry how much and how often anyway.
+            self._clip_ticks += 1
+            now = time.perf_counter()
+            if now - self._clip_warned >= CLIP_WARN_S:
+                self.get_logger().warn(
+                    f"torque limit exceeded -- clipping to {TAU_LIMIT} N.m "
+                    f"(|tau| up to {np.abs(tau_raw).max():.3f}, "
+                    f"{self._clip_ticks} ticks since the last warning)")
+                self._clip_warned, self._clip_ticks = now, 0
         tau_cmd = np.clip(tau_raw, -TAU_LIMIT, TAU_LIMIT)
 
         self._publish(tau_cmd)
@@ -416,6 +452,11 @@ class VMCTorqueNode(Node):
 
         def on_sigint(_signum, _frame):
             if not self._pending_marks:
+                # Disarm before raising: everything from here to the written
+                # file is teardown and one np.savez_compressed, and an
+                # impatient second Ctrl+C landing in either takes the run with
+                # it. Done inside the handler so there is no window at all.
+                signal.signal(signal.SIGINT, signal.SIG_IGN)
                 raise KeyboardInterrupt          # plain Ctrl+C: end the run
             prompt = self._pending_marks.pop(0)
             label  = prompt.rstrip("? ").strip().lower() or f"mark {len(self._marks) + 1}"
@@ -566,6 +607,11 @@ class VMCTorqueNode(Node):
             ramp_strength      = np.array([np.nan if self._ramp_target is None
                                            else float(self._ramp_target)]),
             ramp_s             = np.array([self._ramp_s]),        # [s]
+            # The names these two had when button_pressing/ was recorded. Kept
+            # so a re-recorded run is field-identical to the 20 already on disk.
+            condition_targets  = np.array(list(self._ramp_names), dtype=object),
+            condition_strength = np.array([np.nan if self._ramp_target is None
+                                           else float(self._ramp_target)]),
             # t = 0 is the first /VC_ref_pos; t < 0 is the stretch before the
             # GUI connected, when the goal was still the config's DEFAULT_START.
             t_reference_ok     = np.array([self._t0 is not None]),
@@ -627,6 +673,15 @@ class VMCTorqueNode(Node):
 
     def save_plot(self):
         self._stop_autosave.set()
+        # Ctrl+C from here on is ignored. The run ends on a Ctrl+C, so an
+        # impatient second one used to land inside np.savez_compressed and take
+        # the file with it -- the one thing in the session that cannot be
+        # redone. There is nothing left to interrupt: this is the last thing the
+        # process does.
+        try:
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+        except (ValueError, OSError):
+            pass
 
         arrays = self._log_arrays()
         if arrays is None:
@@ -864,8 +919,17 @@ def check_run_name(run_name):
     name is a valid run there, as before.
     """
     conds = getattr(_cfg, "GAUSS_CONDITIONS", None)
-    if not conds or not run_name:
+    if not conds:
         return
+    if not run_name:
+        if not getattr(_cfg, "REQUIRE_RUN_NAME", False):
+            return          # unnamed scratch run, as before
+        sys.exit(
+            f"\n[ERROR] --run is required by {_cfg.__name__}: every run is one of its "
+            f"levels.\n"
+            f"        pick one: {', '.join(f'{k} ({v:g})' for k, v in conds.items())}\n"
+            f"        e.g. python3 ../VMC/GUI_MultiVMC_Torque.py "
+            f"--config _{getattr(_cfg, 'CONFIG_NAME', '')} --run {next(iter(conds))}\n")
     if run_name in conds or strip_repeat(run_name) in conds:
         return          # `weak_r3` is the `weak` condition, third repeat
     sys.exit(
@@ -873,7 +937,8 @@ def check_run_name(run_name):
         f"        this config knows: {', '.join(f'{k} ({v:g})' for k, v in conds.items())}\n"
         f"        running it anyway would record at the config's own strength "
         f"({getattr(_cfg, 'K_GAUSS', 0):g}) under a name that reads like a condition.\n"
-        f"        Drop --run for a timestamped scratch run in experiments/ instead.\n")
+        + ("" if getattr(_cfg, "REQUIRE_RUN_NAME", False) else
+           "        Drop --run for a timestamped scratch run in experiments/ instead.\n"))
 
 
 def main():
@@ -896,6 +961,14 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        # The run is written from here on, and Ctrl+C is how a run ENDS -- so
+        # further ones are ignored for the rest of the process. Without this a
+        # second press landed in destroy_node() and the run never reached
+        # save_plot() at all: the log survived only as its last checkpoint.
+        try:
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+        except (ValueError, OSError):
+            pass
         try:
             node.destroy_node()
         except Exception as e:
