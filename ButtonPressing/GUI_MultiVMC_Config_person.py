@@ -38,23 +38,40 @@ K_GAUSS = 0.0    # [N/m]   both Gaussians start off; raise them from the GUI
 SIGMA   = 0.06   # [m]     Gaussian width
 C_DAMP  = 1.0    # [N.s/m] all three
 
-GAUSS_COMPONENTS = ("gauss_seg1", "gauss_seg2")   # one obstacle, two attachment points
+# ── The obstacle is a LINE, not a point ──────────────────────────────────────
+# A GaussianSpring's force is k*exp(-d^2/2sigma^2)*d: ZERO at the centre, peaking
+# at d = sigma. One centre is therefore a bump the arm can slide around -- along
+# y the force falls from 0.036 to 0.011 per unit k over +-12 cm, a 70% ripple,
+# and the arm escapes past the weak end into odd shapes.
+#
+# Three centres 10 cm apart (1.67 sigma) flatten that ripple to 18% -- better
+# than +-8 cm (32%) or five centres (30%) -- and their y components cancel in
+# the middle, so the wall pushes the arm along +x instead of shoving it up or
+# down. y is VERTICAL here (gravity is -y), so this is an upright line.
+GAUSS_LINE_Y = (-0.10, 0.0, 0.10)   # [m] the three centres, along vertical y
+
+_LEVELS = (("down", GAUSS_LINE_Y[0]), ("mid", GAUSS_LINE_Y[1]), ("up", GAUSS_LINE_Y[2]))
+_SEGS   = (("seg1", 1.0 / 3.0), ("seg2", 2.0 / 3.0))
 
 VIRTUAL_COMPONENTS = [
     VirtualComponent(spring=LinearSpring(K_REACH),
                      damper=LinearDamper(C_DAMP),
                      s_param=1.0, name="lin_tip"),
+] + [
     VirtualComponent(spring=GaussianSpring(strength=K_GAUSS, sigma=SIGMA),
                      damper=LinearDamper(C_DAMP),
-                     s_param=1.0 / 3.0, name="gauss_seg1"),
-    VirtualComponent(spring=GaussianSpring(strength=K_GAUSS, sigma=SIGMA),
-                     damper=LinearDamper(C_DAMP),
-                     s_param=2.0 / 3.0, name="gauss_seg2"),
+                     s_param=_s, name=f"gauss_{_seg}_{_lvl}")
+    for _seg, _s in _SEGS for _lvl, _dy in _LEVELS
 ]
+
+# Every attachment point is repelled by every centre: 2 x 3 = 6 Gaussians.
+GAUSS_COMPONENTS = tuple(c.name for c in VIRTUAL_COMPONENTS if c.name != "lin_tip")
+GAUSS_GOAL_DY    = {f"gauss_{_seg}_{_lvl}": _dy
+                    for _seg, _s in _SEGS for _lvl, _dy in _LEVELS}
 
 # ── Conditions ───────────────────────────────────────────────────────────────
 # The Gaussian strength each run name stands for. `--run medium` starts both
-# Gaussians at 500 N/m -- no slider work needed to set up a named run; the
+# Gaussians at 200 N/m -- no slider work needed to set up a named run; the
 # sliders are still live if you want to move off it.
 #
 # Three conditions here, not the button's four: with a person as the obstacle
@@ -63,8 +80,8 @@ VIRTUAL_COMPONENTS = [
 # two, unchanged, so the two experiments can be compared at an identical field.
 GAUSS_CONDITIONS = {
     "no_gauss":    0.0,
-    "medium":    500.0,
-    "strong":   1000.0,
+    "medium":    200.0,
+    "strong":    300.0,
 }
 CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
 
@@ -115,14 +132,14 @@ TIP_GOAL_Z   = 0.38                       # [m] button distance from the base, a
                                           #     the arm's axis -- z is NOT height here
 GAUSS_GOAL_Z = float(rest_pose(0.5)[2])   # [m] = 0.2175, between sections 1 and 2
 
-GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,
-               "gauss_seg1": GAUSS_GOAL_Z,
-               "gauss_seg2": GAUSS_GOAL_Z}
+GOAL_Z_LOCK = {"lin_tip": TIP_GOAL_Z,
+               **{_n: GAUSS_GOAL_Z for _n in GAUSS_COMPONENTS}}
 
 # The obstacle is pre-placed, so a run can start without dragging anything.
 # Drag either Gaussian in the GUI to move it; both follow.
 GAUSS_GOAL_XY = (-0.05, 0.0)   # [m]
-GOAL_LINK   = [GAUSS_COMPONENTS]
+GOAL_LINK   = [tuple(f"gauss_{_seg}_{_lvl}" for _seg, _s in _SEGS)
+               for _lvl, _dy in _LEVELS]
 
 # Live from the start, like every other folder. The tip goal sits 5.5 cm below
 # the resting tip, so the arm takes up that slack (~1.65 N at K_REACH = 30) as
@@ -140,7 +157,8 @@ for _i, _c in enumerate(VIRTUAL_COMPONENTS):        # start each goal where it b
     if _c.name in GOAL_Z_LOCK:
         DEFAULT_START[_i, 2] = GOAL_Z_LOCK[_c.name]
     if _c.name in GAUSS_COMPONENTS:
-        DEFAULT_START[_i, :2] = GAUSS_GOAL_XY
+        DEFAULT_START[_i, 0] = GAUSS_GOAL_XY[0]
+        DEFAULT_START[_i, 1] = GAUSS_GOAL_XY[1] + GAUSS_GOAL_DY[_c.name]
 N_VC          = len(VIRTUAL_COMPONENTS)
 
 (SPRING_PARAM_NAMES, DAMPER_PARAM_NAMES,
