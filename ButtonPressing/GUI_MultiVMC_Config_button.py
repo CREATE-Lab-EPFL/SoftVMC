@@ -59,7 +59,7 @@ GAUSS_CONDITIONS = {
     "no_gauss":    0.0,
     "weak":      200.0,
     "medium":    600.0,
-    "strong":   1200.0,
+    "strong":   1000.0,
 }
 CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
 
