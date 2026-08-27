@@ -134,31 +134,51 @@ def component_names(cfg):
             for i, c in enumerate(cfg.VIRTUAL_COMPONENTS)]
 
 
-def ramp_spec(cfg):
+def condition_strength(cfg, run_name):
     """
-    Springs brought up from 0 over the first seconds of a run:
+    The spring strength a run name stands for, from the config's
+    GAUSS_CONDITIONS, or None when this config names no conditions (or the run
+    is not one of them) -- in which case nothing is overridden.
+    """
+    conds = getattr(cfg, "GAUSS_CONDITIONS", None)
+    if not conds or run_name is None:
+        return None
+    v = conds.get(run_name)
+    if v is None:
+        v = conds.get(strip_repeat(run_name))
+    return None if v is None else float(v)
+
+
+def ramp_spec(cfg, run_name=None):
+    """
+    Springs eased in from 0 over the first seconds of a run:
     ``(names, target strength, seconds)``.
 
     A repulsive field switched on at full strength shoves the arm off the
-    obstacle within a single tick, so the config names which components are
-    eased in (RAMP_COMPONENTS) and over how long (RAMP_S). The target is
-    simply the strength the config already gives them: there is one number for
-    the whole run, not one per run name.
+    obstacle within a single tick, so RAMP_COMPONENTS names which components
+    are brought up gradually and RAMP_S says over how long.
 
-    Opt-in and inert by default -- a config that names no RAMP_COMPONENTS gets
+    The target is whatever strength this run is at. A config that sweeps named
+    conditions (GAUSS_CONDITIONS) takes it from the run name; one that holds a
+    single strength for every run takes it from the components themselves.
+
+    Opt-in and inert by default -- a config naming no RAMP_COMPONENTS gets
     ``((), None, 0.0)``, and every strength stays exactly as it was set.
     """
     names = tuple(getattr(cfg, "RAMP_COMPONENTS", ()))
     secs  = float(getattr(cfg, "RAMP_S", 0.0))
     if not names or secs <= 0.0:
         return (), None, 0.0
-    targets = {float(v) for n, v in zip(component_names(cfg), cfg.SPRING_PARAM_INIT)
-               if n in names}
-    if len(targets) != 1:
-        raise ValueError(
-            f"RAMP_COMPONENTS {names} are ramped together to one strength, "
-            f"but the config gives them {sorted(targets)}")
-    return names, targets.pop(), secs
+    target = condition_strength(cfg, run_name)
+    if target is None:
+        targets = {float(v) for n, v in zip(component_names(cfg), cfg.SPRING_PARAM_INIT)
+                   if n in names}
+        if len(targets) != 1:
+            raise ValueError(
+                f"RAMP_COMPONENTS {names} are ramped together to one strength, "
+                f"but the config gives them {sorted(targets)}")
+        target = targets.pop()
+    return names, target, secs
 
 
 def strip_repeat(run_name):

@@ -61,12 +61,12 @@ GAUSS_CONDITIONS = {
     "medium":    600.0,
     "strong":   1000.0,
 }
-CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
+RAMP_COMPONENTS = GAUSS_COMPONENTS   # both share one strength, ramped in together
 
 # The obstacle centre is already placed, so a run's strength is ramped in from
 # 0 over this many seconds rather than applied at once -- switched on at full
 # strength the field would shove the arm off the obstacle in a single tick.
-GAUSS_RAMP_S = 5.0   # [s]   0 disables the ramp
+RAMP_S = 5.0   # [s]   0 disables the ramp
 
 # ── Controller ───────────────────────────────────────────────────────────────
 TAU_LIMIT   = 0.25   # [N·m] per motor
