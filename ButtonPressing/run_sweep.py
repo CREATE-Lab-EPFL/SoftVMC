@@ -469,12 +469,12 @@ def parse_args():
                    help="[s] after the goal arrives, before the mark (default: 15)")
     p.add_argument("--window",        type=float, default=20.0,
                    help="[s] measurement window (default: 20)")
-    # MultiGoHome's own default. The homing leg is not part of any measurement,
-    # so there is nothing to gain from crawling it: 40 is ~9.2 rpm, which is what
-    # start_arm.sh has always homed at.
-    p.add_argument("--home-velocity", type=int,   default=40,
-                   help="PROFILE_VELOCITY for homing, 0.229 rpm each (default: 40, "
-                        "~9.2 rpm -- the same as MultiGoHome.py on its own)")
+    # Twice MultiGoHome's own 40. The homing leg is not part of any measurement,
+    # so there is nothing to gain from crawling it. The unit is 0.229 rpm, so 80
+    # is ~18.3 rpm -- still well under the XL330's velocity limit.
+    p.add_argument("--home-velocity", type=int,   default=80,
+                   help="PROFILE_VELOCITY for homing, 0.229 rpm each (default: 80, "
+                        "~18.3 rpm -- twice MultiGoHome.py's own 40)")
     p.add_argument("--settle-home",   type=float, default=5.0,
                    help="[s] after homing (default: 5)")
 

@@ -116,7 +116,7 @@ change operating mode while running and holds `/dev/ttyUSB0` exclusively.
 | settle | `--settle-arrive` 15 s | the arm follows and stops |
 | window | `--window` 20 s | between the two Ctrl+Cs — **the measurement window** |
 | | | writes `outputs/<folder>/<condition>.{npz,png}`, kills the driver |
-| home | `--home-velocity` 40 | extended position mode, ~9.2 rpm, back to `HOME_POSITION`, **verified tick for tick** |
+| home | `--home-velocity` 80 | extended position mode, ~18.3 rpm (twice `MultiGoHome`'s own), back to `HOME_POSITION`, **verified tick for tick** |
 | settle | `--settle-home` 5 s | hand back in current mode, next condition |
 
 ≈96 s per condition: **6.7 min** for the button's four, **5.1 min** for the
