@@ -80,7 +80,7 @@ PRETENSION_WEIGHTS   = np.full(9, 0.010, dtype=float)   # [N·m/rad] x 9 -- alwa
 OUTPUT_FOLDER  = "button_pressing"   # --run NAME lands in outputs/<folder>/NAME.*
 SAVE_PLOT      = True
 SAVE_DATA      = True    # raw arrays to .npz alongside the plot
-COLLECTED_DATA = False   # True = never save, the recorded runs are final
+COLLECTED_DATA = True   # True = never save, the recorded runs are final
 
 # Checkpoint the logs to <run>.autosave.npz every 30 s while the run is going,
 # and print a status line. These runs are minutes long and hand-driven, so a
