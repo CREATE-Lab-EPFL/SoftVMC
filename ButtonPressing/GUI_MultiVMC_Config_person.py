@@ -78,13 +78,16 @@ VIRTUAL_COMPONENTS = [
 #
 # These are the field STRENGTHS, not forces: a Gaussian's force peaks at
 # k*exp(-1/2)*sigma = k*0.0364 N when the attachment point is sigma from the
-# centre, so `strong` peaks near 364 N of virtual force -- far past what the
-# arm can pull, which is the point of a saturating repulsion. What the motors
-# actually get is clipped at TAU_LIMIT.
+# centre, so `strong` peaks near 36 N of virtual force and falls away fast on
+# either side of that -- at 2.8*sigma it is already down to 0.7% of k. What the
+# motors actually get is clipped at TAU_LIMIT.
+#
+# The same three names mean 0 / 600 / 1000 in the button config: `strong`
+# matches, so the fixture and the person are directly comparable at that level.
 GAUSS_CONDITIONS = {
     "no_gauss":      0.0,
-    "medium":     5000.0,
-    "strong":    10000.0,
+    "medium":      500.0,
+    "strong":     1000.0,
 }
 
 # --run is not optional here: with three levels, an unnamed run has no level.

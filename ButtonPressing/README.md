@@ -10,7 +10,7 @@ Two variants, two protocols:
 |---|---|---|
 | obstacle | a fixture | a person's arm, held still |
 | driven by | `run_sweep.py`, unattended, no GUI | the GUI, by hand |
-| Gaussian strength | swept 0 / 200 / 600 / 1000 | 3 levels: 0 / 5000 / 10000 |
+| Gaussian strength | swept 0 / 200 / 600 / 1000 | 3 levels: 0 / 500 / 1000 |
 | goals | scripted, identical every run | placed by hand |
 | `TAU_LIMIT` | 0.25 N·m | **0.35 N·m** |
 | load cell | yes | no |
@@ -187,9 +187,12 @@ bars.
 
 Strengths are **field strengths, not forces**: a Gaussian peaks at
 `k·exp(−½)·σ = k·0.0364` N when its attachment point is σ from the centre, so
-`strong` asks ~364 N — deliberately a repulsion the reach cannot argue with,
-clipped at `TAU_LIMIT` on the way to the motors. `TAU_LIMIT` is 0.35 here
-because at 0.25 the limiter was deciding the pose.
+`strong` peaks near 36 N and falls away fast either side of it — at 2.8σ it is
+already down to 0.7% of k. What the motors get is clipped at `TAU_LIMIT`, which
+is 0.35 here against the button's 0.25, so the limiter has less say in the pose.
+
+`strong` = 1000 is the button's `strong` too, so the fixture and the person are
+directly comparable at that level.
 
 The GUI can change: both goals' x/y, the tip stiffness, both Gaussian strengths
 (cell ①, `Apply Parameters`), and a **`Gaussians active` tickbox**. Every z is

@@ -272,6 +272,7 @@ class RobotGUI:
         self._selected_vc  = tk.IntVar(value=0)
         self._dragging     = False
         self._run_ended    = False   # /vmc_end_run is sent once, whichever way out
+        self._pending_after = []     # after() ids to cancel on the way out
         self._ignore_z     = False   # guard against programmatic slider set()
         self._goal_speed   = tk.DoubleVar(value=5.0)  # cm/s
 
@@ -387,15 +388,29 @@ class RobotGUI:
                 variable=self._gauss_on, command=self._gauss_toggled)
             self._gauss_chk.grid(row=N_VC+1, column=0, columnspan=4, pady=(6, 0),
                                  sticky="w", padx=6)
+            # Held for RAMP_S after this window opens. The torque node may still
+            # be ramping the field in, and it stops the moment any /VC_Param
+            # arrives -- so a tick during that window would hand over mid-ramp
+            # and step the strength from wherever the node had got to straight
+            # up to the full level, on an arm with someone standing next to it.
+            self._gauss_chk.state(["disabled"])
+            self._hold_until_ramped(self._gauss_chk)
 
         if LOCK_PARAMS:
             ttk.Label(f, text="held by the config -- only the goals are placed here",
                       foreground="gray40").grid(
                 row=N_VC+2, column=0, columnspan=4, pady=8)
         else:
-            ttk.Button(f, text="Apply Parameters",
-                       command=self._apply_params).grid(
-                row=N_VC+2, column=0, columnspan=4, pady=8, sticky="ew")
+            self._apply_btn = ttk.Button(f, text="Apply Parameters",
+                                         command=self._apply_params)
+            self._apply_btn.grid(row=N_VC+2, column=0, columnspan=4, pady=8,
+                                 sticky="ew")
+            if _STRENGTH:
+                # Same reason as the tickbox: applying while the torque node is
+                # still ramping the field in cancels the ramp and steps the
+                # strength to the full level.
+                self._apply_btn.state(["disabled"])
+                self._hold_until_ramped(self._apply_btn)
 
         self._param_status = ttk.Label(f, text="")
         self._param_status.grid(row=N_VC+3, column=0, columnspan=4)
@@ -422,6 +437,17 @@ class RobotGUI:
             self._k_vars[i].set(f"{self._k_vals[i]:.2f}")
         self.node.publish_params(self._k_vals, self._c_vals)
 
+    def _hold_until_ramped(self, widget):
+        """Re-enable `widget` once the torque node's start-up ramp can be over.
+
+        The id is kept so closing the window inside that window cancels it --
+        an after() left to fire into a destroyed widget is what Tk complains
+        about as `invalid command name`.
+        """
+        self._pending_after.append(
+            self.root.after(int(RAMP_S * 1000) + 500,
+                            lambda: widget.state(["!disabled"])))
+
     def _apply_params(self):
         try:
             k = [float(v.get()) for v in self._k_vars]
@@ -432,15 +458,25 @@ class RobotGUI:
 
         note = ""
         if GAUSS_TOGGLE:
-            # A strength typed while the field is switched off is taken as what
-            # to come back up to, not as something to apply behind the
-            # tickbox's back -- otherwise Apply would silently switch it on.
+            # The tickbox owns whether the field is on, the entries own how
+            # strong it is when it is -- so what an entry means depends on
+            # where the walk is:
+            walking = self._gauss_frac != self._gauss_goal
             for i in _RAMP_IDX:
-                if k[i] > 0.0:
-                    self._gauss_level[i] = k[i]
+                if walking:
+                    pass                          # mid-walk the entry shows the
+                                                  # walk's own value, not a typed
+                                                  # one: adopting it would set the
+                                                  # level to a fraction of itself
+                elif self._gauss_frac == 1.0:
+                    self._gauss_level[i] = k[i]   # field on: the entry IS the level
+                elif k[i] > 0.0:
+                    self._gauss_level[i] = k[i]   # field off: remember for the
+                                                  # next tick, do not switch it on
                 k[i] = self._gauss_level[i] * self._gauss_frac
             if self._gauss_frac < 1.0:
-                note = " (Gaussians held off -- tick the box to bring them up)"
+                note = (" (Gaussians mid-walk)" if walking else
+                        " (Gaussians held off -- tick the box to bring them up)")
                 for i in _RAMP_IDX:
                     self._k_vars[i].set(f"{k[i]:.2f}")
 
@@ -1040,10 +1076,12 @@ class RobotGUI:
     def _on_close(self):
         if END_RUN_ON_CLOSE:
             self._end_run("[quit] window closing -- telling the torque node to save")
-        try:
-            self.root.after_cancel(self._after_id)
-        except Exception:
-            pass
+        for after_id in [self._after_id] + self._pending_after:
+            try:
+                self.root.after_cancel(after_id)
+            except Exception:
+                pass
+        self._pending_after.clear()
         # Matplotlib schedules its redraws with after_idle. One still pending
         # when the widgets go away fires into nothing and Tk prints
         # `invalid command name ...idle_draw` for each -- three of them, every
