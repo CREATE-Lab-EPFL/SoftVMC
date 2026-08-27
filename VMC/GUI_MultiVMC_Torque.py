@@ -58,6 +58,8 @@ from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
 CONFIG_QOS = QoSProfile(depth=1, history=HistoryPolicy.KEEP_LAST,
                         durability=DurabilityPolicy.TRANSIENT_LOCAL)
 
+G_TO_N = 9.80665e-3   # the load cell reports grams; everything else uses N
+
 from MultiController import CONTROL_FREQUENCY
 from MultiVMCTaskSpace import VMC_Multi_Modular  # multi_torques_and_forces used below
 from MultiGravityComp import MultiGravComp
@@ -591,7 +593,7 @@ class VMCTorqueNode(Node):
             for i, c in enumerate(self._components))
         age = a["force_age"][-1]
         force = ("force n/a" if np.isnan(age)
-                 else f"force={a['force'][-1]:7.1f} ({age:.1f}s old)")
+                 else f"force={a['force'][-1] * G_TO_N:6.3f} N ({age:.1f}s old)")
         return (f"[{t[-1]:7.1f}s] {len(t):7d} samples @ {rate:4d} Hz  "
                 f"clip {clip:5.1f}%  {force}\n           {per}")
 
@@ -734,7 +736,11 @@ class VMCTorqueNode(Node):
             ax_z.legend(ncol=4, fontsize=8, loc="lower right")
 
         if PLOT_FORCE:
-            ax_force.plot(t_arr, force_arr, color="darkorange", linewidth=1.6,
+            # The load cell reports calibrated GRAMS (HX711 set_scale + get_units
+            # in Real_res1_twoLoadCells_HW.ino), and `force` is stored raw. This
+            # axis used to plot that raw value under an [N] label, so a 0.98 N
+            # press read as "100". read_npz.py and the notebooks already convert.
+            ax_force.plot(t_arr, force_arr * G_TO_N, color="darkorange", linewidth=1.6,
                           label="shear force")
             ax_force.set_ylabel("F_shear [N]")
             ax_force.grid(True, alpha=0.3)

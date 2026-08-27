@@ -28,25 +28,34 @@ axis, **not height** (see [Gravity and axes](#gravity-and-axes)).
 N·m, `PRETENSION_WEIGHTS = 0.010` N·m/rad. All from the config — the sweep runs
 no GUI, so nothing is adjustable mid-run.
 
-**The target is `--target-x/y`, default `(-0.30, 0)`** — beyond the arm's 43.5 cm
+**The target is `--target-x/y`, default `(-0.50, 0)`** — beyond the arm's 43.5 cm
 reach on purpose, so the tip stops at full extension and the target sets how hard
-it pulls there rather than where it ends up.
+it pulls there rather than where it ends up: 8.97 N, asking 0.189 N·m.
+
+⚠ **The tip spring alone reaches `TAU_LIMIT` at x = −0.597**, before the Gaussian
+adds anything — past that the arm is driven by the limiter rather than by the
+virtual model. `tau_raw` records what was asked; the run figure shades where it
+bit.
 
 **Set `GAUSS_GOAL_XY` to where the obstacle actually is** — it is the only
 placement not scripted.
 
 ## Conditions
 
-| `--run` | strength | `_button` | `_person` |
-|---|---|---|---|
-| `no_gauss` | 0 | ✓ | ✓ |
-| `weak` | 250 | ✓ | — |
-| `medium` | 500 | ✓ | ✓ |
-| `strong` | 1000 | ✓ | ✓ |
+| `--run` | `_button` | `_person` |
+|---|---|---|
+| `no_gauss` | 0 | 0 |
+| `weak` | 200 | — |
+| `medium` | 600 | 500 |
+| `strong` | 1000 | 1000 |
 
-`medium` and `strong` are shared, so the fixture and the person are comparable at
-an identical field. `_person` drops `weak`: every run costs someone holding an
-arm still in front of a moving robot.
+`_person` drops `weak`: every run costs someone holding an arm still in front of
+a moving robot.
+
+⚠ **`medium` currently differs between the two variants** — 600 in `_button`,
+500 in `_person`. The point of sharing `medium` and `strong` is that the fixture
+and the person can be compared at an identical field; while they differ, only
+`strong` (1000) is comparable across the two.
 
 The strength is **ramped in from 0 over `GAUSS_RAMP_S` = 5 s**, starting as soon
 as the torque node is up — before the sweep publishes, so it lands at `t < 0`.
@@ -55,7 +64,7 @@ for is refused in a second, before anything is built:
 
 ```
 [ERROR] --run 'mid_1' is not a condition of GUI_MultiVMC_Config_button.
-        this config knows: no_gauss (0), weak (250), medium (500), strong (1000)
+        this config knows: no_gauss (0), weak (200), medium (600), strong (1000)
 ```
 
 ⚠ **`GAUSS_GOAL_XY` has to sit at more negative x than the body ever reaches**,
@@ -112,16 +121,17 @@ change operating mode while running and holds `/dev/ttyUSB0` exclusively.
 | | | driver up (torque mode), torque node up with `--run <condition>` |
 | | | publish `/VC_ref_pos` from the script; tip goal at the rest tip `[0, 0, 0.435]`, so the linear spring pulls **nothing** |
 | settle | `--settle-gauss` 15 s | the Gaussians ramp in and push the arm off, alone |
-| move | `--ramp-speed` 2 cm/s | tip goal walks to `--target-x/y` at `TIP_GOAL_Z` — 40.4 cm, 20 s |
+| move | `--ramp-speed` 2 cm/s | tip goal walks to `--target-x/y` at `TIP_GOAL_Z`; `--dry-run` prints the distance and time |
 | settle | `--settle-arrive` 15 s | the arm follows and stops |
 | window | `--window` 20 s | between the two Ctrl+Cs — **the measurement window** |
 | | | writes `outputs/<folder>/<condition>.{npz,png}`, kills the driver |
 | home | `--home-velocity` 80 | extended position mode, ~18.3 rpm (twice `MultiGoHome`'s own), back to `HOME_POSITION`, **verified tick for tick** |
 | settle | `--settle-home` 5 s | hand back in current mode, next condition |
 
-≈96 s per condition: **6.7 min** for the button's four, **5.1 min** for the
-person's three. The arm ends a run about 1.15 turns wound, which takes ~8 s to
-undo at 9.2 rpm. Every condition therefore starts from the same pose and drives to
+≈101 s per condition at the default target: **6.9 min** for the button's four,
+**5.2 min** for the person's three — `--dry-run` prints the exact figure, since
+the ramp is a third of it and scales with the target. The arm ends a run about
+1.15 turns wound, ~4 s to undo at 18.3 rpm. Every condition therefore starts from the same pose and drives to
 the same target, which is the point; dragged by hand, `weak` and `medium` landed
 7.4 cm apart in x and 5.4 cm apart in y.
 
