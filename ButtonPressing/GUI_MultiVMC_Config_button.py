@@ -49,7 +49,7 @@ VIRTUAL_COMPONENTS = [
 
 # ── Conditions ───────────────────────────────────────────────────────────────
 # The Gaussian strength each run name stands for. `--run medium` starts both
-# Gaussians at 1000 N/m -- no slider work needed to set up a named run; the
+# Gaussians at 500 N/m -- no slider work needed to set up a named run; the
 # sliders are still live if you want to move off it.
 #
 # The names mean the same strength in GUI_MultiVMC_Config_person.py, so the
@@ -57,9 +57,9 @@ VIRTUAL_COMPONENTS = [
 # and keeps the top two.
 GAUSS_CONDITIONS = {
     "no_gauss":    0.0,
-    "weak":      500.0,
-    "medium":   1000.0,
-    "strong":   2000.0,
+    "weak":      250.0,
+    "medium":    500.0,
+    "strong":   1000.0,
 }
 CONDITION_APPLIES_TO = GAUSS_COMPONENTS   # both share one strength
 

@@ -42,9 +42,9 @@ direction the arm escapes in barely determined.
 | `--run` | strength | `_button` | `_person` |
 |---|---|---|---|
 | `no_gauss` | 0 | ✓ | ✓ |
-| `weak` | 500 | ✓ | — |
-| `medium` | 1000 | ✓ | ✓ |
-| `strong` | 2000 | ✓ | ✓ |
+| `weak` | 250 | ✓ | — |
+| `medium` | 500 | ✓ | ✓ |
+| `strong` | 1000 | ✓ | ✓ |
 
 `medium` and `strong` are shared, so the fixture and the person are comparable at
 an identical field. `_person` drops `weak`: every run costs someone holding an
@@ -57,7 +57,7 @@ for is refused in a second, before anything is built:
 
 ```
 [ERROR] --run 'mid_1' is not a condition of GUI_MultiVMC_Config_button.
-        this config knows: no_gauss (0), weak (500), medium (1000), strong (2000)
+        this config knows: no_gauss (0), weak (250), medium (500), strong (1000)
 ```
 
 **Where the crossover sits.** Measured at the pose the arm actually reaches (from
@@ -70,10 +70,11 @@ strongly on the target:
 | -0.40 | 4.06 N | ≈ 160 |
 | -0.50 | 6.92 N | ≈ 377 |
 
-At `-0.30` the crossover is below all of `weak` / `medium` / `strong`, so the
-field dominates in every condition and the sweep samples one side of the
-transition. Push the target further out to bring the crossover up into the
-configured range.
+At `-0.30` the crossover (≈ 78) is below all of `weak` / `medium` / `strong`, so
+the field dominates in every condition and the sweep samples one side of the
+transition — `weak` is already 3× past it. Pushing the target out raises the
+crossover into the configured range: `-0.50` puts it at ≈ 377, between `weak`
+and `medium`.
 
 ⚠ These strengths still sweep how far the arm is pushed off, not how hard it
 presses. Check the shear is above zero at `strong`; if it is not, the sweep shows
