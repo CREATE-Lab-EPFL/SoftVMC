@@ -65,7 +65,7 @@ from MultiVMCTaskSpace import VMC_Multi_Modular  # multi_torques_and_forces used
 from MultiGravityComp import MultiGravComp
 from FK_Multi import FK_Multi
 from VMC_utils.GravityCompensation import GRAVITY_DIR_CHOICES, rotation_for_gravity_dir
-from VMC_utils.ConfigHelpers import config_from_argv, ramp_spec
+from VMC_utils.ConfigHelpers import config_from_argv, ramp_spec, strip_repeat
 
 # --config NAME picks GUI_MultiVMC_Config_NAME.py from the launch directory;
 # without it the plain GUI_MultiVMC_Config.py is used, as before.
@@ -137,13 +137,16 @@ class VMCTorqueNode(Node):
         # ── Deep-copy components so we can mutate spring/damper params ────────
         self._components = copy.deepcopy(VIRTUAL_COMPONENTS)
 
-        # The config may hold some springs at a strength that cannot be
-        # switched on at once -- a repulsive field whose centre is already
-        # placed shoves the arm off it within a single tick. Those are eased in
-        # from 0 over RAMP_S instead. Configs naming none are untouched.
-        self._ramp_names, self._ramp_target, self._ramp_s = ramp_spec(_cfg)
+        # RAMP_COMPONENTS are eased in from 0 over RAMP_S rather than applied
+        # at once: their centre is already placed, so a field switched on at
+        # full strength shoves the arm off it within a single tick. The target
+        # is whatever strength this run is at -- from the run name where the
+        # config sweeps named conditions (_button), from the config itself
+        # where one strength holds for every run (_person). Configs naming no
+        # RAMP_COMPONENTS are untouched.
+        self._ramp_names, self._ramp_target, self._ramp_s = ramp_spec(_cfg, run_name)
         self._ramp_t0      = None
-        self._ramp_done    = self._ramp_target is None
+        self._ramp_done    = not self._ramp_target      # None, or nothing to ramp to
         self.get_logger().info("building Jacobians (sympy -- takes a while, Ctrl+C to abort)")
         _t_build = time.perf_counter()
 
@@ -841,8 +844,33 @@ def _parse_args():
     return args
 
 
+def check_run_name(run_name):
+    """Refuse a --run this config has no condition for, before anything slow runs.
+
+    Only configs that sweep named conditions (GAUSS_CONDITIONS) can have a
+    wrong name: the two ButtonPressing variants no longer name the same ones,
+    so a name typed for the wrong one used to be accepted and recorded at the
+    config's own strength -- usually 0 -- under a name that reads like a
+    condition. Configs that define no conditions at all are unaffected: any
+    name is a valid run there, as before.
+    """
+    conds = getattr(_cfg, "GAUSS_CONDITIONS", None)
+    if not conds or not run_name:
+        return
+    if run_name in conds or strip_repeat(run_name) in conds:
+        return          # `weak_r3` is the `weak` condition, third repeat
+    sys.exit(
+        f"\n[ERROR] --run {run_name!r} is not a condition of {_cfg.__name__}.\n"
+        f"        this config knows: {', '.join(f'{k} ({v:g})' for k, v in conds.items())}\n"
+        f"        running it anyway would record at the config's own strength "
+        f"({getattr(_cfg, 'K_GAUSS', 0):g}) under a name that reads like a condition.\n"
+        f"        Drop --run for a timestamped scratch run in experiments/ instead.\n")
+
+
 def main():
     args = _parse_args()
+    check_run_name(args.run)      # before rclpy, before the Jacobians
+
     rclpy.init()
     try:
         node = VMCTorqueNode(gravity_dir=args.gravity_dir, run_name=args.run)

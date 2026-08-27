@@ -23,7 +23,7 @@ from collections import deque
 import numpy as np
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -36,7 +36,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64, Float64MultiArray
 
-from VMC_utils.ConfigHelpers import config_from_argv
+from VMC_utils.ConfigHelpers import config_from_argv, ramp_spec, run_name_from_argv
 
 # --config NAME picks GUI_MultiVMC_Config_NAME.py from the launch directory;
 # without it the plain GUI_MultiVMC_Config.py is used, as before.
@@ -66,6 +66,7 @@ PLOT_VIRTUAL_FORCES = getattr(_cfg, "PLOT_VIRTUAL_FORCES", True)
 #   GOAL_Z_LOCK   {name: z}          held at z; its Z slider is disabled
 #   GOAL_LINK     [(name, name...)]  one shared goal -- drag one, they all move
 #   LOCK_PARAMS   bool               True = k and c are the config's, read-only
+#   HOME_BUTTON   bool               True = offer "Home & Quit" (see below)
 #   PUBLISH_ON_START  bool           False = place the goals before the arm moves
 _NAMES   = [c.name or f"VC{i+1}" for i, c in enumerate(VIRTUAL_COMPONENTS)]
 Z_LOCKED = {_NAMES.index(k): float(v)
@@ -83,6 +84,24 @@ PUBLISH_ON_START = bool(getattr(_cfg, "PUBLISH_ON_START", True))
 # exactly what its own config gave it -- including a strength still ramping in,
 # which any /VC_Param message would cancel.
 LOCK_PARAMS = bool(getattr(_cfg, "LOCK_PARAMS", False))
+
+# --run NAME may name a condition (GAUSS_CONDITIONS): its strength becomes the
+# GUI's starting value, so the GUI and the torque node agree from the start.
+# Where the config holds one strength for every run this is that strength, and
+# setting it changes nothing.
+_RAMP_NAMES, _STRENGTH, _ = ramp_spec(_cfg, run_name_from_argv())
+if _STRENGTH is not None:
+    SPRING_PARAM_INIT = [_STRENGTH if nm in _RAMP_NAMES else v
+                         for nm, v in zip(_NAMES, SPRING_PARAM_INIT)]
+
+# Ending a session by hand means putting the arm back where it started before
+# anything else can run, and that cannot be done over ROS: homing drives the
+# servos in extended position control over the raw serial port, which
+# dynamixel_node holds for as long as it lives. So the button takes the bus off
+# the driver, homes, and closes the GUI -- see _home_and_quit.
+HOME_BUTTON   = bool(getattr(_cfg, "HOME_BUTTON", False))
+HOME_VELOCITY = int(getattr(_cfg, "HOME_VELOCITY", 40))   # x0.229 rpm
+HOME_TIMEOUT  = float(getattr(_cfg, "HOME_TIMEOUT", 120.0))
 
 from FK_Multi import FK_Multi
 
@@ -339,6 +358,10 @@ class RobotGUI:
                         variable=self._pub_active).pack(side="left", padx=6)
         ttk.Button(top, text="Reset Positions",
                    command=self._reset_positions).pack(side="left", padx=6)
+        if HOME_BUTTON:
+            self._home_btn = ttk.Button(top, text="Home & Quit",
+                                        command=self._home_and_quit)
+            self._home_btn.pack(side="left", padx=6)
 
         # ── Drag speed cap ────────────────────────────────────────────────────
         ttk.Separator(top, orient="vertical").pack(side="left", fill="y", padx=8)
@@ -513,6 +536,65 @@ class RobotGUI:
         # Publish once after all positions are reset
         if self._pub_active.get():
             self.node.publish_ref_pos(self._ref_pos)
+
+    # ── End of session: home, then close ──────────────────────────────────────
+
+    def _home_and_quit(self):
+        """Put the arm back on HOME_POSITION, slowly, then close the GUI.
+
+        This ends the session: it kills whatever holds the serial bus --
+        dynamixel_node, started by start_arm.sh -- because homing drives the
+        servos directly in extended position control and the driver holds the
+        port exclusively. Nothing restarts it, so the run is over either way.
+
+        The torque node is left alone: with the driver gone its /goal_torque
+        reaches nothing, and it still owns the log, which is saved the usual
+        way with Ctrl+C in its own terminal.
+        """
+        if not messagebox.askokcancel(
+                "Home & Quit",
+                f"Return the arm to HOME_POSITION at ~{HOME_VELOCITY * 0.229:.1f} rpm, "
+                "then close this window?\n\n"
+                "This stops dynamixel_node to take the serial bus, so the session "
+                "ends here. Save the run with Ctrl+C in the torque node's terminal "
+                "first if you have not."):
+            return
+
+        self._home_btn.state(["disabled"])
+        self._pub_active.set(False)          # stop driving towards the goals
+        self._hover_lbl.config(text="homing -- watch the terminal")
+        threading.Thread(target=self._home_worker, daemon=True).start()
+
+    def _home_worker(self):
+        """The blocking half, off the tkinter thread."""
+        # Imported here, not at module scope: the Dynamixel SDK is only needed
+        # by the folders that offer this button, and a GUI used for simulation
+        # should not fail to start without it.
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import MultiGoHome as gh
+        ok, why = True, ""
+        try:
+            gh.release_port(timeout=12.0)
+            gh.home_sequence(velocity=HOME_VELOCITY, timeout=HOME_TIMEOUT)
+        except Exception as exc:                     # noqa: BLE001 -- reported, then shown
+            ok, why = False, f"{type(exc).__name__}: {exc}"
+            print(f"[home] FAILED -- {why}", flush=True)
+        self.root.after(0, self._home_done, ok, why)
+
+    def _home_done(self, ok, why):
+        if ok:
+            print("[home] done -- closing the GUI", flush=True)
+            self._on_close()
+            return
+        # Left where it stopped, and the driver is gone: say so rather than
+        # closing over it.
+        messagebox.showerror(
+            "Home failed",
+            f"{why}\n\nThe arm was NOT confirmed at home and dynamixel_node has "
+            "been stopped. See the terminal: a delta that is a multiple of 4096 "
+            "means the turn count was lost, not that a motor failed to move.")
+        self._hover_lbl.config(text="")
+        self._home_btn.state(["!disabled"])
 
     # ─────────────────────────────────────────────────────────────────────────
     # Cell 3 — 3-D Robot Visualisation  +  End-Effector X-Y / Z
