@@ -378,14 +378,25 @@ class Sweep:
         self.pub = GoalPublisher(self.goal_start)
         ex = spin_in_background(self.pub)
         try:
+            # Nothing may be on the bus before the first home. A driver left over
+            # from an earlier session would otherwise surface as an opaque
+            # SerialException from deep inside the SDK.
+            wait_for_port_free(timeout=5.0)
+
             for i, cond in enumerate(conditions, 1):
                 print(f"\n{'=' * 70}\n[sweep] {i}/{len(conditions)}  {cond} "
                       f"(strength {self.cfg.GAUSS_CONDITIONS[cond]:.0f})\n{'=' * 70}",
                       flush=True)
+                # Home BEFORE recording, not after: homing afterwards left the
+                # FIRST condition starting from whatever pose the arm happened to
+                # be in, which is the unverified zero this whole sequence exists
+                # to avoid.
+                self.go_home()
                 self.start_driver()
                 self.record(cond)
                 self.stop_driver()
-                self.go_home()
+
+            self.go_home()          # leave the arm at home, not wound up
             print(f"\n[sweep] DONE. recorded: {', '.join(self.recorded)}", flush=True)
             return 0
         except Exception as exc:
@@ -469,17 +480,18 @@ def main():
                  "nothing would be saved. Set it False to record.")
 
     sweep = Sweep(a, cfg, gh)
+    home_s = 1.15 * 60 / (a.home_velocity * 0.229) + a.settle_home
     per = (3 + 6.3 + a.settle_gauss + sweep.travel * 100 / a.ramp_speed
-           + a.settle_arrive + a.window + 8
-           + 1.15 * 60 / (a.home_velocity * 0.229) + a.settle_home)
+           + a.settle_arrive + a.window + 8 + home_s)
     print(f"[sweep] {cfg.__name__}: {len(conditions)} condition(s) -- "
           f"{', '.join(conditions)}")
     print(f"[sweep] start  {np.round(sweep.goal_start[sweep.tip], 3)}  "
           f"(rest tip -- the linear spring pulls nothing)")
     print(f"[sweep] target {np.round(sweep.goal_end[sweep.tip], 3)}  "
           f"({sweep.travel * 100:.1f} cm at {a.ramp_speed:.1f} cm/s)")
-    print(f"[sweep] ~{per:.0f} s per condition, ~{per * len(conditions) / 60:.1f} min "
-          f"total (homing assumes ~1.15 turns of wind)")
+    print(f"[sweep] ~{per:.0f} s per condition, "
+          f"~{(per * len(conditions) + home_s) / 60:.1f} min total "
+          f"({len(conditions) + 1} homings, assuming ~1.15 turns of wind each)")
 
     if a.dry_run:
         print("[sweep] --dry-run: stopping here, nothing touched.")
