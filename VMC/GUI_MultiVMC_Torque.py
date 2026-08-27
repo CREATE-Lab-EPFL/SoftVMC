@@ -116,6 +116,13 @@ PRE_REFERENCE_S = float(getattr(_cfg, "PRE_REFERENCE_S", 60.0))
 # folder that does not set this is untouched.
 MARK_PROMPTS = tuple(getattr(_cfg, "MARK_PROMPTS", ()))
 
+# A folder that records ONE run does not need it named on the command line: this
+# is the name --run defaults to, and having a name is what sends the run
+# straight to outputs/<OUTPUT_FOLDER>/ instead of a timestamped
+# experiments/z_<stamp>. Unset (the default) keeps the old behaviour exactly:
+# no --run, no name, experiments/.
+DEFAULT_RUN_NAME = getattr(_cfg, "DEFAULT_RUN_NAME", None)
+
 # Direction gravity pulls in the ROBOT frame. "-z" (the default) is the arm
 # standing straight up; a config for a rotated mount overrides it, e.g. the arm
 # laid on its side pulls along "-y".
@@ -829,11 +836,13 @@ def _parse_args():
     p.add_argument("--config", metavar="NAME", default=None,
                    help=f"load GUI_MultiVMC_Config_NAME.py from this directory "
                         f"instead of GUI_MultiVMC_Config.py (loaded: {_cfg.__name__})")
-    p.add_argument("--run", metavar="NAME", default=None,
+    p.add_argument("--run", metavar="NAME", default=DEFAULT_RUN_NAME,
                    help="name this run: it is written straight to "
                         f"outputs/{OUTPUT_FOLDER or '<folder>'}/NAME.{{png,npz}} on exit, "
-                        "overwriting a previous run of the same name. Without it, "
-                        "output goes to experiments/z_<stamp> as before.")
+                        "overwriting a previous run of the same name. "
+                        + (f"Defaults to {DEFAULT_RUN_NAME!r} for this config."
+                           if DEFAULT_RUN_NAME else
+                           "Without it, output goes to experiments/z_<stamp> as before."))
     p.add_argument("--gravity-dir", default=GRAVITY_DIR, metavar="DIR",
                    choices=GRAVITY_DIR_CHOICES,
                    help="direction gravity pulls in the robot frame "
