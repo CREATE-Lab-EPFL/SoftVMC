@@ -134,7 +134,9 @@ GOAL_LINK   = [GAUSS_COMPONENTS]
 PUBLISH_ON_START = True
 
 # ── GUI framing ──────────────────────────────────────────────────────────────
-XY_RANGE = (-0.35, 0.35)   # [m]
+XY_RANGE = (-0.70, 0.70)   # [m] the x-y plot's extent, and the clamp on a
+                           #     dragged goal -- so it has to reach past the
+                           #     target, which sits beyond the arm on purpose
 Z_RANGE  = (0.15, 0.50)    # [m]
 
 # ── Derived ──────────────────────────────────────────────────────────────────

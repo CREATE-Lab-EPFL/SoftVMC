@@ -59,6 +59,14 @@ VIRTUAL_COMPONENTS = [
 # become a different experiment halfway through.
 LOCK_PARAMS = True
 
+# One exception to LOCK_PARAMS: a "Gaussians active" tickbox in the GUI, so the
+# same reach can be shown with the field and without it, in one recording and
+# with nothing else changed. Both Gaussians follow it together, and either way
+# the strength is walked over RAMP_S rather than stepped -- switching 500 N/m
+# on in a single tick is exactly what the start-up ramp exists to avoid.
+# k_params records the walk, so the analysis can see which stretch was which.
+GAUSS_TOGGLE = True
+
 # K_GAUSS cannot be switched on at once: the obstacle centre is already placed,
 # so a field at full strength shoves the arm off it within a single tick. Both
 # Gaussians are eased in from 0 over RAMP_S, starting with the torque node --
@@ -77,6 +85,12 @@ PRETENSION_WEIGHTS   = np.full(9, 0.010, dtype=float)   # [N·m/rad] x 9 -- alwa
 
 # ── Output ───────────────────────────────────────────────────────────────────
 OUTPUT_FOLDER  = "person_avoiding"   # --run NAME lands in outputs/<folder>/NAME.*
+
+# There is one person run, so it does not need naming: without --run this is the
+# name, and the run goes straight to outputs/<OUTPUT_FOLDER>/ like a named one.
+# Nothing here ever lands in experiments/ -- that is for scratch runs a folder
+# means to collect later, and a single run is not one. Re-running overwrites.
+DEFAULT_RUN_NAME = "person_avoiding"
 SAVE_PLOT      = True
 SAVE_DATA      = True    # raw arrays to .npz alongside the plot
 COLLECTED_DATA = False   # True = never save, the recorded runs are final
@@ -145,7 +159,9 @@ HOME_VELOCITY = 40      # x0.229 rpm -> ~9.2 rpm
 HOME_TIMEOUT  = 120.0   # [s] the arm ends a run about 1.15 turns wound
 
 # ── GUI framing ──────────────────────────────────────────────────────────────
-XY_RANGE = (-0.35, 0.35)   # [m]
+XY_RANGE = (-0.70, 0.70)   # [m] the x-y plot's extent, and the clamp on a
+                           #     dragged goal -- so it has to reach past the
+                           #     target, which sits beyond the arm on purpose
 Z_RANGE  = (0.15, 0.50)    # [m]
 
 # ── Derived ──────────────────────────────────────────────────────────────────
