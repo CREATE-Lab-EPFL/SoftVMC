@@ -100,7 +100,7 @@ OUTPUT_FOLDER = getattr(_cfg, "OUTPUT_FOLDER", None)
 AUTOSAVE_S = float(getattr(_cfg, "AUTOSAVE_S", 0.0))
 
 # The torque node drives the arm from its first tick -- the goal is already at
-# DEFAULT_START and a run's condition is already ramping -- but the GUI usually
+# DEFAULT_START and the ramp is already running -- but the GUI usually
 # comes up seconds later. Those first seconds used to go unlogged, taking the
 # take-up transient and the whole ramp with them. They are logged now, at
 # negative t (t = 0 is still the first /VC_ref_pos), and trimmed to the most

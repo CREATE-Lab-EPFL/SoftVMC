@@ -36,8 +36,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64, Float64MultiArray
 
-from VMC_utils.ConfigHelpers import (config_from_argv, condition_strength,
-                                     condition_targets, run_name_from_argv)
+from VMC_utils.ConfigHelpers import config_from_argv
 
 # --config NAME picks GUI_MultiVMC_Config_NAME.py from the launch directory;
 # without it the plain GUI_MultiVMC_Config.py is used, as before.
@@ -66,6 +65,7 @@ PLOT_VIRTUAL_FORCES = getattr(_cfg, "PLOT_VIRTUAL_FORCES", True)
 # same code paths as before: every goal free in x, y and z, publishing on.
 #   GOAL_Z_LOCK   {name: z}          held at z; its Z slider is disabled
 #   GOAL_LINK     [(name, name...)]  one shared goal -- drag one, they all move
+#   LOCK_PARAMS   bool               True = k and c are the config's, read-only
 #   PUBLISH_ON_START  bool           False = place the goals before the arm moves
 _NAMES   = [c.name or f"VC{i+1}" for i, c in enumerate(VIRTUAL_COMPONENTS)]
 Z_LOCKED = {_NAMES.index(k): float(v)
@@ -77,12 +77,12 @@ for _group in getattr(_cfg, "GOAL_LINK", []):
         LINKED[_i] = list(_idx)
 PUBLISH_ON_START = bool(getattr(_cfg, "PUBLISH_ON_START", True))
 
-# --run NAME may name a condition (GAUSS_CONDITIONS): its strength becomes the
-# slider's starting value, so the GUI and the torque node agree from the start.
-_STRENGTH = condition_strength(_cfg, run_name_from_argv())
-if _STRENGTH is not None:
-    SPRING_PARAM_INIT = [_STRENGTH if nm in condition_targets(_cfg) else v
-                         for nm, v in zip(_NAMES, SPRING_PARAM_INIT)]
+# An experiment whose stiffnesses are part of its definition rather than
+# something to tune sets LOCK_PARAMS: the values are still shown, but they
+# cannot be edited and /VC_Param is never published, so the torque node keeps
+# exactly what its own config gave it -- including a strength still ramping in,
+# which any /VC_Param message would cancel.
+LOCK_PARAMS = bool(getattr(_cfg, "LOCK_PARAMS", False))
 
 from FK_Multi import FK_Multi
 
@@ -252,7 +252,8 @@ class RobotGUI:
         self._right_frame.columnconfigure(0, weight=1)
 
         _cell4_title = "④ Virtual Forces [N]" if PLOT_VIRTUAL_FORCES else "④ Torque Over Time"
-        self._cell1      = ttk.LabelFrame(self._right_frame, text="① Parameter Tuning", **kw)
+        _cell1_title = "① Parameters (fixed)" if LOCK_PARAMS else "① Parameter Tuning"
+        self._cell1      = ttk.LabelFrame(self._right_frame, text=_cell1_title, **kw)
         self._cell_force = ttk.LabelFrame(self._right_frame, text="⑤ Shear Force [N]",  **kw)
         self._cell4      = ttk.LabelFrame(self._right_frame, text=_cell4_title,          **kw)
 
@@ -290,9 +291,10 @@ class RobotGUI:
             kv = tk.StringVar(value=f"{SPRING_PARAM_INIT[i]:.2f}")
             cv = tk.StringVar(value=f"{DAMPER_PARAM_INIT[i]:.2f}")
 
-            ttk.Entry(f, textvariable=kv, width=9).grid(
+            entry_state = "readonly" if LOCK_PARAMS else "normal"
+            ttk.Entry(f, textvariable=kv, width=9, state=entry_state).grid(
                 row=i+1, column=1, padx=6, pady=3)
-            ttk.Entry(f, textvariable=cv, width=9).grid(
+            ttk.Entry(f, textvariable=cv, width=9, state=entry_state).grid(
                 row=i+1, column=2, padx=6, pady=3)
             ttk.Label(f, text=f"{comp.s_param:.3f}", width=7).grid(
                 row=i+1, column=3, padx=6, pady=3)
@@ -300,9 +302,14 @@ class RobotGUI:
             self._k_vars.append(kv)
             self._c_vars.append(cv)
 
-        ttk.Button(f, text="Apply Parameters",
-                   command=self._apply_params).grid(
-            row=N_VC+1, column=0, columnspan=4, pady=8, sticky="ew")
+        if LOCK_PARAMS:
+            ttk.Label(f, text="held by the config -- only the goals are placed here",
+                      foreground="gray40").grid(
+                row=N_VC+1, column=0, columnspan=4, pady=8)
+        else:
+            ttk.Button(f, text="Apply Parameters",
+                       command=self._apply_params).grid(
+                row=N_VC+1, column=0, columnspan=4, pady=8, sticky="ew")
 
         self._param_status = ttk.Label(f, text="")
         self._param_status.grid(row=N_VC+2, column=0, columnspan=4)
