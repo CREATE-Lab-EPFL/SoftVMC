@@ -458,7 +458,7 @@ def parse_args():
     # is 1.73 N and 0.015 N.m against a 0.25 limit -- and it puts the
     # Gaussian/reach crossover at strength ~78, below every configured
     # condition, so the field dominates throughout the sweep.
-    p.add_argument("--target-x", type=float, default=-0.30, help="[m] (default: -0.30)")
+    p.add_argument("--target-x", type=float, default=-0.50, help="[m] (default: -0.30)")
     p.add_argument("--target-y", type=float, default=0.0,   help="[m] (default: 0)")
 
     p.add_argument("--settle-gauss",  type=float, default=15.0,
