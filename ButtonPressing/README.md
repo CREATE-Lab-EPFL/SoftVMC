@@ -52,6 +52,15 @@ placement not scripted.
 `_person` drops `weak`: every run costs someone holding an arm still in front of
 a moving robot.
 
+**`_button` records each condition 5 times, `_person` once** (`SWEEP_REPEATS` in
+each config, `--repeats N` overrides). The button is the quantitative variant, so
+the error bar on force-vs-strength should reflect run-to-run variability rather
+than sensor noise inside one window; the person is qualitative. Repeats are saved
+as `<condition>_r<N>.npz` — a separate recording each, with `run_name` carrying
+the full label, and the condition still resolvable from it, so the analysis groups
+them back automatically. Every other experiment in this repo is n = 1, so this is
+the only folder with error bars.
+
 ⚠ **`medium` currently differs between the two variants** — 600 in `_button`,
 500 in `_person`. The point of sharing `medium` and `strong` is that the fixture
 and the person can be compared at an identical field; while they differ, only
@@ -109,6 +118,12 @@ python3 run_sweep.py --config _person
 python3 run_sweep.py --only weak strong
 ```
 
+Fewer or more repeats than the config's default:
+
+```bash
+python3 run_sweep.py --repeats 1
+```
+
 ```bash
 python3 run_sweep.py --dry-run
 ```
@@ -118,7 +133,7 @@ change operating mode while running and holds `/dev/ttyUSB0` exclusively.
 
 | step | set by | |
 |---|---|---|
-| | | driver up (torque mode), torque node up with `--run <condition>` |
+| | | driver up (torque mode), torque node up with `--run <condition>_r<N>` |
 | | | publish `/VC_ref_pos` from the script; tip goal at the rest tip `[0, 0, 0.435]`, so the linear spring pulls **nothing** |
 | settle | `--settle-gauss` 15 s | the Gaussians ramp in and push the arm off, alone |
 | move | `--ramp-speed` 2 cm/s | tip goal walks to `--target-x/y` at `TIP_GOAL_Z`; `--dry-run` prints the distance and time |
@@ -128,8 +143,9 @@ change operating mode while running and holds `/dev/ttyUSB0` exclusively.
 | home | `--home-velocity` 80 | extended position mode, ~18.3 rpm (twice `MultiGoHome`'s own), back to `HOME_POSITION`, **verified tick for tick** |
 | settle | `--settle-home` 5 s | hand back in current mode, next condition |
 
-≈101 s per condition at the default target: **6.9 min** for the button's four,
-**5.2 min** for the person's three — `--dry-run` prints the exact figure, since
+≈101 s per recording at the default target. With the default repeats that is
+**33.9 min** for the button (4 conditions × 5) and **5.2 min** for the person
+(3 × 1); `--repeats 1` brings the button to 6.9 min — `--dry-run` prints the exact figure, since
 the ramp is a third of it and scales with the target. The arm ends a run about
 1.15 turns wound, ~4 s to undo at 18.3 rpm. Every condition therefore starts from the same pose and drives to
 the same target, which is the point; dragged by hand, `weak` and `medium` landed
@@ -205,6 +221,6 @@ than the run:
 | File | |
 |---|---|
 | `GUI_MultiVMC_Config_button.py` / `_person.py` | the elements, their values, the conditions |
-| `run_sweep.py` | the unattended sweep: every condition, same start pose, same target, homed and verified between |
+| `run_sweep.py` | the unattended sweep: every condition × `SWEEP_REPEATS`, same start pose, same target, homed and verified between |
 | `plot_button_and_person.ipynb` | analysis — discovers `outputs/`, takes positions from the data and the window from the mark |
 | `collect_run.py` | moves an unnamed `experiments/z_*` pair into `outputs/` |
