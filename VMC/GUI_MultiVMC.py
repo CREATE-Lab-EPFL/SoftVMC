@@ -66,6 +66,8 @@ PLOT_VIRTUAL_FORCES = getattr(_cfg, "PLOT_VIRTUAL_FORCES", True)
 #   GOAL_Z_LOCK   {name: z}          held at z; its Z slider is disabled
 #   GOAL_LINK     [(name, name...)]  one shared goal -- drag one, they all move
 #   LOCK_PARAMS   bool               True = k and c are the config's, read-only
+#   GAUSS_TOGGLE  bool               True = offer a tickbox that switches
+#                                    RAMP_COMPONENTS between their strength and 0
 #   HOME_BUTTON   bool               True = offer "Home & Quit" (see below)
 #   PUBLISH_ON_START  bool           False = place the goals before the arm moves
 _NAMES   = [c.name or f"VC{i+1}" for i, c in enumerate(VIRTUAL_COMPONENTS)]
@@ -93,6 +95,15 @@ _RAMP_NAMES, _STRENGTH, _ = ramp_spec(_cfg, run_name_from_argv())
 if _STRENGTH is not None:
     SPRING_PARAM_INIT = [_STRENGTH if nm in _RAMP_NAMES else v
                          for nm, v in zip(_NAMES, SPRING_PARAM_INIT)]
+
+# One exception to LOCK_PARAMS, for showing the same reach with the field and
+# without it inside one recording. The strength is walked over RAMP_S rather
+# than stepped, in both directions: switching a placed field on in a single tick
+# is what the start-up ramp exists to avoid, and switching it off that way drops
+# the arm. Needs RAMP_COMPONENTS to have something to act on.
+GAUSS_TOGGLE = bool(getattr(_cfg, "GAUSS_TOGGLE", False)) and bool(_RAMP_NAMES)
+_RAMP_IDX    = [i for i, nm in enumerate(_NAMES) if nm in _RAMP_NAMES]
+RAMP_S       = float(getattr(_cfg, "RAMP_S", 5.0)) or 5.0
 
 # Ending a session by hand means putting the arm back where it started before
 # anything else can run, and that cannot be done over ROS: homing drives the
@@ -227,6 +238,14 @@ class RobotGUI:
         self._ignore_z     = False   # guard against programmatic slider set()
         self._goal_speed   = tk.DoubleVar(value=5.0)  # cm/s
 
+        # Gaussian toggle: _gauss_frac is where the walk has got to, _gauss_goal
+        # where the tickbox says it should end up. Equal means nothing is being
+        # walked and the GUI publishes no parameters at all -- so an untouched
+        # tickbox cannot cancel the torque node's own start-up ramp.
+        self._gauss_on     = tk.BooleanVar(value=True)
+        self._gauss_frac   = 1.0
+        self._gauss_goal   = 1.0
+
         # ── Logging for torque / force plots ─────────────────────────────────
         self._t0          = time.perf_counter()
         self._t_log       = deque(maxlen=self._LOG_MAXLEN)
@@ -321,17 +340,44 @@ class RobotGUI:
             self._k_vars.append(kv)
             self._c_vars.append(cv)
 
+        if GAUSS_TOGGLE:
+            self._gauss_chk = ttk.Checkbutton(
+                f, text=f"Gaussians active  ({_STRENGTH:g} N/m, {RAMP_S:.0f} s in and out)",
+                variable=self._gauss_on, command=self._gauss_toggled)
+            self._gauss_chk.grid(row=N_VC+1, column=0, columnspan=4, pady=(6, 0),
+                                 sticky="w", padx=6)
+
         if LOCK_PARAMS:
             ttk.Label(f, text="held by the config -- only the goals are placed here",
                       foreground="gray40").grid(
-                row=N_VC+1, column=0, columnspan=4, pady=8)
+                row=N_VC+2, column=0, columnspan=4, pady=8)
         else:
             ttk.Button(f, text="Apply Parameters",
                        command=self._apply_params).grid(
-                row=N_VC+1, column=0, columnspan=4, pady=8, sticky="ew")
+                row=N_VC+2, column=0, columnspan=4, pady=8, sticky="ew")
 
         self._param_status = ttk.Label(f, text="")
-        self._param_status.grid(row=N_VC+2, column=0, columnspan=4)
+        self._param_status.grid(row=N_VC+3, column=0, columnspan=4)
+
+    def _gauss_toggled(self):
+        """Tickbox moved: aim the walk at the new end, the loop does the rest."""
+        self._gauss_goal = 1.0 if self._gauss_on.get() else 0.0
+        print(f"[gui] Gaussians -> {_STRENGTH * self._gauss_goal:g} N/m "
+              f"over {RAMP_S:.0f} s", flush=True)
+
+    def _step_gauss(self):
+        """One tick of the walk. Publishes only while it is actually moving."""
+        if self._gauss_frac == self._gauss_goal:
+            return
+        step = (self._UPDATE_MS / 1000.0) / RAMP_S
+        if self._gauss_goal > self._gauss_frac:
+            self._gauss_frac = min(self._gauss_goal, self._gauss_frac + step)
+        else:
+            self._gauss_frac = max(self._gauss_goal, self._gauss_frac - step)
+        for i in _RAMP_IDX:
+            self._k_vals[i] = _STRENGTH * self._gauss_frac
+            self._k_vars[i].set(f"{self._k_vals[i]:.2f}")
+        self.node.publish_params(self._k_vals, self._c_vals)
 
     def _apply_params(self):
         try:
@@ -875,6 +921,9 @@ class RobotGUI:
                 self._canvas_xy.draw_idle()
                 if self._pub_active.get():
                     self.node.publish_ref_pos(self._ref_pos)
+
+        if GAUSS_TOGGLE:
+            self._step_gauss()
 
         self._update_cell3(q, t_now)
 
