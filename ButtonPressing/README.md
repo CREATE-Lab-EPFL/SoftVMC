@@ -15,6 +15,7 @@ protocol:
 | load cell | yes (`/force_shear`) | no |
 | runs land in | `outputs/button_pressing/` | `outputs/person_avoiding/` |
 | what a run is | one condition | one whole session, start to finish |
+| how many | 4 × 5 = 20 files | **one**, `person_avoiding.npz` |
 
 `_button` is the quantitative one and is **recorded**: 4 conditions × 5 repeats,
 `COLLECTED_DATA = True` so nothing can overwrite them. `_person` is qualitative
@@ -159,10 +160,28 @@ the whole run**, and the experiment is what a person does with two points:
    person's arm. `GOAL_LINK` moves both together; there is no way to separate
    them.
 
+`XY_RANGE = (-0.70, 0.70)` m is both the plot's extent and the clamp on a
+dragged goal — it has to reach past the target, which sits beyond the arm's
+43.5 cm on purpose.
+
 Everything else is held. All three z are locked, and `LOCK_PARAMS = True` makes
 the stiffnesses read-only — the GUI shows them but cannot edit them and never
 publishes `/VC_Param`, so a run cannot quietly become a different experiment
 halfway through. One run is one continuous recording of the session.
+
+**One exception: the `Gaussians active` tickbox** (`GAUSS_TOGGLE`, cell ①). It
+switches both Gaussians between 500 N/m and 0 without touching anything else,
+so the same reach can be shown with the field and without it inside one
+recording. Either way the strength is **walked over `RAMP_S` = 5 s**, in and
+out — a placed field switched on in a single tick shoves the arm off the
+obstacle, which is what the start-up ramp exists to avoid, and switched off
+that way it drops. Untouched, the tickbox publishes nothing at all, so it
+cannot cancel the torque node's own start-up ramp.
+
+`k_params` records the walk, and the analysis segments on it: the stretch
+before a toggle and the stretch after are separate windows. Only the first is
+marked, so `hold_window(d, mark_index=...)` or a second entry in `MARK_PROMPTS`
+is what to reach for if you want both.
 
 ### Running it
 
@@ -179,13 +198,17 @@ cd ButtonPressing
 bash ../start_arm.sh
 ```
 
-**Terminal 2** — the controller and the log. `<name>` is yours to choose
-(`reach_1`, `side_on`, …); it names `outputs/person_avoiding/<name>.{npz,png}`
-and **overwrites** a previous run of that name.
+**Terminal 2** — the controller and the log
 
 ```bash
-python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run <name>
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _person
 ```
+
+There is one person run, so it does not need naming: `--run` defaults to
+`DEFAULT_RUN_NAME`, and the run is written to
+`outputs/person_avoiding/person_avoiding.{npz,png}` when you quit, **overwriting**
+whatever was there. Nothing goes to `experiments/`. Pass `--run <name>` only if
+you want to keep a second one alongside it.
 
 **Terminal 3** — the GUI
 
@@ -221,7 +244,8 @@ settle before touching anything.
    `HOME_POSITION` in extended position control at ~9.2 rpm — half the speed
    the button sweep homes at, because that one runs with nobody near the arm —
    and the GUI closes when it arrives.
-7. **Ctrl+C in terminal 2** to write the run.
+7. **Ctrl+C in terminal 2** to write
+   `outputs/person_avoiding/person_avoiding.{npz,png}`.
 
 ⚠ **Save before homing if you want the homing in the log.** *Home & Quit* stops
 `dynamixel_node` to take the serial bus — that is the only way to reach the
@@ -262,8 +286,8 @@ is easy to get backwards:
 
 | axis | physically | set by |
 |---|---|---|
-| `x` | horizontal, across | the GUI's x, `GAUSS_GOAL_XY[0]`, `--target-x` |
-| `y` | **vertical — up is +y** | the GUI's y, `GAUSS_GOAL_XY[1]`, `--target-y` |
+| `x` | horizontal, across | the GUI's x (±0.70), `GAUSS_GOAL_XY[0]`, `--target-x` |
+| `y` | **vertical — up is +y** | the GUI's y (±0.70), `GAUSS_GOAL_XY[1]`, `--target-y` |
 | `z` | out along the arm's axis | `TIP_GOAL_Z`, `GAUSS_GOAL_Z` (locked) |
 
 ⚠ No single projection is the geometry. Since y is vertical, an **x–z plot is a
@@ -275,7 +299,8 @@ error in 3-D: an x–z view of one run shows the arm grazing the obstacle at
 ## Data
 
 `--run NAME` writes `outputs/<folder>/NAME.{npz,png}` on exit, **overwriting**
-that run; needs `COLLECTED_DATA = False`. The log is checkpointed to
+that run; needs `COLLECTED_DATA = False`. `_person` sets `DEFAULT_RUN_NAME`, so
+it is named without being asked and never falls back to `experiments/`. The log is checkpointed to
 `NAME.autosave.npz` every `AUTOSAVE_S` = 30 s, so a crash costs seconds rather
 than the run:
 
@@ -295,7 +320,7 @@ than the run:
 | `tau_vmc` / `tau_grav` / `tau_pretension` | (n, 9) | the three terms, before the limiter |
 | `tau_raw` / `tau` | (n, 9) | asked for vs sent — clipping is `abs(tau_raw) > tau_limit` |
 | `q_motor` / `q_motor_dot` | (n, 9) | [rad], [rad/s] |
-| `k_params` / `c_params` | (n, 3) | spring and damper parameter per element over time |
+| `k_params` / `c_params` | (n, 3) | spring and damper parameter per element over time — including the start-up ramp and every `Gaussians active` toggle |
 | `force` / `force_age` | (n,) | load-cell shear, raw **grams** (×`9.80665e-3` for N), and its staleness [s] |
 | `marks_t` / `marks_label` / `marks_wall` | (m,) | where Ctrl+C was pressed, on `t`'s clock |
 | `comp_spec` / `config_source` | (1,) | every element's type and values as JSON; the whole config file |
