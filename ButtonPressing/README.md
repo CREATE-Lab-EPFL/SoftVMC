@@ -15,36 +15,46 @@ across. `GAUSS_CONDITIONS` is the one field deliberately different.
 
 ## Elements
 
+Seven components: one tip spring, and **six Gaussians** — two attachment points
+× three obstacle centres.
+
 | Component | Element | s | Goal |
 |---|---|---|---|
 | `lin_tip` | `LinearSpring(30)` | 1.0 | starts `[0, 0, 0.435]`, walked to `--target-x/y` at `TIP_GOAL_Z` |
-| `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | `GAUSS_GOAL_XY` + `GAUSS_GOAL_Z` = `[-0.05, 0, 0.2175]` |
-| `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `gauss_seg1`'s goal** |
+| `gauss_seg1_{down,mid,up}` | `GaussianSpring(k, 0.06)` | 1/3 | `GAUSS_GOAL_XY` at y = −10, 0, +10 cm |
+| `gauss_seg2_{down,mid,up}` | `GaussianSpring(k, 0.06)` | 2/3 | the same three centres |
 
 `tau = sum_i J_i^T F_i`. Both z are locked; z is the reach out along the arm's
 axis, **not height** (see [Gravity and axes](#gravity-and-axes)).
+
+**The obstacle is a line, not a point.** A Gaussian's force is
+`k·exp(−d²/2σ²)·d` — zero *at* the centre, peaking at `d = σ` — so one centre is
+a bump the arm slides around: along y the force falls from 0.036 to 0.011 per
+unit `k` over ±12 cm, a **70% ripple**, and the arm escapes past the weak end
+into odd shapes. Three centres 10 cm apart (1.67σ) flatten that to **18%** —
+better than ±8 cm (32%) or five centres (30%) — and their y components cancel in
+the middle, so the wall pushes along +x instead of shoving the arm up or down.
+`GAUSS_LINE_Y` sets the spacing; y is vertical, so this is an upright line.
 
 `K_REACH = 30` N/m, `C_DAMP = 1.0` N·s/m, `SIGMA = 0.06` m, `TAU_LIMIT = 0.25`
 N·m, `PRETENSION_WEIGHTS = 0.010` N·m/rad. All from the config — the sweep runs
 no GUI, so nothing is adjustable mid-run.
 
-**The target is `--target-x/y`, default `(-0.30, 0)`** — deliberately **beyond
-the arm's reach**: 48.4 cm from the base against a 43.5 cm straight length. The
-tip stops at full extension either way, so the target sets how hard it pulls
-there, not where it ends up: 1.73 N at `-0.30`, 6.92 N at `-0.50`.
+**The target is `--target-x/y`, default `(-0.30, 0)`** — beyond the arm's 43.5 cm
+reach on purpose, so the tip stops at full extension and the target sets how hard
+it pulls there rather than where it ends up.
 
-**Set `GAUSS_GOAL_XY` to where the obstacle actually is.** The `(-0.05, 0.0)`
-default sits 5 cm off the arm's rest axis with zero y offset, which leaves the
-direction the arm escapes in barely determined.
+**Set `GAUSS_GOAL_XY` to where the obstacle actually is** — it is the only
+placement not scripted.
 
 ## Conditions
 
 | `--run` | strength | `_button` | `_person` |
 |---|---|---|---|
 | `no_gauss` | 0 | ✓ | ✓ |
-| `weak` | 250 | ✓ | — |
-| `medium` | 500 | ✓ | ✓ |
-| `strong` | 1000 | ✓ | ✓ |
+| `weak` | 100 | ✓ | — |
+| `medium` | 200 | ✓ | ✓ |
+| `strong` | 300 | ✓ | ✓ |
 
 `medium` and `strong` are shared, so the fixture and the person are comparable at
 an identical field. `_person` drops `weak`: every run costs someone holding an
@@ -57,29 +67,13 @@ for is refused in a second, before anything is built:
 
 ```
 [ERROR] --run 'mid_1' is not a condition of GUI_MultiVMC_Config_button.
-        this config knows: no_gauss (0), weak (250), medium (500), strong (1000)
+        this config knows: no_gauss (0), weak (100), medium (200), strong (300)
 ```
 
-**Where the crossover sits.** Measured at the pose the arm actually reaches (from
-`no_gauss`), the strength at which the Gaussian overtakes the reach depends
-strongly on the target:
-
-| `--target-x` | tip pull | crossover |
-|---|---|---|
-| **-0.30** (default) | 1.73 N | **≈ 78** |
-| -0.40 | 4.06 N | ≈ 160 |
-| -0.50 | 6.92 N | ≈ 377 |
-
-At `-0.30` the crossover (≈ 78) is below all of `weak` / `medium` / `strong`, so
-the field dominates in every condition and the sweep samples one side of the
-transition — `weak` is already 3× past it. Pushing the target out raises the
-crossover into the configured range: `-0.50` puts it at ≈ 377, between `weak`
-and `medium`.
-
-⚠ These strengths still sweep how far the arm is pushed off, not how hard it
-presses. Check the shear is above zero at `strong`; if it is not, the sweep shows
-on/off rather than modulation, and the fix is a target further out (more pull at
-full extension) or a smaller `SIGMA`.
+These straddle the point where the field overtakes the reach (**strength ≈ 171**
+at the default target): `weak` is 0.6× it, `medium` 1.2×, `strong` 1.7× — so the
+sweep contains the transition rather than sampling one side of it. Peak torque at
+`strong` is 0.111 N·m against the 0.25 limit.
 
 ## Running
 
@@ -187,14 +181,14 @@ than the run:
 | field | shape | |
 |---|---|---|
 | `t` / `t_wall` | (n,) | s from the first reference (`t < 0` before it); unix time |
-| `goal` | (n, 3, 3) | reference per element [m] |
-| `comp_pos` / `comp_vel` | (n, 3, 3) | FK position [m] and task-space velocity [m/s] |
-| `f_comp` | (n, 3, 3) | **each element's force separately** [N]; `f_virtual` (n, 3) is their sum |
-| `tau_comp` | (n, 3, 9) | each element's share of the torque [N·m] |
+| `goal` | (n, 7, 3) | reference per element [m] |
+| `comp_pos` / `comp_vel` | (n, 7, 3) | FK position [m] and task-space velocity [m/s] |
+| `f_comp` | (n, 7, 3) | **each element's force separately** [N]; `f_virtual` (n, 3) is their sum |
+| `tau_comp` | (n, 7, 9) | each element's share of the torque [N·m] |
 | `tau_vmc` / `tau_grav` / `tau_pretension` | (n, 9) | the three terms, before the limiter |
 | `tau_raw` / `tau` | (n, 9) | asked for vs sent — clipping is `abs(tau_raw) > tau_limit` |
 | `q_motor` / `q_motor_dot` | (n, 9) | [rad], [rad/s] |
-| `k_params` / `c_params` | (n, 3) | spring and damper parameter per element over time |
+| `k_params` / `c_params` | (n, 7) | spring and damper parameter per element over time |
 | `force` / `force_age` | (n,) | load-cell shear, raw **grams** (×`9.80665e-3` for N), and its staleness [s] |
 | `marks_t` / `marks_label` / `marks_wall` | (m,) | where Ctrl+C was pressed, on `t`'s clock |
 | `comp_spec` / `config_source` | (1,) | every element's type and values as JSON; the whole config file |
