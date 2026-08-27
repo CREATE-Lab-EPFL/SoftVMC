@@ -99,7 +99,8 @@ def pump(stream, tag, q):
     q.put((tag, None))
 
 
-def port_holders(dev=SERIAL_PORT):
+def port_holders(dev=None):
+    dev = dev or SERIAL_PORT
     """PIDs with `dev` open, read straight from /proc.
 
     pyserial's `exclusive=True` is an advisory flock, and the C++ driver opens
@@ -128,10 +129,11 @@ def describe(pid):
         return str(pid)
 
 
-def wait_for_port_free(dev=SERIAL_PORT, timeout=15.0):
+def wait_for_port_free(dev=None, timeout=15.0):
     """Block until nothing holds the bus. Waiting on the driver's exit is not
     enough -- `ros2 run` execs the node as a child, so signalling the wrapper
     can leave the node orphaned and still holding the port."""
+    dev = dev or SERIAL_PORT
     deadline = time.time() + timeout
     while time.time() < deadline:
         held = [p for p in port_holders(dev) if p != os.getpid()]
