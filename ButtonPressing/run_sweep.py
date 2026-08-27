@@ -453,12 +453,12 @@ def parse_args():
     p.add_argument("--dry-run", action="store_true",
                    help="print the plan and the timings, touch no hardware")
 
-    # Beyond the arm's 43.5 cm reach on purpose: the tip stops at full extension
-    # either way, so this sets how HARD it pulls there, not where it ends up.
-    # At -0.50 that is 7.64 N and 0.131 N.m against a 0.25 limit, and it puts the
-    # Gaussian/reach crossover at strength ~546 -- just above `weak`, so the
-    # sweep brackets it.
-    p.add_argument("--target-x", type=float, default=-0.50, help="[m] (default: -0.50)")
+    # Beyond the arm's 43.5 cm reach: the tip stops at full extension either way,
+    # so this sets how HARD it pulls there, not where it ends up. At -0.30 that
+    # is 1.73 N and 0.015 N.m against a 0.25 limit -- and it puts the
+    # Gaussian/reach crossover at strength ~78, below every configured
+    # condition, so the field dominates throughout the sweep.
+    p.add_argument("--target-x", type=float, default=-0.30, help="[m] (default: -0.30)")
     p.add_argument("--target-y", type=float, default=0.0,   help="[m] (default: 0)")
 
     p.add_argument("--settle-gauss",  type=float, default=15.0,

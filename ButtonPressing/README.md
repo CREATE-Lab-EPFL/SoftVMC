@@ -28,10 +28,10 @@ axis, **not height** (see [Gravity and axes](#gravity-and-axes)).
 N·m, `PRETENSION_WEIGHTS = 0.010` N·m/rad. All from the config — the sweep runs
 no GUI, so nothing is adjustable mid-run.
 
-**The target is `--target-x/y`, default `(-0.40, 0)`** — and it is deliberately
-**beyond the arm's reach**: 55.2 cm from the base against a 43.5 cm straight
-length. The tip stops at full extension either way, so the target sets how hard
-it pulls there (5.94 N, against 2.94 N at `-0.30`), not where it ends up.
+**The target is `--target-x/y`, default `(-0.30, 0)`** — deliberately **beyond
+the arm's reach**: 48.4 cm from the base against a 43.5 cm straight length. The
+tip stops at full extension either way, so the target sets how hard it pulls
+there, not where it ends up: 1.73 N at `-0.30`, 6.92 N at `-0.50`.
 
 **Set `GAUSS_GOAL_XY` to where the obstacle actually is.** The `(-0.05, 0.0)`
 default sits 5 cm off the arm's rest axis with zero y offset, which leaves the
@@ -60,15 +60,20 @@ for is refused in a second, before anything is built:
         this config knows: no_gauss (0), weak (500), medium (1000), strong (2000)
 ```
 
-**Where the crossover sits.** At the pose the arm actually reaches (measured from
-`no_gauss`), the Gaussian is worth 0.248 N·m per 1000 N/m of strength, against a
-tip torque of 0.174 N·m at `--target-x -0.40`. So the field overtakes the reach
-at **≈ 700 N/m**, which puts the crossover between `weak` and `medium`: one
-condition where the tip wins, two where the field does.
+**Where the crossover sits.** Measured at the pose the arm actually reaches (from
+`no_gauss`), the strength at which the Gaussian overtakes the reach depends
+strongly on the target:
 
-This is why the target matters. At `-0.30` the tip torque is only 0.087 N·m and
-the crossover falls to ≈ 350 — below every configured strength, so all three
-conditions sit on the same side and the sweep shows no transition.
+| `--target-x` | tip pull | crossover |
+|---|---|---|
+| **-0.30** (default) | 1.73 N | **≈ 78** |
+| -0.40 | 4.06 N | ≈ 160 |
+| -0.50 | 6.92 N | ≈ 377 |
+
+At `-0.30` the crossover is below all of `weak` / `medium` / `strong`, so the
+field dominates in every condition and the sweep samples one side of the
+transition. Push the target further out to bring the crossover up into the
+configured range.
 
 ⚠ These strengths still sweep how far the arm is pushed off, not how hard it
 presses. Check the shear is above zero at `strong`; if it is not, the sweep shows
