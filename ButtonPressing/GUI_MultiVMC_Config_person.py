@@ -169,18 +169,14 @@ PLOT_FORCE     = False   # no load cell in this variant
 #   - the two Gaussians share ONE goal, held at the midpoint between the tips
 #     of section 1 and section 2 (z is linear in s on the straight arm, so that
 #     midpoint is just rest_pose(0.5))
-TIP_GOAL_Z   = 0.38                       # [m] only the value lin_tip's goal starts
-                                          #     at, before the first FK -- GOAL_Z_TRACK
-                                          #     takes over from the first tick
+TIP_GOAL_Z   = float(rest_pose(1.0)[2])   # [m] = 0.435, the straight arm's own tip.
+                                          #     Held there for the whole run, so the tip
+                                          #     goal always sits in ONE x-y plane -- the
+                                          #     tip's own -- and dragging it steers the
+                                          #     tip across that plane instead of also
+                                          #     pulling it in along the arm's axis.
+                                          #     z is NOT height here: gravity is -y.
 GAUSS_GOAL_Z = float(rest_pose(0.5)[2])   # [m] = 0.2175, between sections 1 and 2
-
-# lin_tip's goal z is not a reference here: every tick it is set to where the tip
-# actually is, so the z error is always zero and the tip spring pulls in x and y
-# ONLY. It steers the tip without ever pulling it in or out along the arm's own
-# axis -- how far the arm extends is left to the Gaussians, gravity and the
-# pretension. `goal` in the log records the z that was actually used, not the
-# one the GUI published.
-GOAL_Z_TRACK = ("lin_tip",)
 
 GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,
                "gauss_seg1": GAUSS_GOAL_Z,
@@ -201,10 +197,10 @@ GAUSS_GOAL_XY = (-0.25, 0.0)   # [m] where the person stands. Further out than
                                # points AT the button instead of away from it.
 GOAL_LINK   = [GAUSS_COMPONENTS]
 
-# Live from the start, like every other folder. The tip goal sits 5.5 cm below
-# the resting tip, so the arm takes up that slack (~1.9 N at K_REACH = 35) as
-# soon as the torque node is up, while the Gaussians ramp in. Untick "Publisher
-# Active" in the GUI to place the goals quietly.
+# Live from the start, like every other folder. The tip goal starts AT the
+# resting tip now (same x, y and z), so the linear spring pulls nothing until
+# it is dragged -- only the Gaussians ramping in move the arm. Untick
+# "Publisher Active" in the GUI to place the goals quietly.
 PUBLISH_ON_START = True
 
 # ── Ending a session ─────────────────────────────────────────────────────────
