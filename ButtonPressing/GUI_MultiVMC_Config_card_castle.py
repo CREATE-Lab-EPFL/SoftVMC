@@ -218,9 +218,13 @@ HOME_TIMEOUT  = 120.0   # [s] the arm ends a run about 1.15 turns wound
 # ── GUI framing ──────────────────────────────────────────────────────────────
 DRAG_SPEED_MAX = 100.0     # [cm/s] top of the drag-speed slider -- the goal
                            #        crosses the whole range in a second at it
-XY_RANGE = (-0.70, 0.70)   # [m] the x-y plot's extent, and the clamp on a
-                           #     dragged goal -- so it has to reach past the
-                           #     target, which sits beyond the arm on purpose
+XY_RANGE = (-1.00, 1.00)   # [m] the x-y plot's extent, and the clamp on a
+                           #     dragged goal. Wide on purpose: the target sits
+                           #     beyond the arm's 43.5 cm reach, and the whole
+                           #     workspace plus the obstacle has to be placeable
+                           #     without running into the edge. The cost is
+                           #     precision -- the same drag covers more ground,
+                           #     so drop "Drag speed" for fine placement.
 Z_RANGE  = (0.15, 0.50)    # [m]
 
 # ── Derived ──────────────────────────────────────────────────────────────────

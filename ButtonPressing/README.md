@@ -231,8 +231,11 @@ passes — move it, or raise `SIGMA`, before reaching for a bigger `k`.
 
 The GUI can change: both goals' x/y, the tip stiffness, both Gaussian strengths
 (cell ①, `Apply Parameters`), and a **`Gaussians active` tickbox**. Every z is
-locked. `XY_RANGE = ±0.70` m is both the plot extent and the clamp on a dragged
-goal; `DRAG_SPEED_MAX = 100` cm/s tops the speed slider.
+locked. `XY_RANGE = ±1.00` m is both the plot extent and the clamp on a dragged
+goal — wide enough to place the obstacle and a target well past the arm's 43.5 cm
+reach without hitting the edge, at the cost of precision, since the same drag
+now covers more ground. `DRAG_SPEED_MAX = 100` cm/s tops the speed slider; drop
+it for fine placement.
 
 The tickbox owns *whether* the field is on, the entries own *how strong* when it
 is — so it returns to whatever was last applied, and a strength typed while it
@@ -250,8 +253,8 @@ The arm is mounted **on its side** — both configs set `GRAVITY_DIR = "-y"`
 
 | axis | physically | set by |
 |---|---|---|
-| `x` | horizontal, across | the GUI's x (±0.70), `GAUSS_GOAL_XY[0]`, `--target-x` |
-| `y` | **vertical — up is +y** | the GUI's y (±0.70), `GAUSS_GOAL_XY[1]`, `--target-y` |
+| `x` | horizontal, across | the GUI's x (±1.00, `_button` ±0.70), `GAUSS_GOAL_XY[0]`, `--target-x` |
+| `y` | **vertical — up is +y** | the GUI's y (±1.00, `_button` ±0.70), `GAUSS_GOAL_XY[1]`, `--target-y` |
 | `z` | out along the arm's axis | `TIP_GOAL_Z`, `GAUSS_GOAL_Z` (locked) |
 
 ⚠ No single projection is the geometry. Since y is vertical an **x–z plot is a
