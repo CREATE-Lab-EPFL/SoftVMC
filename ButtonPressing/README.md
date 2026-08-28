@@ -10,7 +10,7 @@ Three variants, two protocols:
 |---|---|---|---|
 | obstacle | a fixture at x = −0.15 | a person's arm, held still at x = −0.25 | a house of cards at x = −0.25 |
 | driven by | `run_sweep.py`, unattended, no GUI | the GUI, by hand | the GUI, by hand |
-| Gaussian strength | swept 0 / 200 / 600 / 1000 | 2 cases: 0 and 1000 | 2 cases: 0 and 1000 |
+| Gaussian strength | swept 0 / 200 / 600 / 1000 | 2 cases: 0 and 500 | 2 cases: 0 and 500 |
 | goals | scripted, identical every run | placed by hand | placed by hand |
 | `TAU_LIMIT` | 0.25 N·m | **0.35 N·m** | **0.35 N·m** |
 | load cell | yes | no | no |
@@ -18,8 +18,8 @@ Three variants, two protocols:
 | status | **recorded, locked** (`COLLECTED_DATA = True`) | to record | to record |
 
 `_person` and `_card_castle` are the same experiment with a different obstacle —
-every value in their configs matches, so they are directly comparable, and 1000
-is the button's `strong` as well. Keep them in step.
+every value in their configs matches, so they are directly comparable. Keep
+them in step.
 
 ---
 
@@ -75,7 +75,7 @@ motors left holding, driver not restarted, runs already recorded named.
 | case | k [N/m] | |
 |---|---|---|
 | `no_gauss` | 0 | no field — the body goes wherever reaching takes it |
-| `gauss` | 1000 | the field on |
+| `gauss` | 500 | the field on |
 
 Same two cases for both `_person` and `_card_castle`.
 
@@ -135,12 +135,12 @@ python3 ../VMC/GUI_MultiVMC.py --config _card_castle --run gauss
 python3 ../VMC/GUI_MultiVMC.py --config _card_castle --run no_gauss
 ```
 
-### Replaying the trajectory instead of driving it twice
+### Replaying `no_gauss` into `gauss`
 
 Hand-driving both cases makes them differ in the field **and** in wherever the
 mouse went — and the second difference is usually the bigger one. `replay_goal.py`
-removes it: record the first case from the GUI, then publish that same goal
-trajectory back into the second, sample for sample.
+removes it: record `no_gauss` from the GUI, then publish that same goal
+trajectory back into `gauss`, sample for sample.
 
 **It replays only the reference** — the goals on `/VC_ref_pos`. Torque is still
 computed live by the torque node from the arm's actual state and this run's
@@ -148,7 +148,34 @@ field. Replaying the torque would replay the first run's motion verbatim and the
 Gaussians could not change anything, which is the opposite of the experiment.
 The two runs share an *input* and differ in a *controller*.
 
-Run 1 from the GUI as above. For run 2, terminal 3 runs this instead of the GUI:
+#### Run 1 — record `no_gauss` from the GUI
+
+Exactly the normal procedure below, with `--run no_gauss`. Drive the tip to the
+button by hand, mark it with Ctrl+C, and end with *Home & Quit*. This run is the
+source, so drive it the way you want the pair to look.
+
+```bash
+bash ../start_arm.sh
+```
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run no_gauss
+```
+
+```bash
+python3 ../VMC/GUI_MultiVMC.py --config _person --run no_gauss
+```
+
+#### Run 2 — replay it into `gauss`
+
+Same terminals 1 and 2, with `--run gauss`. **Terminal 3 runs the replay script
+instead of the GUI** — this is the step that is easy to get wrong: launching
+`GUI_MultiVMC.py` here just gives you an empty GUI waiting to be dragged, and
+nothing replays.
+
+```bash
+bash ../start_arm.sh
+```
 
 ```bash
 python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run gauss
@@ -158,20 +185,42 @@ python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run gauss
 python3 replay_goal.py --config _person --from no_gauss --run gauss
 ```
 
+Then **do nothing**. It settles 8 s while the field ramps in, replays the
+trajectory at 100 Hz, re-emits the marks at their recorded times, ends the run
+so the torque node writes `gauss.npz`, and finishes the session exactly as
+*Home & Quit* does — stop `dynamixel_node` (closing terminal 1), home the arm,
+hand back in current mode. `--no-home` leaves the arm up instead.
+
+Check the plan first without touching anything:
+
 ```bash
 python3 replay_goal.py --config _person --dry-run
 ```
 
-It waits `--settle` (8 s, so the field finishes ramping in), replays at
-`--rate` 100 Hz, re-emits any marks at their recorded times over `/vmc_mark`,
-then ends the run with `/vmc_end_run` so the torque node writes it — nothing is
-pressed by hand. Goals are matched by component **name**, so a source recorded
-with a different set of elements still replays: `gauss_seg3` takes
-`gauss_seg1`'s goal, since they share one.
+For the card castle, swap the config — and remember `no_gauss` knocks the castle
+over, so record `gauss` first there and replay *it* into `no_gauss`:
+
+```bash
+python3 replay_goal.py --config _card_castle --from gauss --run no_gauss
+```
+
+| flag | | |
+|---|---|---|
+| `--from` | `no_gauss` | the run whose trajectory is replayed |
+| `--run` | `gauss` | must match the torque node's `--run` |
+| `--settle` | 8 s | wait before starting, so the field has ramped in |
+| `--rate` | 100 Hz | publish rate |
+| `--speed` | 1.0 | replay faster or slower than recorded |
+| `--no-home` | | skip the homing at the end |
+
+Goals are matched by component **name**, so a source recorded with a different
+set of elements still replays: `gauss_seg3` takes `gauss_seg1`'s goal, since
+they share one.
 
 ⚠ A click in the GUI *jumps* the goal, so a source can contain steps of a few
 centimetres in one frame. A step is reproduced within one publish interval
-(10 ms at the default rate); `--speed` above 1 widens that.
+(10 ms at the default rate); `--speed` above 1 widens that, so leave it at 1 for
+real runs.
 
 ### Then, in order
 
@@ -261,7 +310,7 @@ period behind its point: measured on a moving arm at **0.09 mm worst case**
 at 1.000 — pure lag, no offset. `goal` in the log records the z applied, not the
 one the GUI published, and those z sliders read *follows the tip*.
 
-The GUI pair pulls harder and settles harder, against a heavier field: 1000 N/m
+The GUI pair pulls harder and settles harder, against a heavier field: 500 N/m
 acting on a body that has to come to rest next to a person or a stack of cards,
 where ringing is the thing to avoid. The stiffer tip spring keeps the tip
 arriving at the button while the body is being pushed off, and the higher torque
@@ -298,8 +347,8 @@ bars.
 
 Strengths are **field strengths, not forces**: a Gaussian peaks at
 `k·exp(−½)·σ = k·0.0364` N when its attachment point is σ from the centre, so
-`gauss` peaks at 36 N and falls away fast either side of it: 16 N at 2σ
-(12 cm), 3.3 N at 2.8σ (17 cm) — a tenth of the peak, and by then weaker than
+`gauss` peaks at 18 N and falls away fast either side of it: 8.1 N at 2σ
+(12 cm), 1.7 N at 2.8σ (17 cm) — a tenth of the peak, and by then weaker than
 the reach. **Placement matters more than strength.** What the motors get is
 clipped at `TAU_LIMIT`, which is 0.35 here against the button's 0.25, so the
 limiter has less say in the pose.

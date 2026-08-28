@@ -14,7 +14,7 @@ is kept off the arm by the two Gaussians. Two runs, and the difference between
 them is the benefit of shaping the whole body rather than just placing the tip:
 
     --run no_gauss    no field at all -- the body goes wherever reaching takes it
-    --run gauss       the field on, at 1000 N/m
+    --run gauss       the field on, at 500 N/m
 
 One run each, named by the case, so the two files ARE the experiment:
 outputs/person_avoiding/{no_gauss,gauss}.{npz,png}. --run is required and only
@@ -55,11 +55,11 @@ CONFIG_NAME = "person"
 # ── Virtual elements ─────────────────────────────────────────────────────────
 K_REACH = 35.0    # [N/m]   tip spring -- stiffer than the button's 30, so the
                   #         tip still gets to the button while the body is being
-                  #         pushed off a 1000 N/m field
+                  #         pushed off a 500 N/m field
 K_GAUSS = 0.0     # [N/m]   the run's level sets this; see GAUSS_CONDITIONS
 SIGMA   = 0.06    # [m]     Gaussian width
 C_DAMP  = 3.0     # [N.s/m] all three -- 3x the button's 1.0. The field here is
-                  #         1000 N/m against a fragile obstacle, and the damper is
+                  #         500 N/m against a fragile obstacle, and the damper is
                   #         what keeps the arm from ringing as it is pushed off.
 
 # One obstacle, three attachment points -- the END of each section, so every
@@ -92,14 +92,15 @@ VIRTUAL_COMPONENTS = [
 #
 # These are the field STRENGTHS, not forces: a Gaussian's force peaks at
 # k*exp(-1/2)*sigma = k*0.0364 N when the attachment point is sigma from the
-# centre, so `gauss` peaks at 36 N and falls away fast on either side of that.
+# centre, so `gauss` peaks at 18 N and falls away fast on either side of that.
 # What the motors actually get is clipped at TAU_LIMIT.
 #
-# 1000 is the button config's `strong`, so the fixture and the person are
-# driven at an identical field.
+# Half the button's `strong` (1000) and below its `medium` (600): the three
+# Gaussians here add up where the button had two, so the same clearance
+# needs less per element.
 GAUSS_CONDITIONS = {
     "no_gauss":      0.0,
-    "gauss":      1000.0,
+    "gauss":       700.0,
 }
 
 # --run is not optional here: an unnamed run belongs to neither case.
@@ -116,7 +117,7 @@ LOCK_PARAMS = False
 # tickbox owns WHETHER the field is on, the entries own HOW STRONG it is when it
 # is -- so it comes back up to whatever was last applied, not to the case's own
 # strength. Either way it is walked over RAMP_S rather than stepped: switching a
-# placed 1000 N/m field on in a single tick is exactly what the start-up ramp
+# placed 500 N/m field on in a single tick is exactly what the start-up ramp
 # exists to avoid, and switching it off that way drops the arm.
 GAUSS_TOGGLE = True
 

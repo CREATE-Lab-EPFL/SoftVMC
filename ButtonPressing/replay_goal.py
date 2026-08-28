@@ -37,6 +37,11 @@ failing that its own DEFAULT_START.
 Marks are replayed at their recorded times over /vmc_mark, and the run is ended
 and written with /vmc_end_run -- so the measurement window lands in the same
 place in both runs and nothing has to be pressed by hand.
+
+It then finishes the session exactly as the GUI's "Home & Quit" does: stop
+dynamixel_node (which closes start_arm.sh in terminal 1), home the arm in
+extended position control, hand back in current mode. --no-home skips that and
+leaves everything up.
 """
 
 import argparse
@@ -48,7 +53,7 @@ import numpy as np
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-for _p in (_HERE, _ROOT, os.path.join(_ROOT, "Kinematics")):
+for _p in (_HERE, _ROOT, os.path.join(_ROOT, "VMC"), os.path.join(_ROOT, "Kinematics")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
@@ -80,6 +85,10 @@ def parse_args():
                         "ramping in and the arm has settled (default: 8)")
     p.add_argument("--speed", type=float, default=1.0, metavar="X",
                    help="replay faster or slower than recorded (default: 1.0)")
+    p.add_argument("--no-home", dest="home", action="store_false",
+                   help="do NOT end the session: leave the driver up and the arm "
+                        "where it is. By default the replay finishes like the GUI's "
+                        "Home & Quit -- stop the driver, home, hand back.")
     p.add_argument("--dry-run", action="store_true",
                    help="print the plan and publish nothing")
     return p.parse_args()
@@ -133,6 +142,28 @@ class Replayer(Node):
         self.pub_mark = self.create_publisher(String, "/vmc_mark", 10)
         self.pub_end = self.create_publisher(Bool, "/vmc_end_run", 10)
         self.cfg = cfg
+        self._tau_stamp = None
+        self.create_subscription(Float64MultiArray, "/goal_torque",
+                                 self._cb_tau, 10)
+
+    def _cb_tau(self, _msg):
+        self._tau_stamp = time.perf_counter()
+
+    def wait_for_save(self, timeout=30.0):
+        """Block until the torque node stops publishing -- it exits once written."""
+        if self._tau_stamp is None:
+            print("[replay] no torque node was publishing -- nothing to wait for",
+                  flush=True)
+            return
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            rclpy.spin_once(self, timeout_sec=0.05)
+            if time.perf_counter() - self._tau_stamp > 1.5:
+                print("[replay] torque node has stopped", flush=True)
+                return
+            time.sleep(0.1)
+        print(f"[replay] torque node still publishing after {timeout:.0f} s "
+              "-- check its terminal", flush=True)
 
     def send(self, xyz):
         self.pub_goal.publish(Float64MultiArray(data=xyz.reshape(-1).tolist()))
@@ -150,6 +181,13 @@ def main():
     if a.src == a.run:
         sys.exit(f"[ERROR] --from and --run are both {a.run!r}: that would replay a run "
                  f"into itself and overwrite it.")
+    conds = getattr(cfg, "GAUSS_CONDITIONS", None)
+    if conds:
+        bad = [n for n in (a.src, a.run) if n not in conds]
+        if bad:
+            sys.exit(f"[ERROR] not a case of {cfg.__name__}: {', '.join(bad)}\n"
+                     f"        this config knows: {', '.join(conds)}\n"
+                     f"        --run has to be the SAME name the torque node was given.")
 
     t, goal, how, marks = load_source(cfg, src_path)
     dur = t[-1] / a.speed
@@ -180,6 +218,21 @@ def main():
     rclpy.init()
     node = Replayer(cfg)
     try:
+        # Publishing a trajectory at nothing wastes the run and, worse, would
+        # still reach the homing at the end and move the arm. Check first.
+        print("[replay] waiting for the torque node on /goal_torque ...", flush=True)
+        deadline = time.time() + 10.0
+        while time.time() < deadline and node._tau_stamp is None:
+            rclpy.spin_once(node, timeout_sec=0.1)
+        if node._tau_stamp is None:
+            sys.exit(f"\n[ERROR] nothing is publishing /goal_torque -- the torque node "
+                     f"is not running.\n"
+                     f"        start it in terminal 2 first:\n"
+                     f"          python3 ../VMC/GUI_MultiVMC_Torque.py --config "
+                     f"{a.config} --run {a.run}\n"
+                     f"        (nothing was published, and the arm was not moved)\n")
+        print("[replay] torque node is up", flush=True)
+
         print(f"[replay] settling {a.settle:.0f} s (the field ramps in over "
               f"{getattr(cfg, 'RAMP_S', 0):g} s) -- hold still", flush=True)
         node.send(goal_out[0])                    # hold the start pose while settling
@@ -210,15 +263,55 @@ def main():
             node.pub_end.publish(Bool(data=True))
             rclpy.spin_once(node, timeout_sec=0.05)
             time.sleep(0.1)
+        node.wait_for_save()
+
+        run_path = os.path.join(_HERE, "outputs", folder, a.run + ".npz")
+        if os.path.exists(run_path):
+            print(f"[replay] saved: {run_path}  "
+                  f"({os.path.getsize(run_path) / 1e6:.1f} MB)", flush=True)
+        else:
+            print(f"\n[replay] *** {a.run}.npz WAS NOT WRITTEN ***\n"
+                  f"         expected at {run_path} -- read the torque node's terminal",
+                  flush=True)
+
+        if a.home:
+            # Same ending as the GUI's Home & Quit, and in the same order: the
+            # run is written first, then the bus is taken off dynamixel_node
+            # (which closes start_arm.sh), then the arm is homed. The run is
+            # already on disk by here, so a failure below costs the homing only
+            # -- report it, do not bury it in a traceback.
+            try:
+                import MultiGoHome as gh
+                gh.release_port(timeout=12.0)
+                gh.home_sequence(velocity=int(getattr(cfg, "HOME_VELOCITY", 40)),
+                                 timeout=float(getattr(cfg, "HOME_TIMEOUT", 120.0)))
+            except Exception as exc:                     # noqa: BLE001 -- reported
+                print(f"\n[replay] *** HOMING FAILED -- {type(exc).__name__}: {exc}\n"
+                      f"         The run IS saved. The motors are left holding in "
+                      f"position mode and were NOT handed back to current mode:\n"
+                      f"         a delta that is a multiple of 4096 is a lost turn "
+                      f"count, not a motor that failed to move.\n"
+                      f"         Power-cycle, re-place by hand, and re-capture with "
+                      f"python3 ../VMC/MultiGoHome.py --read\n", flush=True)
+                return 1
+        else:
+            print("[replay] --no-home: driver still up, arm left where it is",
+                  flush=True)
     except KeyboardInterrupt:
         print("\n[replay] interrupted -- the torque node still holds the run; "
               "Ctrl+C there to write it")
     finally:
+        # shutdown first, then destroy -- the other order tears the node out
+        # from under the executor.
         try:
-            node.destroy_node()
-        finally:
             if rclpy.ok():
                 rclpy.shutdown()
+        except Exception:
+            pass
+        try:
+            node.destroy_node()
+        except Exception:
+            pass
     return 0
 
 
