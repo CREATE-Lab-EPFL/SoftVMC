@@ -68,8 +68,15 @@ motors left holding, driver not restarted, runs already recorded named.
 
 ## `_person` — three levels from the GUI
 
+| level | k [N/m] | |
+|---|---|---|
+| `no_gauss` | 0 | no field — the body goes wherever reaching takes it |
+| `medium` | 500 | partial clearance |
+| `strong` | 1000 | full clearance |
+
 One run per level, three terminals — **run the whole thing three times**, once
-per level.
+per level. The tip should reach the button in all three; what changes is how
+far the *body* stays off the person.
 
 **Terminal 1** — homes the arm, then the driver in torque mode
 
@@ -174,7 +181,7 @@ Gaussian adds anything — past that the limiter, not the virtual model, drives
 the arm. `tau_raw` records what was asked; the run figure shades where it bit.
 The limiter warns once every 2 s (`CLIP_WARN_S`), not once per tick.
 
-### `_button` only
+## `_button` only
 
 `--target-x/y` defaults to `(-0.50, 0)` — beyond the arm's 43.5 cm reach on
 purpose, so the tip stops at full extension and the target sets how *hard* it
@@ -183,13 +190,15 @@ pulls there: 8.97 N, asking 0.189 N·m. Each level is recorded `SWEEP_REPEATS`
 the analysis groups them automatically. This is the only folder with error
 bars.
 
-### `_person` only
+## `_person` only
 
 Strengths are **field strengths, not forces**: a Gaussian peaks at
 `k·exp(−½)·σ = k·0.0364` N when its attachment point is σ from the centre, so
-`strong` peaks near 36 N and falls away fast either side of it — at 2.8σ it is
-already down to 0.7% of k. What the motors get is clipped at `TAU_LIMIT`, which
-is 0.35 here against the button's 0.25, so the limiter has less say in the pose.
+`strong` peaks at 36 N and falls away fast either side of it: 16 N at 2σ
+(12 cm), 3.3 N at 2.8σ (17 cm) — a tenth of the peak, and by then weaker than
+the reach. **Placement matters more than strength.** What the motors get is
+clipped at `TAU_LIMIT`, which is 0.35 here against the button's 0.25, so the
+limiter has less say in the pose.
 
 `strong` = 1000 is the button's `strong` too, so the fixture and the person are
 directly comparable at that level.
