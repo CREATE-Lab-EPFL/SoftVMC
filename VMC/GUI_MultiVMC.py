@@ -762,11 +762,39 @@ class RobotGUI:
         while time.time() < deadline:
             _, ts = self.node.get_latest_torque()
             if ts is None or time.perf_counter() - ts > 1.5:
-                print("[quit] torque node has stopped -- run saved", flush=True)
+                print("[quit] torque node has stopped", flush=True)
+                self._report_saved()
                 return
             time.sleep(0.25)
         print(f"[quit] torque node still publishing after {END_RUN_TIMEOUT:.0f} s "
               "-- carrying on; check its terminal", flush=True)
+        self._report_saved()
+
+    def _report_saved(self):
+        """Say whether the run is actually on disk.
+
+        The node going quiet only means it exited -- it is not evidence that
+        anything was written, and reporting it as "run saved" hid a run that
+        never appeared. This looks for the file the node was told to write.
+        """
+        run = run_name_from_argv()
+        folder = getattr(_cfg, "OUTPUT_FOLDER", "") or ""
+        if not run:
+            return                       # unnamed run: nothing predictable to look for
+        path = os.path.join(os.getcwd(), "outputs", folder, run + ".npz")
+        if os.path.exists(path):
+            print(f"[quit] saved: {path}  ({os.path.getsize(path) / 1e6:.1f} MB)",
+                  flush=True)
+            return
+        auto = path[:-4] + ".autosave.npz"
+        print(f"\n[quit] *** {run}.npz WAS NOT WRITTEN ***", flush=True)
+        print(f"       expected at {path}", flush=True)
+        if os.path.exists(auto):
+            print(f"       a checkpoint IS there: {auto}\n"
+                  f"       rename it over {run}.npz to recover the run", flush=True)
+        else:
+            print("       and there is no checkpoint either -- read the torque "
+                  "node's terminal\n       before running the level again.", flush=True)
 
     def _home_done(self, ok, why):
         if ok:
