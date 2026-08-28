@@ -193,15 +193,24 @@ Four things differ between the sweep and the GUI pair:
 | `K_REACH` | 30 N/m | 35 N/m |
 | `C_DAMP` | 1.0 N·s/m | 3.0 N·s/m |
 | `TAU_LIMIT` | 0.25 N·m | 0.35 N·m |
-| `TIP_GOAL_Z` | 0.38 | **0.435** — the straight arm's own tip |
+| `lin_tip` goal z | fixed at 0.38 | **follows the tip, live** |
 
-Every goal z is locked in all three variants, so a goal only ever moves in x
-and y. For the GUI pair that plane is the tip's own: the tip goal starts exactly
-where the resting tip is, so the linear spring pulls **nothing** until it is
-dragged, and dragging it steers the tip across that one plane instead of also
-pulling the tip in along the arm's axis. As the body bends the tip falls short
-of z = 0.435, and the spring pulls it back out — that residual is the price of
-keeping the goal in a fixed plane.
+In all three variants a goal is only ever moved in x and y by hand. The
+difference is what its z is.
+
+`_button` holds every goal z at a constant. The GUI pair does too for the
+Gaussians (`GAUSS_GOAL_Z = 0.2175`, mid-body) — but **`lin_tip`'s goal z is set
+to the tip's own z every control tick** (`GOAL_Z_TRACK`). Goal and tip stay in
+one x–y plane, so the spring has no z component at all: it steers the tip
+across that plane and never pulls it in or out along the arm's axis. How far the
+arm extends is left to the Gaussians, gravity and the pretension.
+
+`TIP_GOAL_Z = 0.435` is only where the goal starts, before the first FK is
+available. The arm starts straight, so that is already the tip's z and even the
+first tick has no z error. Thereafter the goal is one control period behind the
+tip — measured at **0.085 mm worst case**, i.e. ~0.003 N, and zero at the
+median. `goal` in the log records the z that was applied, not the one the GUI
+published, and the GUI's z slider for `lin_tip` reads *follows the tip*.
 
 The GUI pair pulls harder and settles harder, against a heavier field: 1000 N/m
 acting on a body that has to come to rest next to a person or a stack of cards,
