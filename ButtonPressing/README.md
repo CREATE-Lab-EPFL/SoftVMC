@@ -137,8 +137,9 @@ python3 ../VMC/GUI_MultiVMC.py --config _card_castle --run no_gauss
 
 ### Then, in order
 
-Terminal 2 already drives the arm before the GUI is up: the tip takes up 5.5 cm
-of slack and the case's strength ramps 0 → k over 5 s. **Let it settle.**
+Terminal 2 already drives the arm before the GUI is up. The tip goal starts *at*
+the resting tip, so the linear spring pulls nothing until you drag it — only the
+Gaussians moving, ramping 0 → k over 5 s. **Let it settle.**
 
 1. **Place the obstacle, with nobody in reach.** Pick `gauss_seg1` under
    *Active VC*, click where the obstacle will be — `(-0.25, 0)` is where it
@@ -178,21 +179,29 @@ re-capture with `python3 ../VMC/MultiGoHome.py --read`.
 
 | Component | Element | s | Goal |
 |---|---|---|---|
-| `lin_tip` | `LinearSpring(30)` | 1.0 | the button, at `TIP_GOAL_Z` |
+| `lin_tip` | `LinearSpring(k)` | 1.0 | the button, at `TIP_GOAL_Z` |
 | `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | the obstacle, at `GAUSS_GOAL_Z` |
 | `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `gauss_seg1`'s goal** |
 
 Shared by all three: `SIGMA = 0.06` m, `PRETENSION_WEIGHTS = 0.010` N·m/rad,
-`TIP_GOAL_Z = 0.38`, `GAUSS_GOAL_Z = 0.2175` (midpoint between the tips of
-sections 1 and 2).
+`GAUSS_GOAL_Z = 0.2175` (midpoint between the tips of sections 1 and 2).
 
-Three things differ between the sweep and the GUI pair:
+Four things differ between the sweep and the GUI pair:
 
 | | `_button` | `_person`, `_card_castle` |
 |---|---|---|
 | `K_REACH` | 30 N/m | 35 N/m |
 | `C_DAMP` | 1.0 N·s/m | 3.0 N·s/m |
 | `TAU_LIMIT` | 0.25 N·m | 0.35 N·m |
+| `TIP_GOAL_Z` | 0.38 | **0.435** — the straight arm's own tip |
+
+Every goal z is locked in all three variants, so a goal only ever moves in x
+and y. For the GUI pair that plane is the tip's own: the tip goal starts exactly
+where the resting tip is, so the linear spring pulls **nothing** until it is
+dragged, and dragging it steers the tip across that one plane instead of also
+pulling the tip in along the arm's axis. As the body bends the tip falls short
+of z = 0.435, and the spring pulls it back out — that residual is the price of
+keeping the goal in a fixed plane.
 
 The GUI pair pulls harder and settles harder, against a heavier field: 1000 N/m
 acting on a body that has to come to rest next to a person or a stack of cards,
@@ -274,7 +283,7 @@ The arm is mounted **on its side** — both configs set `GRAVITY_DIR = "-y"`
 |---|---|---|
 | `x` | horizontal, across | the GUI's x (±2.00, `_button` ±0.70), `GAUSS_GOAL_XY[0]`, `--target-x` |
 | `y` | **vertical — up is +y** | the GUI's y (±2.00, `_button` ±0.70), `GAUSS_GOAL_XY[1]`, `--target-y` |
-| `z` | out along the arm's axis | `TIP_GOAL_Z`, `GAUSS_GOAL_Z` (locked) |
+| `z` | out along the arm's axis | `TIP_GOAL_Z`, `GAUSS_GOAL_Z` (locked — goals move in x, y only) |
 
 ⚠ No single projection is the geometry. Since y is vertical an **x–z plot is a
 plan view from above**, and the arm has been recorded **lifted 16 cm** by the
