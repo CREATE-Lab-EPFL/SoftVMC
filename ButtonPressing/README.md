@@ -8,13 +8,13 @@ Two variants, two protocols:
 
 | | `_button` | `_person` |
 |---|---|---|
-| obstacle | a fixture | a person's arm, held still |
+| obstacle | a fixture at x = −0.15 | a person's arm, held still at x = −0.25 |
 | driven by | `run_sweep.py`, unattended, no GUI | the GUI, by hand |
-| Gaussian strength | swept 0 / 200 / 600 / 1000 | 3 levels: 0 / 500 / 1000 |
+| Gaussian strength | swept 0 / 200 / 600 / 1000 | 2 cases: 0 and 1000 |
 | goals | scripted, identical every run | placed by hand |
 | `TAU_LIMIT` | 0.25 N·m | **0.35 N·m** |
 | load cell | yes | no |
-| files | `outputs/button_pressing/`, 4 × 5 repeats | `outputs/person_avoiding/`, 3, one per level |
+| files | `outputs/button_pressing/`, 4 × 5 repeats | `outputs/person_avoiding/`, 2, one per case |
 | status | **recorded, locked** (`COLLECTED_DATA = True`) | to record |
 
 ---
@@ -66,17 +66,18 @@ holds a 20 s measurement window, writes
 motors left holding, driver not restarted, runs already recorded named.
 `--dry-run` prints the exact plan and timings.
 
-## `_person` — three levels from the GUI
+## `_person` — the pair, from the GUI
 
-| level | k [N/m] | |
+| case | k [N/m] | |
 |---|---|---|
 | `no_gauss` | 0 | no field — the body goes wherever reaching takes it |
-| `medium` | 500 | partial clearance |
-| `strong` | 1000 | full clearance |
+| `gauss` | 1000 | the field on |
 
-One run per level, three terminals — **run the whole thing three times**, once
-per level. The tip should reach the button in all three; what changes is how
-far the *body* stays off the person.
+Two runs, nothing in between: the comparison is the point, not a curve. Three
+terminals, **run the whole thing twice**, once per case. The tip should reach
+the button both times; what changes is how far the *body* stays off the person.
+1000 is the button's `strong`, so the fixture and the person are driven at an
+identical field.
 
 **Terminal 1** — homes the arm, then the driver in torque mode
 
@@ -84,23 +85,19 @@ far the *body* stays off the person.
 bash ../start_arm.sh
 ```
 
-**Terminal 2** — the controller and the log. Pick the level; `--run` is
-required and only these three names are accepted.
+**Terminal 2** — the controller and the log. Pick the case; `--run` is
+required and only these two names are accepted.
 
 ```bash
 python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run no_gauss
 ```
 
 ```bash
-python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run medium
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run gauss
 ```
 
-```bash
-python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run strong
-```
-
-**Terminal 3** — the GUI. **`--run` must be the same level as terminal 2**: the
-GUI applies all three stiffnesses at once, so one told the wrong level would
+**Terminal 3** — the GUI. **`--run` must be the same case as terminal 2**: the
+GUI applies all three stiffnesses at once, so one told the wrong case would
 apply the wrong field the first time you press *Apply Parameters*. It refuses
 to start without it.
 
@@ -109,20 +106,17 @@ python3 ../VMC/GUI_MultiVMC.py --config _person --run no_gauss
 ```
 
 ```bash
-python3 ../VMC/GUI_MultiVMC.py --config _person --run medium
-```
-
-```bash
-python3 ../VMC/GUI_MultiVMC.py --config _person --run strong
+python3 ../VMC/GUI_MultiVMC.py --config _person --run gauss
 ```
 
 ### Then, in order
 
 Terminal 2 already drives the arm before the GUI is up: the tip takes up 5.5 cm
-of slack and the level ramps 0 → k over 5 s. **Let it settle.**
+of slack and the case's strength ramps 0 → k over 5 s. **Let it settle.**
 
 1. **Place the obstacle, with nobody in reach.** Pick `gauss_seg1` under
-   *Active VC*, click where the person's arm will be. Both Gaussians jump there
+   *Active VC*, click where the person's arm will be — `(-0.25, 0)` is where it
+   starts. Both Gaussians jump there
    together. Check the body has pushed off it.
 2. **The person takes position** there and holds it for the whole run. The
    field is already up; it is not switched on around them.
@@ -135,7 +129,7 @@ of slack and the level ramps 0 → k over 5 s. **Let it settle.**
 5. **Home & Quit** (cell ②) → confirm. It ends the whole session in one go:
    terminal 2 saves and exits → `dynamixel_node` stops (closing terminal 1) →
    the arm homes at ~9.2 rpm → terminal 3 closes.
-6. Repeat from `start_arm.sh` for the next level.
+6. Repeat from `start_arm.sh` for the other case.
 
 The run is saved **first**, before anything is stopped — it is the only step
 that cannot be redone. Once a run is ending, **Ctrl+C is ignored**: pressing it
@@ -171,10 +165,10 @@ by tick. A `--run` the config has no level for is refused in a second, before
 anything is built.
 
 ⚠ **`GAUSS_GOAL_XY` must sit at more negative x than the body ever reaches**, or
-the repulsion points *at* the button. At the old `-0.05` the body had already
+the repulsion points *at* the button. At an early `-0.05` the body had already
 curved past the centre, the field **assisted** the reach, and shear rose with
-strength while reach error fell — monotonic, but not avoidance. `-0.15`
-opposes.
+strength while reach error fell — monotonic, but not avoidance. The button uses
+`-0.15`, the person `-0.25`; both oppose.
 
 ⚠ **The tip spring alone hits `TAU_LIMIT` at x = −0.597** (button), before the
 Gaussian adds anything — past that the limiter, not the virtual model, drives
@@ -194,14 +188,17 @@ bars.
 
 Strengths are **field strengths, not forces**: a Gaussian peaks at
 `k·exp(−½)·σ = k·0.0364` N when its attachment point is σ from the centre, so
-`strong` peaks at 36 N and falls away fast either side of it: 16 N at 2σ
+`gauss` peaks at 36 N and falls away fast either side of it: 16 N at 2σ
 (12 cm), 3.3 N at 2.8σ (17 cm) — a tenth of the peak, and by then weaker than
 the reach. **Placement matters more than strength.** What the motors get is
 clipped at `TAU_LIMIT`, which is 0.35 here against the button's 0.25, so the
 limiter has less say in the pose.
 
-`strong` = 1000 is the button's `strong` too, so the fixture and the person are
-directly comparable at that level.
+With the person at −0.25 it is **`gauss_seg2` (s = 2/3) that does the work**:
+the body curves to about −17 cm, putting it ~8 cm = 1.4σ from the centre, near
+the peak. `gauss_seg1` sits around −6 cm, 19 cm away, and contributes ~1 N. If
+the arm barely reacts, the centre is too far from where the body actually
+passes — move it, or raise `SIGMA`, before reaching for a bigger `k`.
 
 The GUI can change: both goals' x/y, the tip stiffness, both Gaussian strengths
 (cell ①, `Apply Parameters`), and a **`Gaussians active` tickbox**. Every z is

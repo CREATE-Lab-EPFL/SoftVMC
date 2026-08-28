@@ -8,20 +8,18 @@ Both get the SAME --run: the GUI publishes all three stiffnesses at once, so one
 told the wrong level would apply the wrong field. REQUIRE_RUN_NAME makes both
 refuse to start without it.
 
-The person's arm is held still and is the working area the robot must keep out
-of. The tip is driven to the button by hand from the GUI; the body is kept off
-the arm by the two Gaussians. Three levels of that field are recorded, and the
-difference between them is the benefit of shaping the whole body rather than
-just placing the tip:
+The person's arm is held still at x = -0.25 m and is the working area the robot
+must keep out of. The tip is driven to the button by hand from the GUI; the body
+is kept off the arm by the two Gaussians. Two runs, and the difference between
+them is the benefit of shaping the whole body rather than just placing the tip:
 
     --run no_gauss    no field at all -- the body goes wherever reaching takes it
-    --run medium      partial clearance
-    --run strong      full clearance
+    --run gauss       the field on, at 1000 N/m
 
-One run per level, named by the level, so the three files ARE the experiment:
-outputs/person_avoiding/{no_gauss,medium,strong}.{npz,png}. --run is required
-and only those three names are accepted -- an unrecognised one is refused
-before anything is built, so a level cannot be recorded under the wrong name.
+One run each, named by the case, so the two files ARE the experiment:
+outputs/person_avoiding/{no_gauss,gauss}.{npz,png}. --run is required and only
+those two names are accepted -- an unrecognised one is refused before anything
+is built, so a case cannot be recorded under the wrong name.
 
   lin_tip     (s=1.0)  linear spring -- drag its goal onto the button
   gauss_seg1  (s=1/3)  repulsive Gaussian, centre on the person's arm
@@ -71,23 +69,22 @@ VIRTUAL_COMPONENTS = [
 ]
 
 # ── Levels ───────────────────────────────────────────────────────────────────
-# The Gaussian strength each run name stands for -- three levels, one run each,
-# and the three files are the experiment. Both Gaussians take the level; the
-# torque node ramps them in from 0 over RAMP_S when the run starts, so no slider
-# work is needed to set one up.
+# The Gaussian strength each run name stands for. Two runs, and the pair IS the
+# experiment: the same reach with the body shaped away from the person, and
+# without. Nothing in between -- the comparison is the point, not a curve.
+# Both Gaussians take the level; the torque node ramps them in from 0 over
+# RAMP_S when the run starts, so no slider work is needed to set one up.
 #
 # These are the field STRENGTHS, not forces: a Gaussian's force peaks at
 # k*exp(-1/2)*sigma = k*0.0364 N when the attachment point is sigma from the
-# centre, so `strong` peaks near 36 N of virtual force and falls away fast on
-# either side of that -- at 2.8*sigma it is already down to 0.7% of k. What the
-# motors actually get is clipped at TAU_LIMIT.
+# centre, so `gauss` peaks at 36 N and falls away fast on either side of that.
+# What the motors actually get is clipped at TAU_LIMIT.
 #
-# The same three names mean 0 / 600 / 1000 in the button config: `strong`
-# matches, so the fixture and the person are directly comparable at that level.
+# 1000 is the button config's `strong`, so the fixture and the person are
+# driven at an identical field.
 GAUSS_CONDITIONS = {
     "no_gauss":      0.0,
-    "medium":      500.0,
-    "strong":     1000.0,
+    "gauss":      1000.0,
 }
 
 # --run is not optional here: with three levels, an unnamed run has no level.
@@ -181,11 +178,15 @@ GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,
 # is dragged. Both are meant to be moved.
 TIP_GOAL_XY   = (0.0, 0.0)     # [m] straight ahead: the tip spring pulls only
                                # the 5.5 cm of take-up to TIP_GOAL_Z
-GAUSS_GOAL_XY = (-0.15, 0.0)   # [m] x is chosen so the field OPPOSES the
-                               # reach: repulsion pushes the attachment point
-                               # away from the centre, so the centre must sit
-                               # at more negative x than the body ever reaches,
-                               # or the push points at the button instead.
+GAUSS_GOAL_XY = (-0.25, 0.0)   # [m] where the person stands. Further out than
+                               # the button fixture's -0.15, so it is gauss_seg2
+                               # (s=2/3) that does the work here: with the body
+                               # curving to about -17 cm it sits ~8 cm = 1.4
+                               # sigma from the centre, near the force peak,
+                               # while gauss_seg1 at ~-6 cm is 19 cm away and
+                               # contributes about 1 N. x must stay more
+                               # negative than the body reaches, or the push
+                               # points AT the button instead of away from it.
 GOAL_LINK   = [GAUSS_COMPONENTS]
 
 # Live from the start, like every other folder. The tip goal sits 5.5 cm below
