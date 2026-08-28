@@ -735,19 +735,25 @@ class RobotGUI:
             print(f"[home] FAILED -- {why}", flush=True)
         self.root.after(0, self._home_done, ok, why)
 
-    def _end_run(self, why):
-        """Tell the torque node to write its run, and give it time to do it.
+    def _end_run(self, why, wait=True):
+        """Tell the torque node to write its run, optionally waiting for it.
 
         A few MB of compressed npz takes seconds, and the node exits when it is
         done -- so /goal_torque going quiet is what "saved" looks like from
-        here. Waited on rather than guessed at, because the next step kills the
-        bus and the step after that moves the arm.
+        here. Home & Quit waits for it, from its worker thread, because the
+        next step kills the bus and the one after moves the arm.
+
+        Closing the window does NOT wait: nothing follows it that the save has
+        to be ahead of, and this runs on the tkinter thread -- waiting there
+        freezes the window for as long as it takes.
         """
         if self._run_ended:
             return
         self._run_ended = True
         print(why, flush=True)
         self.node.publish_end_run()
+        if not wait:
+            return
         _, ts = self.node.get_latest_torque()
         if ts is None or time.perf_counter() - ts > 5.0:
             print("[quit] no torque node was publishing -- nothing to wait for", flush=True)
@@ -1091,7 +1097,8 @@ class RobotGUI:
             return
         self._closing = True
         if END_RUN_ON_CLOSE:
-            self._end_run("[quit] window closing -- telling the torque node to save")
+            self._end_run("[quit] window closing -- telling the torque node to save",
+                          wait=False)
         for after_id in [self._after_id] + self._pending_after:
             try:
                 self.root.after_cancel(after_id)
