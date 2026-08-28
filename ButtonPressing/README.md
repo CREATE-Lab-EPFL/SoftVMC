@@ -190,8 +190,8 @@ Three things differ between the sweep and the GUI pair:
 
 | | `_button` | `_person`, `_card_castle` |
 |---|---|---|
-| `K_REACH` | 30 N/m | 40 N/m |
-| `C_DAMP` | 1.0 N·s/m | 5.0 N·s/m |
+| `K_REACH` | 30 N/m | 35 N/m |
+| `C_DAMP` | 1.0 N·s/m | 3.0 N·s/m |
 | `TAU_LIMIT` | 0.25 N·m | 0.35 N·m |
 
 The GUI pair pulls harder and settles harder, against a heavier field: 1000 N/m
@@ -245,11 +245,16 @@ passes — move it, or raise `SIGMA`, before reaching for a bigger `k`.
 
 The GUI can change: both goals' x/y, the tip stiffness, both Gaussian strengths
 (cell ①, `Apply Parameters`), and a **`Gaussians active` tickbox**. Every z is
-locked. `XY_RANGE = ±1.00` m is both the plot extent and the clamp on a dragged
-goal — wide enough to place the obstacle and a target well past the arm's 43.5 cm
-reach without hitting the edge, at the cost of precision, since the same drag
-now covers more ground. `DRAG_SPEED_MAX = 100` cm/s tops the speed slider; drop
-it for fine placement.
+locked. `XY_RANGE = ±2.00` m is both the plot extent and the clamp on a dragged
+goal — far past the arm's 43.5 cm reach on purpose, since a goal outside it sets
+how *hard* the tip pulls rather than where it ends up.
+
+Two costs come with that. **Precision:** the plot spans 4 m across the same
+pixels, so drop *Drag speed* (`DRAG_SPEED_MAX = 100` cm/s) before placing the
+obstacle, where a couple of centimetres matter against `SIGMA = 6` cm.
+**Saturation:** past roughly |x| = 0.9 m the tip spring alone asks more than
+`TAU_LIMIT`, and the limiter rather than the virtual model is driving the arm —
+`tau_raw` records what was asked, and the run figure shades where it bit.
 
 The tickbox owns *whether* the field is on, the entries own *how strong* when it
 is — so it returns to whatever was last applied, and a strength typed while it
@@ -267,8 +272,8 @@ The arm is mounted **on its side** — both configs set `GRAVITY_DIR = "-y"`
 
 | axis | physically | set by |
 |---|---|---|
-| `x` | horizontal, across | the GUI's x (±1.00, `_button` ±0.70), `GAUSS_GOAL_XY[0]`, `--target-x` |
-| `y` | **vertical — up is +y** | the GUI's y (±1.00, `_button` ±0.70), `GAUSS_GOAL_XY[1]`, `--target-y` |
+| `x` | horizontal, across | the GUI's x (±2.00, `_button` ±0.70), `GAUSS_GOAL_XY[0]`, `--target-x` |
+| `y` | **vertical — up is +y** | the GUI's y (±2.00, `_button` ±0.70), `GAUSS_GOAL_XY[1]`, `--target-y` |
 | `z` | out along the arm's axis | `TIP_GOAL_Z`, `GAUSS_GOAL_Z` (locked) |
 
 ⚠ No single projection is the geometry. Since y is vertical an **x–z plot is a
