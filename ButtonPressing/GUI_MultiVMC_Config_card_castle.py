@@ -76,8 +76,8 @@ VIRTUAL_COMPONENTS = [
 # point moves out only slowly with strength -- the balance is logarithmic in the
 # ratio -- so SIGMA and TARGET_XY are the better handles if 10.8 cm is wrong.
 GAUSS_CONDITIONS = {
-    "no_gauss":     0.0,
-    "gauss":      500.0,
+    "no_gauss":      0.0,
+    "gauss":      1500.0,
 }
 
 # --run is not optional here: an unnamed run belongs to neither case.
@@ -124,9 +124,9 @@ PLOT_FORCE     = False   # no load cell in this variant
 # Two points define the demo, and they are NOT the same: the castle, and where
 # the tip is being sent. The castle sits between the start and the target, so
 # the tip is asked to cross it.
-CASTLE_XY     = (0.0, 0.20)    # [m] the cards. x across, y UP (gravity is -y).
+CASTLE_XY     = (0.0, 0.25)    # [m] the cards. x across, y UP (gravity is -y).
                                #     Measure this off the real castle.
-TARGET_XY     = (0.0, 0.40)    # [m] where lin_tip pulls -- beyond the castle,
+TARGET_XY     = (0.0, 0.50)    # [m] where lin_tip pulls -- beyond the castle,
                                #     on the far side, so the straight path to it
                                #     runs through the cards.
 TIP_GOAL_XY   = (0.0, 0.0)     # [m] where the tip goal STARTS: on the tip

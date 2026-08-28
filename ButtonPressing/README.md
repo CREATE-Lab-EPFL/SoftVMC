@@ -8,9 +8,9 @@ Three variants, two protocols:
 
 | | `_button` | `_person` | `_card_castle` |
 |---|---|---|---|
-| what it shows | reach traded for clearance, swept | whole-body shaping past a person | one spring pulling onto the cards, one pushing off |
+| what it shows | reach traded for clearance, swept | whole-body shaping past a person | the tip stalled by the field short of the cards |
 | elements | 3: tip + 2 body Gaussians | 4: tip + 3 body Gaussians | **2, both on the tip** |
-| obstacle | a fixture at x = −0.15 | a person's arm at x = −0.25 | the cards at (0, +0.20) |
+| obstacle | a fixture at x = −0.15 | a person's arm at x = −0.25 | the cards at (0, +0.20), target beyond at (0, +0.40) |
 | driven by | `run_sweep.py`, no GUI | the GUI, by hand | `castle_demo.py`, **no GUI** |
 | Gaussian strength | swept 0 / 200 / 600 / 1000 | 2 cases: 0 and 500 | 2 cases: 0 and 500 |
 | `TAU_LIMIT` | 0.25 N·m | **0.35 N·m** | **0.35 N·m** |
@@ -20,7 +20,7 @@ Three variants, two protocols:
 
 `_person` keeps the body-shaping model — Gaussians spread along the arm, goals
 placed by hand. `_card_castle` is a different demo: both elements sit on the
-tip and share one target, and the whole run is scripted.
+tip but pull and push towards *different* points, and the whole run is scripted.
 
 ---
 
@@ -263,30 +263,42 @@ re-capture with `python3 ../VMC/MultiGoHome.py --read`.
 
 ## `_card_castle` — the standoff demo, no GUI
 
-Two elements, **both on the tip**, both aimed at the same point — the castle at
-`CASTLE_XY = (0, +0.20)`:
+Two elements, **both on the tip**, with **two different targets** — and the
+castle sits between the tip and where it is being sent:
 
-| | | |
-|---|---|---|
-| `lin_tip` | `LinearSpring(35)` | pulls the tip **towards** the cards |
-| `gauss_tip` | `GaussianSpring(k, 0.06)` | pushes the tip **away** from them |
+| | | aimed at | |
+|---|---|---|---|
+| `lin_tip` | `LinearSpring(35)` | `TARGET_XY = (0, +0.40)` | pulls the tip **past** the cards |
+| `gauss_tip` | `GaussianSpring(k, 0.06)` | `CASTLE_XY = (0, +0.20)` | pushes it **away** from them |
 
-Both forces are proportional to the distance `d`, so they cancel where
-
-```
-K_REACH = k_gauss · exp(−d² / 2σ²)      →      d = σ·√(2·ln(k_gauss / K_REACH))
-```
-
-At 35 against 500 that is **d = 13.8 cm** (2.3σ), and it is *stable*: closer in
-the push wins and the tip is driven out, further away the pull wins and it is
-drawn in. So the tip converges on a hover 13.8 cm off the cards wherever it
-starts. Raising `k_gauss` moves that out only slowly — 1000 reaches just
-15.5 cm — because the balance depends on the ratio through a log.
+So the tip is asked to cross the castle and the field is the only thing in the
+way. It stalls where the two cancel along the path:
 
 | `--run` | k [N/m] | |
 |---|---|---|
-| `no_gauss` | 0 | nothing stops the tip — it goes to the cards and knocks them down |
-| `gauss` | 500 | the tip stops 13.8 cm short |
+| `no_gauss` | 0 | nothing stops the tip — it drives for the target **through** the cards |
+| `gauss` | 500 | the tip stalls **10.8 cm short** of them |
+
+That stall point is *stable*: nearer the push wins and the tip is driven back,
+further out the pull wins and it is drawn in.
+
+⚠ **The barrier is finite, not a wall.** There is a second, *unstable*
+equilibrium 1.6 cm from the castle: past it the Gaussian falls off faster than
+the linear pull grows, and the tip would pop through to the far side.
+Approaching from the start it never gets there — but raise `K_REACH`, or push
+`TARGET_XY` further out, and the two equilibria merge and the barrier
+disappears. `castle_demo.py --dry-run` solves for both and prints them, so any
+change can be checked **before** the cards are built:
+
+```
+[demo] expected: the tip stalls 10.8 cm short of the castle
+[demo]     stable   at (+0.000, +0.092),  10.8 cm from the cards
+[demo]     unstable at (+0.000, +0.184),   1.6 cm from the cards
+```
+
+The stall point moves out only slowly with strength — the balance is logarithmic
+in the ratio — so `SIGMA` and `TARGET_XY` are the better handles if 10.8 cm is
+the wrong distance.
 
 Record `gauss` first, then rebuild the castle for `no_gauss`.
 
@@ -322,15 +334,16 @@ python3 castle_demo.py --run no_gauss
 python3 castle_demo.py --run gauss --dry-run
 ```
 
-Then **do nothing** — it runs itself, ≈75 s:
+Then **do nothing** — it runs itself, ≈36 s:
 
-1. the field comes up 0 → k over `RAMP_S` = 10 s, **slowly**, with the tip goal
-   still sitting on the tip so the linear spring pulls nothing while it does;
-2. `DEMO_SETTLE_S` = 15 s — the arm settles with the field at full strength;
-3. the tip goal walks the 20 cm to the castle at `DEMO_SPEED` = 2 cm/s;
-4. `DEMO_ARRIVE_S` = 20 s — the arm follows and stops, short of the cards or at
-   them;
-5. the window is marked and held for `DEMO_WINDOW_S` = 20 s, and the run is
+1. the field comes up 0 → k over `RAMP_S` = 5 s, with the tip goal still sitting
+   on the tip so the linear spring pulls nothing while it does;
+2. `DEMO_SETTLE_S` = 5 s — the arm settles with the field at full strength;
+3. the tip goal walks the 40 cm to `TARGET_XY` at `DEMO_SPEED` = 5 cm/s, straight
+   past the castle;
+4. `DEMO_ARRIVE_S` = 8 s — the arm follows, stalling short of the cards or
+   driving through them;
+5. the window is marked and held for `DEMO_WINDOW_S` = 10 s, and the run is
    written;
 6. the driver is stopped (closing terminal 1) and the arm homed, as *Home &
    Quit* does. `--no-home` skips it.
@@ -339,9 +352,8 @@ Then **do nothing** — it runs itself, ≈75 s:
 `--dry-run` prints the plan, the total time and the predicted standoff without
 publishing anything.
 
-⚠ The castle goal never moves — only the tip goal walks. They share a
-*destination*, not a link, so dragging the target does not drag the obstacle.
-And homing hands the arm back in current mode, so it goes **limp** at
+⚠ The castle goal never moves — only the tip goal walks, to its own separate
+target. And homing hands the arm back in current mode, so it goes **limp** at
 `HOME_POSITION`: check the cards are not under where it comes to rest.
 
 ---
@@ -360,8 +372,8 @@ Each variant has its own element set:
 
 `_person` puts a Gaussian at the **end of every section**, so each part of the
 body that can swing into the obstacle has its own repulsion; the three share one
-goal. `_card_castle` keeps only the tip: one spring pulling it onto the cards
-and one pushing it off, both aimed at the same point.
+goal. `_card_castle` keeps only the tip: one spring pulling it towards a target
+beyond the cards and one pushing it off the cards themselves.
 
 Shared by all three: `SIGMA = 0.06` m, `PRETENSION_WEIGHTS = 0.010` N·m/rad.
 
@@ -523,7 +535,7 @@ the window.
 |---|---|
 | `GUI_MultiVMC_Config_button.py` | `_button`: the elements, the four swept levels |
 | `GUI_MultiVMC_Config_person.py` | `_person`: the two cases, `TAU_LIMIT = 0.35`, what the GUI may touch |
-| `GUI_MultiVMC_Config_card_castle.py` | `_card_castle`: two tip elements sharing one target, and the demo's timings |
+| `GUI_MultiVMC_Config_card_castle.py` | `_card_castle`: two tip elements with separate targets, and the demo's timings |
 | `castle_demo.py` | `_card_castle` only: the whole scripted demo, no GUI |
 | `run_sweep.py` | `_button` only: every level × `SWEEP_REPEATS`, homed and verified between |
 | `plot_experiments.ipynb` | analysis for all three — discovers `outputs/`, positions from the data, window from the mark |
