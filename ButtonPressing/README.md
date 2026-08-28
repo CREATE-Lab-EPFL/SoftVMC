@@ -8,18 +8,19 @@ Three variants, two protocols:
 
 | | `_button` | `_person` | `_card_castle` |
 |---|---|---|---|
-| obstacle | a fixture at x = −0.15 | a person's arm, held still at x = −0.25 | a house of cards at x = −0.25 |
-| driven by | `run_sweep.py`, unattended, no GUI | the GUI, by hand | the GUI, by hand |
+| what it shows | reach traded for clearance, swept | whole-body shaping past a person | one spring pulling onto the cards, one pushing off |
+| elements | 3: tip + 2 body Gaussians | 4: tip + 3 body Gaussians | **2, both on the tip** |
+| obstacle | a fixture at x = −0.15 | a person's arm at x = −0.25 | the cards at (0, +0.20) |
+| driven by | `run_sweep.py`, no GUI | the GUI, by hand | `castle_demo.py`, **no GUI** |
 | Gaussian strength | swept 0 / 200 / 600 / 1000 | 2 cases: 0 and 500 | 2 cases: 0 and 500 |
-| goals | scripted, identical every run | placed by hand | placed by hand |
 | `TAU_LIMIT` | 0.25 N·m | **0.35 N·m** | **0.35 N·m** |
 | load cell | yes | no | no |
 | files | `outputs/button_pressing/`, 4 × 5 repeats | `outputs/person_avoiding/`, 2 | `outputs/card_castle/`, 2 |
 | status | **recorded, locked** (`COLLECTED_DATA = True`) | to record | to record |
 
-`_person` and `_card_castle` are the same experiment with a different obstacle —
-every value in their configs matches, so they are directly comparable. Keep
-them in step.
+`_person` keeps the body-shaping model — Gaussians spread along the arm, goals
+placed by hand. `_card_castle` is a different demo: both elements sit on the
+tip and share one target, and the whole run is scripted.
 
 ---
 
@@ -70,7 +71,7 @@ holds a 20 s measurement window, writes
 motors left holding, driver not restarted, runs already recorded named.
 `--dry-run` prints the exact plan and timings.
 
-## `_person` and `_card_castle` — the pair, from the GUI
+## `_person` — the pair, from the GUI
 
 | case | k [N/m] | |
 |---|---|---|
@@ -84,10 +85,8 @@ terminals, **run the whole thing twice**, once per case. The tip should reach
 the button both times; what changes is how far the *body* stays off the
 obstacle.
 
-Both variants take the same commands — swap `_person` for `_card_castle` and
-the runs land in `outputs/card_castle/` instead. **With the card castle, record
-`gauss` first**: `no_gauss` is expected to knock the castle over, so rebuild it
-between the two rather than the other way round.
+`_card_castle` is a different demo and is driven by a script instead — see
+[the standoff demo](#cardcastle--the-standoff-demo-no-gui) below.
 
 **Terminal 1** — homes the arm, then the driver in torque mode
 
@@ -262,45 +261,129 @@ re-capture with `python3 ../VMC/MultiGoHome.py --read`.
 
 ---
 
+## `_card_castle` — the standoff demo, no GUI
+
+Two elements, **both on the tip**, both aimed at the same point — the castle at
+`CASTLE_XY = (0, +0.20)`:
+
+| | | |
+|---|---|---|
+| `lin_tip` | `LinearSpring(35)` | pulls the tip **towards** the cards |
+| `gauss_tip` | `GaussianSpring(k, 0.06)` | pushes the tip **away** from them |
+
+Both forces are proportional to the distance `d`, so they cancel where
+
+```
+K_REACH = k_gauss · exp(−d² / 2σ²)      →      d = σ·√(2·ln(k_gauss / K_REACH))
+```
+
+At 35 against 500 that is **d = 13.8 cm** (2.3σ), and it is *stable*: closer in
+the push wins and the tip is driven out, further away the pull wins and it is
+drawn in. So the tip converges on a hover 13.8 cm off the cards wherever it
+starts. Raising `k_gauss` moves that out only slowly — 1000 reaches just
+15.5 cm — because the balance depends on the ratio through a log.
+
+| `--run` | k [N/m] | |
+|---|---|---|
+| `no_gauss` | 0 | nothing stops the tip — it goes to the cards and knocks them down |
+| `gauss` | 500 | the tip stops 13.8 cm short |
+
+Record `gauss` first, then rebuild the castle for `no_gauss`.
+
+### Running it
+
+**Terminal 1** — the arm
+
+```bash
+bash ../start_arm.sh
+```
+
+**Terminal 2** — the controller and the log
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _card_castle --run gauss
+```
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _card_castle --run no_gauss
+```
+
+**Terminal 3** — the demo, *instead of* the GUI. Same `--run` as terminal 2.
+
+```bash
+python3 castle_demo.py --run gauss
+```
+
+```bash
+python3 castle_demo.py --run no_gauss
+```
+
+```bash
+python3 castle_demo.py --run gauss --dry-run
+```
+
+Then **do nothing** — it runs itself, ≈75 s:
+
+1. the field comes up 0 → k over `RAMP_S` = 10 s, **slowly**, with the tip goal
+   still sitting on the tip so the linear spring pulls nothing while it does;
+2. `DEMO_SETTLE_S` = 15 s — the arm settles with the field at full strength;
+3. the tip goal walks the 20 cm to the castle at `DEMO_SPEED` = 2 cm/s;
+4. `DEMO_ARRIVE_S` = 20 s — the arm follows and stops, short of the cards or at
+   them;
+5. the window is marked and held for `DEMO_WINDOW_S` = 20 s, and the run is
+   written;
+6. the driver is stopped (closing terminal 1) and the arm homed, as *Home &
+   Quit* does. `--no-home` skips it.
+
+`--settle`, `--speed`, `--arrive`, `--window` override the config per run.
+`--dry-run` prints the plan, the total time and the predicted standoff without
+publishing anything.
+
+⚠ The castle goal never moves — only the tip goal walks. They share a
+*destination*, not a link, so dragging the target does not drag the obstacle.
+And homing hands the arm back in current mode, so it goes **limp** at
+`HOME_POSITION`: check the cards are not under where it comes to rest.
+
+---
+
 # The model
 
-`_button` has three elements, the GUI pair four:
+Each variant has its own element set:
 
-| Component | Element | s | Goal | in |
-|---|---|---|---|---|
-| `lin_tip` | `LinearSpring(k)` | 1.0 | the button | all |
-| `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | the obstacle | all |
-| `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `seg1`'s goal** | all |
-| `gauss_seg3` | `GaussianSpring(k, 0.06)` | 1.0 | **shares it too** | GUI pair |
+| Component | Element | s | `_button` | `_person` | `_card_castle` |
+|---|---|---|---|---|---|
+| `lin_tip` | `LinearSpring(k)` | 1.0 | ✓ | ✓ | ✓ |
+| `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | ✓ | ✓ | |
+| `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | ✓ | ✓ | |
+| `gauss_seg3` | `GaussianSpring(k, 0.06)` | 1.0 | | ✓ | |
+| `gauss_tip` | `GaussianSpring(k, 0.06)` | 1.0 | | | ✓ |
 
-The GUI pair puts a Gaussian at the **end of every section**, so each part of
-the body that can swing into the obstacle has its own repulsion. `gauss_seg3`
-sits at s = 1.0, the same point `lin_tip` pulls: the tip is both drawn to the
-target and pushed off the obstacle.
+`_person` puts a Gaussian at the **end of every section**, so each part of the
+body that can swing into the obstacle has its own repulsion; the three share one
+goal. `_card_castle` keeps only the tip: one spring pulling it onto the cards
+and one pushing it off, both aimed at the same point.
 
 Shared by all three: `SIGMA = 0.06` m, `PRETENSION_WEIGHTS = 0.010` N·m/rad.
 
-Four things differ between the sweep and the GUI pair:
+Four things differ between the sweep and the other two:
 
 | | `_button` | `_person`, `_card_castle` |
 |---|---|---|
 | `K_REACH` | 30 N/m | 35 N/m |
 | `C_DAMP` | 1.0 N·s/m | 3.0 N·s/m |
 | `TAU_LIMIT` | 0.25 N·m | 0.35 N·m |
-| elements | 3 | 4 |
 | goal z | fixed constants | **each follows its own attachment point** |
 
-In all three variants a goal is only ever moved in x and y by hand. The
-difference is what its z is.
+In all three a goal is only ever moved in x and y. The difference is what its
+z is.
 
-`_button` holds every goal z at a constant. In the GUI pair **no goal z is a
+`_button` holds every goal z at a constant. In the other two **no goal z is a
 reference at all**: every one of them is set to the z of the point it acts on,
 each control tick (`GOAL_Z_TRACK`). Each goal therefore sits in the same x–y
 plane as its own attachment point, no element has a z error, and nothing pulls
 along the arm's axis. The whole model works laterally — which is what an
-obstacle standing beside the arm calls for. The tip is steered across its plane;
-each section end is pushed off the obstacle in its own. How far the arm extends
-is left to gravity and the pretension.
+obstacle standing beside the arm calls for. How far the arm extends is left to
+gravity and the pretension.
 
 `GOAL_Z_LOCK` is only where each goal starts, before the first FK is available —
 that point on the straight arm. The arm does start straight, so tracking has
@@ -308,16 +391,18 @@ nothing to correct on the first tick either. Thereafter a goal is one control
 period behind its point: measured on a moving arm at **0.09 mm worst case**
 (~0.003 N), zero at the median, and the residual correlates with per-tick motion
 at 1.000 — pure lag, no offset. `goal` in the log records the z applied, not the
-one the GUI published, and those z sliders read *follows the tip*.
+one the GUI published, and the GUI's z sliders read *follows the tip*.
 
-The GUI pair pulls harder and settles harder, against a heavier field: 500 N/m
-acting on a body that has to come to rest next to a person or a stack of cards,
-where ringing is the thing to avoid. The stiffer tip spring keeps the tip
+Both pull harder and settle harder than the sweep, against a heavier field:
+500 N/m acting next to a person or a stack of cards, where ringing is the thing
+to avoid. The stiffer tip spring keeps the tip
 arriving at the button while the body is being pushed off, and the higher torque
 limit leaves room for both. Damping costs nothing in steady state — a damper
 only pushes back while the arm is moving.
 
-**Strengths are ramped 0 → k over `RAMP_S` = 5 s** at start-up, before anything
+**Strengths are ramped 0 → k over `RAMP_S`** at start-up (5 s for `_button`
+and `_person`, 10 s for `_card_castle`, where bringing the field up slowly is
+step 1 of the demo), before anything
 publishes, so it lands at `t < 0`. Switched on at once, a placed field shoves
 the arm off the obstacle in one tick. `k_params` records what was applied, tick
 by tick. A `--run` the config has no level for is refused in a second, before
@@ -327,7 +412,9 @@ anything is built.
 the repulsion points *at* the button. At an early `-0.05` the body had already
 curved past the centre, the field **assisted** the reach, and shear rose with
 strength while reach error fell — monotonic, but not avoidance. The button uses
-`-0.15`, the person `-0.25`; both oppose.
+`-0.15`, the person `-0.25`; both oppose. `_card_castle` is the exception and
+is meant to be so: there the Gaussian centre IS the target, and the standoff is
+the result.
 
 ⚠ **The tip spring alone hits `TAU_LIMIT` at x = −0.597** (button), before the
 Gaussian adds anything — past that the limiter, not the virtual model, drives
@@ -343,7 +430,7 @@ pulls there: 8.97 N, asking 0.189 N·m. Each level is recorded `SWEEP_REPEATS`
 the analysis groups them automatically. This is the only folder with error
 bars.
 
-## `_person` and `_card_castle` only
+## `_person` only
 
 Strengths are **field strengths, not forces**: a Gaussian peaks at
 `k·exp(−½)·σ = k·0.0364` N when its attachment point is σ from the centre, so
@@ -436,7 +523,8 @@ the window.
 |---|---|
 | `GUI_MultiVMC_Config_button.py` | `_button`: the elements, the four swept levels |
 | `GUI_MultiVMC_Config_person.py` | `_person`: the two cases, `TAU_LIMIT = 0.35`, what the GUI may touch |
-| `GUI_MultiVMC_Config_card_castle.py` | `_card_castle`: `_person`'s values, a different obstacle |
+| `GUI_MultiVMC_Config_card_castle.py` | `_card_castle`: two tip elements sharing one target, and the demo's timings |
+| `castle_demo.py` | `_card_castle` only: the whole scripted demo, no GUI |
 | `run_sweep.py` | `_button` only: every level × `SWEEP_REPEATS`, homed and verified between |
 | `plot_experiments.ipynb` | analysis for all three — discovers `outputs/`, positions from the data, window from the mark |
 | `replay_goal.py` | replays a recorded goal trajectory into the other case, so the pair differs only in the field |

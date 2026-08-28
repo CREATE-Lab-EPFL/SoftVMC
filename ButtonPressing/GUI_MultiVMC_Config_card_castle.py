@@ -1,46 +1,40 @@
 """
-Whole-body shaping around a house of cards -- driven live from the GUI.
+House of cards -- one spring pulling the tip onto it, one pushing it off.
 
     python3 ../VMC/GUI_MultiVMC_Torque.py --config _card_castle --run <case>   # terminal 2
-    python3 ../VMC/GUI_MultiVMC.py        --config _card_castle --run <case>   # terminal 3
+    python3 castle_demo.py --config _card_castle --run <case>                  # terminal 3
 
-Both get the SAME --run: the GUI publishes every stiffness at once, so one told
-the wrong case would apply the wrong field. REQUIRE_RUN_NAME makes both refuse
-to start without it.
+NO GUI. Two elements, both attached to the TIP (s = 1.0), and both aimed at the
+same point -- the castle at CASTLE_XY:
 
-The same experiment as GUI_MultiVMC_Config_person.py with a different obstacle:
-a card castle standing at x = -0.25 m is the working area the robot must keep
-out of. The tip is driven to the button by hand from the GUI; the body is kept
-off the castle by the three Gaussians. Two runs, and the difference between them
-is the benefit of shaping the whole body rather than just placing the tip:
+  lin_tip    LinearSpring(K_REACH)          pulls the tip TOWARDS the castle
+  gauss_tip  GaussianSpring(k, SIGMA)       pushes the tip AWAY from it
 
-    --run no_gauss    no field at all -- the body goes wherever reaching takes it
-    --run gauss       the field on, at 500 N/m
+They are the same demo from two sides, and what they settle at is a standoff.
+Both forces are proportional to the distance d, so they balance where
 
-A card castle shows that difference in a way a person cannot: it falls over. So
-`no_gauss` is expected to knock it down -- record `gauss` FIRST and rebuild
-before the second run, not the other way round.
+    K_REACH = k_gauss * exp(-d^2 / 2 SIGMA^2)
 
-One run each, named by the case, so the two files ARE the experiment:
-outputs/card_castle/{no_gauss,gauss}.{npz,png}. --run is required and only those
-two names are accepted -- an unrecognised one is refused before anything is
-built, so a case cannot be recorded under the wrong name.
+At 35 against 500 that is d = 13.8 cm (2.3 sigma), and it is STABLE: closer in
+the push wins and the tip is driven out, further away the pull wins and it is
+drawn in. So the tip converges on a hover 13.8 cm off the castle wherever it
+starts -- while `no_gauss` has nothing to stop it and drives into the cards.
 
-  lin_tip     (s=1.0)  linear spring -- drag its goal onto the button
-  gauss_seg1  (s=1/3)  repulsive Gaussian, centre on the castle
-  gauss_seg2  (s=2/3)  the same, further up the body -- SHARES seg1's centre
-  gauss_seg3  (s=1.0)  and again at the tip -- SHARES it too
+    --run no_gauss    no field -- the tip goes to the castle and knocks it down
+    --run gauss       the field on at 500 N/m -- the tip stops 13.8 cm short
 
-Every goal's z follows its own attachment point, so all four act in the x-y
-plane only and nothing pulls along the arm's axis.
+The run is scripted end to end (castle_demo.py), in this order:
 
-Live from the GUI: x and y of those two points, the tip stiffness, the Gaussian
-strengths, and a tickbox that switches the Gaussians off and back on. Everything
-the hand did is in the log -- the goals in `goal`, the stiffnesses in `k_params`
--- so a run reads back as what was actually done, not as what the config said.
+    1. the field is brought up 0 -> k over RAMP_S, slowly, with the tip goal
+       still on the tip so the linear spring pulls nothing
+    2. only then does the tip goal walk to the castle, at DEMO_SPEED
+    3. the arm settles, the window is marked, the run is written
 
-Every value below is GUI_MultiVMC_Config_person.py's, unchanged, so the two are
-directly comparable. Keep them in step.
+Nothing is dragged by hand, so the two cases differ in the field and in nothing
+else.
+
+Both goals' z follows the tip's own z every tick (GOAL_Z_TRACK), so the whole
+demo happens in one x-y plane and neither element pulls along the arm's axis.
 """
 
 import sys, os
@@ -54,20 +48,14 @@ from VMC_utils.ConfigHelpers import default_start, param_info, rest_pose
 CONFIG_NAME = "card_castle"
 
 # ── Virtual elements ─────────────────────────────────────────────────────────
-K_REACH = 35.0    # [N/m]   tip spring -- stiffer than the button's 30, so the
-                  #         tip still gets to the button while the body is being
-                  #         pushed off a 500 N/m field
-K_GAUSS = 0.0     # [N/m]   the run's level sets this; see GAUSS_CONDITIONS
+K_REACH = 35.0    # [N/m]   tip spring, pulling onto the castle
+K_GAUSS = 0.0     # [N/m]   the run's case sets this; see GAUSS_CONDITIONS
 SIGMA   = 0.06    # [m]     Gaussian width
-C_DAMP  = 3.0     # [N.s/m] all three -- 3x the button's 1.0. The field here is
-                  #         500 N/m against a fragile obstacle, and the damper is
-                  #         what keeps the arm from ringing as it is pushed off.
+C_DAMP  = 3.0     # [N.s/m] both -- 3x the button's 1.0. The two springs oppose
+                  #         each other here and the damper is what stops the tip
+                  #         oscillating about the point where they balance.
 
-# One obstacle, three attachment points -- the END of each section, so every
-# part of the body that can swing into the obstacle has its own repulsion.
-# seg3 sits at s=1.0, the same point lin_tip pulls: the tip is both drawn to
-# the target and pushed off the obstacle.
-GAUSS_COMPONENTS = ("gauss_seg1", "gauss_seg2", "gauss_seg3")
+GAUSS_COMPONENTS = ("gauss_tip",)   # one obstacle, one attachment point: the tip
 
 VIRTUAL_COMPONENTS = [
     VirtualComponent(spring=LinearSpring(K_REACH),
@@ -75,183 +63,100 @@ VIRTUAL_COMPONENTS = [
                      s_param=1.0, name="lin_tip"),
     VirtualComponent(spring=GaussianSpring(strength=K_GAUSS, sigma=SIGMA),
                      damper=LinearDamper(C_DAMP),
-                     s_param=1.0 / 3.0, name="gauss_seg1"),
-    VirtualComponent(spring=GaussianSpring(strength=K_GAUSS, sigma=SIGMA),
-                     damper=LinearDamper(C_DAMP),
-                     s_param=2.0 / 3.0, name="gauss_seg2"),
-    VirtualComponent(spring=GaussianSpring(strength=K_GAUSS, sigma=SIGMA),
-                     damper=LinearDamper(C_DAMP),
-                     s_param=1.0, name="gauss_seg3"),
+                     s_param=1.0, name="gauss_tip"),
 ]
 
 # ── The two cases ────────────────────────────────────────────────────────────
-# The Gaussian strength each run name stands for. Two runs, and the pair IS the
-# experiment: the same reach with the body shaped away from the castle, and
-# without. Nothing in between -- the comparison is the point, not a curve.
-# Both Gaussians take the case's strength; the torque node ramps them in from
-# 0 over RAMP_S when the run starts, so no slider work is needed to set one up.
+# The pair IS the experiment: the same scripted approach with the field and
+# without. Nothing in between.
 #
-# These are the field STRENGTHS, not forces: a Gaussian's force peaks at
-# k*exp(-1/2)*sigma = k*0.0364 N when the attachment point is sigma from the
-# centre, so `gauss` peaks at 18 N and falls away fast on either side of that.
-# What the motors actually get is clipped at TAU_LIMIT.
-#
-# The same field as _person's `gauss`, so the person and the castle are
-# directly comparable. Half the button's `strong` (1000): the three Gaussians
-# here add up where the button had two.
+# 500 against K_REACH = 35 puts the standoff at 13.8 cm. Raising it moves that
+# out slowly -- 1000 only reaches 15.5 cm -- because the balance depends on the
+# ratio through a log: d = sigma * sqrt(2 * ln(k_gauss / K_REACH)).
 GAUSS_CONDITIONS = {
-    "no_gauss":      0.0,
-    "gauss":       500.0,
+    "no_gauss":     0.0,
+    "gauss":      500.0,
 }
 
 # --run is not optional here: an unnamed run belongs to neither case.
 REQUIRE_RUN_NAME = True
 
-# The case's strength is where a run STARTS. The GUI can move it from there --
-# K_REACH and both Gaussian strengths are editable in cell (1) and take effect
-# on "Apply Parameters" -- and k_params records what was applied tick by tick,
-# so the log says which value was live when.
-LOCK_PARAMS = False
-
-# A "Gaussians active" tickbox in the GUI, so the same reach can be shown with
-# the field and without it, in one recording and with nothing else changed. The
-# tickbox owns WHETHER the field is on, the entries own HOW STRONG it is when it
-# is -- so it comes back up to whatever was last applied, not to the case's own
-# strength. Either way it is walked over RAMP_S rather than stepped: switching a
-# placed 500 N/m field on in a single tick is exactly what the start-up ramp
-# exists to avoid, and switching it off that way drops the arm.
-GAUSS_TOGGLE = True
-
-# The strength cannot be switched on at once: the obstacle centre is already
-# placed, so a field at full strength shoves the arm off it within a single
-# tick. Both Gaussians are eased in from 0 over RAMP_S, starting with the torque
-# node -- before the GUI is up, so it lands at t < 0 in the log. k_params
-# records what was actually applied, tick by tick.
+# The field cannot be switched on at once, and step 1 of the demo is to bring it
+# up slowly. RAMP_S is longer than the other folders' 5 s for that reason. The
+# tip goal stays put until the ramp is done, so the linear spring pulls nothing
+# while it happens.
 RAMP_COMPONENTS = GAUSS_COMPONENTS
-RAMP_S          = 5.0   # [s]   0 disables the ramp
+RAMP_S          = 10.0   # [s]   0 disables the ramp
 
 # ── Controller ───────────────────────────────────────────────────────────────
-TAU_LIMIT   = 0.35   # [N·m] per motor -- HIGHER than the button's 0.25. This
-                     # experiment asks the body to hold a shape against the
-                     # field as well as reach, and at 0.25 the limiter, not the
-                     # virtual model, was deciding the pose. Set here and
-                     # nowhere else: the button's recorded runs are at 0.25 and
-                     # must stay there.
+TAU_LIMIT   = 0.35   # [N·m] per motor -- as _person, above the button's 0.25
 GRAVITY_DIR = "-y"   # arm rotated onto its side: gravity pulls along -y, not -z
 
-# tau_pretension[i] = PRETENSION_WEIGHTS[i] * q_motor[i], always applied
 PRETENSION_ENABLED   = True
-PRETENSION_WEIGHTS   = np.full(9, 0.010, dtype=float)   # [N·m/rad] x 9 -- always on, no threshold
+PRETENSION_WEIGHTS   = np.full(9, 0.010, dtype=float)   # [N·m/rad] x 9
+
+# ── The demo, step by step ───────────────────────────────────────────────────
+# castle_demo.py reads these, so both cases run to the same clock and --run is
+# the only thing that differs between them.
+DEMO_SETTLE_S = 15.0   # [s] after the field's ramp: let the arm settle first
+DEMO_SPEED    = 2.0    # [cm/s] the tip goal walks to the castle at this
+DEMO_ARRIVE_S = 20.0   # [s] hold after it gets there, so the tip can settle
+DEMO_WINDOW_S = 20.0   # [s] the measurement window, after the mark
 
 # ── Output ───────────────────────────────────────────────────────────────────
 OUTPUT_FOLDER  = "card_castle"       # --run NAME lands in outputs/<folder>/NAME.*
-
-# Nothing here ever lands in experiments/: --run is required (REQUIRE_RUN_NAME)
-# and every accepted name is a case, so every run goes straight to
-# outputs/<OUTPUT_FOLDER>/<case>.{npz,png}. Re-running a case overwrites it.
 SAVE_PLOT      = True
-SAVE_DATA      = True    # raw arrays to .npz alongside the plot
+SAVE_DATA      = True
 COLLECTED_DATA = False   # True = never save, the recorded runs are final
+AUTOSAVE_S     = 30.0    # [s] checkpoint to <run>.autosave.npz; 0 disables
 
-# Checkpoint the logs to <run>.autosave.npz every 30 s while the run is going,
-# and print a status line. These runs are minutes long and hand-driven, so a
-# crash at the end would otherwise cost the whole thing; the checkpoint is
-# deleted once the real file is written, so one left behind means the run did
-# not exit cleanly. The write runs on its own thread, off the control loop.
-AUTOSAVE_S     = 30.0    # [s] 0 disables
-
-# Marked with Ctrl+C in the torque node's terminal, one press each, while the
-# run goes; the press after the last one ends the run. A run is one continuous
-# recording of whatever was done with the GUI, so nothing else in the log says
-# when the tip actually arrived: press once when it is on the target and the
-# analysis takes its measurement window from there instead of guessing it.
+# One mark, put in by castle_demo.py when the tip has arrived and settled -- the
+# analysis takes its measurement window from there.
 MARK_PROMPTS   = ("Target reached?",)
 
 PLOT_Z         = True
 PLOT_FORCE     = False   # no load cell in this variant
 
-# ── GUI placement constraints ────────────────────────────────────────────────
-# Two points are placed by hand, and they are the whole experiment:
-#   - lin_tip's x/y      -- the target, dragged onto the button
-#   - the Gaussians' x/y -- the obstacle, shared by all three (GOAL_LINK), so
-#                           dragging any one moves them together
-#
-# NO goal z is placed by hand. Every one of them is set to the z of its own
-# attachment point, every control tick (GOAL_Z_TRACK): each goal sits in the
-# same x-y plane as the point it acts on, so no element has a z error and none
-# of them pull along the arm's own axis. The whole model works laterally, which
-# is what an obstacle standing beside the arm calls for -- the tip is steered
-# across its plane, and each section end is pushed off the obstacle in its own.
-# How far the arm extends is left to gravity and the pretension.
-GOAL_Z_TRACK = ("lin_tip",) + GAUSS_COMPONENTS
+# ── Geometry ─────────────────────────────────────────────────────────────────
+# ONE point defines the demo: where the castle is. The Gaussian is centred on it
+# and the linear spring is aimed at it -- they share the target, and the tip
+# ends up wherever the two balance.
+CASTLE_XY     = (0.0, 0.20)    # [m] x across, y UP (gravity is -y). Measure this
+                               #     off the real castle before recording.
+TIP_GOAL_XY   = (0.0, 0.0)     # [m] where the tip goal STARTS: on the tip
+                               #     itself, so nothing pulls until it walks
+GAUSS_GOAL_XY = CASTLE_XY      # the obstacle, fixed for the whole run
 
-# Where each goal's z STARTS, before the first FK is available: that point on
-# the straight arm. The arm does start straight, so tracking has nothing to
-# correct on the first tick either. z is NOT height here -- gravity is -y.
+# Both goals' z is set to the tip's own z every tick, so the demo happens in one
+# x-y plane and neither element pulls along the arm's axis. GOAL_Z_LOCK is only
+# the value before the first FK -- the straight arm's tip, which is already it.
+GOAL_Z_TRACK = ("lin_tip", "gauss_tip")
 GOAL_Z_LOCK  = {_c.name: float(rest_pose(_c.s_param)[2]) for _c in VIRTUAL_COMPONENTS}
-TIP_GOAL_Z   = GOAL_Z_LOCK["lin_tip"]                     # [m] = 0.435, the arm's tip
+TIP_GOAL_Z   = GOAL_Z_LOCK["lin_tip"]     # [m] = 0.435
 
-# Where the two placeable points start, so the arm is somewhere sensible before
-# anything is dragged. Both are meant to be moved.
-TIP_GOAL_XY   = (0.0, 0.0)     # [m] straight ahead: with the goal on the tip's
-                               # own plane the linear spring pulls NOTHING until
-                               # it is dragged
-GAUSS_GOAL_XY = (-0.25, 0.0)   # [m] where the obstacle stands, shared by all
-                               # three Gaussians. Further out than the button
-                               # fixture's -0.15, so the distal points do most
-                               # of the work: whichever section end comes within
-                               # a couple of SIGMA of it feels the push, and the
-                               # ones still far away contribute almost nothing.
-                               # x must stay more negative than the body
-                               # reaches, or the push points AT the button
-                               # instead of away from it.
-GOAL_LINK   = [GAUSS_COMPONENTS]
+# NOT linked: the tip goal walks to the castle while the castle stays where it
+# is. Linking them would drag the obstacle along with the target.
+GOAL_LINK    = []
 
-# Live from the start, like every other folder. The tip goal starts AT the
-# resting tip now (same x, y and z), so the linear spring pulls nothing until
-# it is dragged -- only the Gaussians ramping in move the arm. Untick
-# "Publisher Active" in the GUI to place the goals quietly.
 PUBLISH_ON_START = True
 
-# ── Ending a session ─────────────────────────────────────────────────────────
-# "Home & Quit" in the GUI: back to MultiGoHome.HOME_POSITION in extended
-# position control, then the window closes. Half the speed the button sweep
-# homes at (run_sweep.py --home-velocity 80, ~18.3 rpm) -- that one runs with
-# nothing near the arm, this one sweeps back past a stack of cards.
-#
-# The arm is handed back in CURRENT mode at the end, so it goes limp at
-# HOME_POSITION. Check the castle is not under where it comes to rest.
-# Closing this GUI -- by "Home & Quit" or by the window's X -- also tells the
-# torque node to write its run and exit, so terminals 2 and 3 both end with one
-# action instead of a Ctrl+C each. "Home & Quit" does it FIRST, before it stops
-# the driver and homes, because saving is the step that cannot be redone.
-END_RUN_ON_CLOSE = True
-END_RUN_TIMEOUT  = 30.0   # [s] to let the save finish before the bus is taken
-
-HOME_BUTTON   = True
+# ── Ending the run ───────────────────────────────────────────────────────────
+# castle_demo.py homes the arm itself when the run is written -- stop the
+# driver (which closes start_arm.sh), home in extended position control, hand
+# back in current mode. The arm goes LIMP at HOME_POSITION: check the castle is
+# not under where it comes to rest.
 HOME_VELOCITY = 40      # x0.229 rpm -> ~9.2 rpm
-HOME_TIMEOUT  = 120.0   # [s] the arm ends a run about 1.15 turns wound
+HOME_TIMEOUT  = 120.0   # [s]
 
-# ── GUI framing ──────────────────────────────────────────────────────────────
-DRAG_SPEED_MAX = 100.0     # [cm/s] top of the drag-speed slider -- the goal
-                           #        crosses the whole range in a second at it
-XY_RANGE = (-1.00, 1.00)   # [m] the x-y plot's extent, and the clamp on a
-                           #     dragged goal. Wider than the arm's 43.5 cm
-                           #     reach on purpose: a goal placed outside it sets
-                           #     how HARD the tip pulls, not where it ends up.
-                           #     It also lands close to where the tip spring
-                           #     alone starts asking more than TAU_LIMIT (about
-                           #     |x| = 0.9 m), past which the limiter rather
-                           #     than the virtual model drives the arm -- so
-                           #     most of the range is usable. tau_raw records
-                           #     what was asked.
+# ── GUI framing (unused -- this variant has no GUI) ──────────────────────────
+DRAG_SPEED_MAX = 100.0
+XY_RANGE = (-1.00, 1.00)   # [m]
 Z_RANGE  = (0.15, 0.50)    # [m]
 
 # ── Derived ──────────────────────────────────────────────────────────────────
-DEFAULT_START = default_start(VIRTUAL_COMPONENTS)   # straight-arm rest pose
-for _i, _c in enumerate(VIRTUAL_COMPONENTS):        # start each goal where it belongs
-    if _c.name in GOAL_Z_LOCK:
-        DEFAULT_START[_i, 2] = GOAL_Z_LOCK[_c.name]
+DEFAULT_START = default_start(VIRTUAL_COMPONENTS)
+for _i, _c in enumerate(VIRTUAL_COMPONENTS):
+    DEFAULT_START[_i, 2] = GOAL_Z_LOCK[_c.name]
     DEFAULT_START[_i, :2] = (GAUSS_GOAL_XY if _c.name in GAUSS_COMPONENTS
                              else TIP_GOAL_XY)
 N_VC          = len(VIRTUAL_COMPONENTS)
