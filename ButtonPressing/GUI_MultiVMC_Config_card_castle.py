@@ -4,24 +4,26 @@ House of cards -- one spring pulling the tip onto it, one pushing it off.
     python3 ../VMC/GUI_MultiVMC_Torque.py --config _card_castle --run <case>   # terminal 2
     python3 castle_demo.py --config _card_castle --run <case>                  # terminal 3
 
-NO GUI. Two elements, both attached to the TIP (s = 1.0), and both aimed at the
-same point -- the castle at CASTLE_XY:
+NO GUI. Two elements, both attached to the TIP (s = 1.0), with two different
+targets -- the castle sits between the tip and where it is being sent:
 
-  lin_tip    LinearSpring(K_REACH)          pulls the tip TOWARDS the castle
-  gauss_tip  GaussianSpring(k, SIGMA)       pushes the tip AWAY from it
+  lin_tip    LinearSpring(K_REACH)     pulls the tip towards TARGET_XY (0, 0.40)
+  gauss_tip  GaussianSpring(k, SIGMA)  pushes it away from CASTLE_XY (0, 0.20)
 
-They are the same demo from two sides, and what they settle at is a standoff.
-Both forces are proportional to the distance d, so they balance where
+So the tip is asked to cross the castle, and the field is the only thing in the
+way. Where it stalls is where the two cancel along the path -- with 35 against
+500 that is 10.8 cm short of the cards, and it is STABLE: nearer the push wins
+and the tip is driven back, further out the pull wins and it is drawn in.
 
-    K_REACH = k_gauss * exp(-d^2 / 2 SIGMA^2)
+    --run no_gauss    no field -- the tip goes for the target THROUGH the cards
+    --run gauss       the field on at 500 N/m -- the tip stalls 10.8 cm short
 
-At 35 against 500 that is d = 13.8 cm (2.3 sigma), and it is STABLE: closer in
-the push wins and the tip is driven out, further away the pull wins and it is
-drawn in. So the tip converges on a hover 13.8 cm off the castle wherever it
-starts -- while `no_gauss` has nothing to stop it and drives into the cards.
-
-    --run no_gauss    no field -- the tip goes to the castle and knocks it down
-    --run gauss       the field on at 500 N/m -- the tip stops 13.8 cm short
+The barrier is finite, not a wall. Past an unstable point 1.6 cm from the
+castle the push falls off faster than the pull and the tip would pop through to
+the far side; approaching from the start it never gets there, stopping at the
+stable point instead. `castle_demo.py --dry-run` solves for both and prints
+them, so a change to K_REACH, k_gauss, SIGMA or TARGET_XY can be checked before
+the cards are built.
 
 The run is scripted end to end (castle_demo.py), in this order:
 
@@ -70,9 +72,9 @@ VIRTUAL_COMPONENTS = [
 # The pair IS the experiment: the same scripted approach with the field and
 # without. Nothing in between.
 #
-# 500 against K_REACH = 35 puts the standoff at 13.8 cm. Raising it moves that
-# out slowly -- 1000 only reaches 15.5 cm -- because the balance depends on the
-# ratio through a log: d = sigma * sqrt(2 * ln(k_gauss / K_REACH)).
+# 500 against K_REACH = 35 stalls the tip 10.8 cm short of the cards. The stall
+# point moves out only slowly with strength -- the balance is logarithmic in the
+# ratio -- so SIGMA and TARGET_XY are the better handles if 10.8 cm is wrong.
 GAUSS_CONDITIONS = {
     "no_gauss":     0.0,
     "gauss":      500.0,
@@ -82,11 +84,10 @@ GAUSS_CONDITIONS = {
 REQUIRE_RUN_NAME = True
 
 # The field cannot be switched on at once, and step 1 of the demo is to bring it
-# up slowly. RAMP_S is longer than the other folders' 5 s for that reason. The
-# tip goal stays put until the ramp is done, so the linear spring pulls nothing
-# while it happens.
+# up gradually. The tip goal stays put until the ramp is done, so the linear
+# spring pulls nothing while it happens.
 RAMP_COMPONENTS = GAUSS_COMPONENTS
-RAMP_S          = 10.0   # [s]   0 disables the ramp
+RAMP_S          = 5.0    # [s]   0 disables the ramp
 
 # ── Controller ───────────────────────────────────────────────────────────────
 TAU_LIMIT   = 0.35   # [N·m] per motor -- as _person, above the button's 0.25
@@ -98,10 +99,12 @@ PRETENSION_WEIGHTS   = np.full(9, 0.010, dtype=float)   # [N·m/rad] x 9
 # ── The demo, step by step ───────────────────────────────────────────────────
 # castle_demo.py reads these, so both cases run to the same clock and --run is
 # the only thing that differs between them.
-DEMO_SETTLE_S = 15.0   # [s] after the field's ramp: let the arm settle first
-DEMO_SPEED    = 2.0    # [cm/s] the tip goal walks to the castle at this
-DEMO_ARRIVE_S = 20.0   # [s] hold after it gets there, so the tip can settle
-DEMO_WINDOW_S = 20.0   # [s] the measurement window, after the mark
+DEMO_SETTLE_S = 5.0    # [s] after the field's ramp: let the arm settle first
+DEMO_SPEED    = 5.0    # [cm/s] the tip goal walks to the target at this
+DEMO_ARRIVE_S = 8.0    # [s] hold after it gets there, so the tip can settle
+DEMO_WINDOW_S = 10.0   # [s] the measurement window, after the mark
+                       #     -> 36 s in total. --settle/--speed/--arrive/--window
+                       #        override any of them for a single run.
 
 # ── Output ───────────────────────────────────────────────────────────────────
 OUTPUT_FOLDER  = "card_castle"       # --run NAME lands in outputs/<folder>/NAME.*
@@ -118,11 +121,14 @@ PLOT_Z         = True
 PLOT_FORCE     = False   # no load cell in this variant
 
 # ── Geometry ─────────────────────────────────────────────────────────────────
-# ONE point defines the demo: where the castle is. The Gaussian is centred on it
-# and the linear spring is aimed at it -- they share the target, and the tip
-# ends up wherever the two balance.
-CASTLE_XY     = (0.0, 0.20)    # [m] x across, y UP (gravity is -y). Measure this
-                               #     off the real castle before recording.
+# Two points define the demo, and they are NOT the same: the castle, and where
+# the tip is being sent. The castle sits between the start and the target, so
+# the tip is asked to cross it.
+CASTLE_XY     = (0.0, 0.20)    # [m] the cards. x across, y UP (gravity is -y).
+                               #     Measure this off the real castle.
+TARGET_XY     = (0.0, 0.40)    # [m] where lin_tip pulls -- beyond the castle,
+                               #     on the far side, so the straight path to it
+                               #     runs through the cards.
 TIP_GOAL_XY   = (0.0, 0.0)     # [m] where the tip goal STARTS: on the tip
                                #     itself, so nothing pulls until it walks
 GAUSS_GOAL_XY = CASTLE_XY      # the obstacle, fixed for the whole run
