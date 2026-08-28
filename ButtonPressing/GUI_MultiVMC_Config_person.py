@@ -169,13 +169,20 @@ PLOT_FORCE     = False   # no load cell in this variant
 #   - the two Gaussians share ONE goal, held at the midpoint between the tips
 #     of section 1 and section 2 (z is linear in s on the straight arm, so that
 #     midpoint is just rest_pose(0.5))
-TIP_GOAL_Z   = float(rest_pose(1.0)[2])   # [m] = 0.435, the straight arm's own tip.
-                                          #     Held there for the whole run, so the tip
-                                          #     goal always sits in ONE x-y plane -- the
-                                          #     tip's own -- and dragging it steers the
-                                          #     tip across that plane instead of also
-                                          #     pulling it in along the arm's axis.
-                                          #     z is NOT height here: gravity is -y.
+TIP_GOAL_Z   = float(rest_pose(1.0)[2])   # [m] = 0.435, the straight arm's tip -- only
+                                          #     where the goal STARTS. GOAL_Z_TRACK below
+                                          #     keeps it on the tip's z from then on. The
+                                          #     arm starts straight, so this value is
+                                          #     already the tip's and even the first tick
+                                          #     has no z error. z is NOT height: gravity -y.
+
+# lin_tip's goal z is not a reference: every tick it is set to where the tip
+# actually is, so the goal and the tip are always in the SAME x-y plane and the
+# spring pulls in x and y only. Dragging it steers the tip across that plane and
+# never pulls the tip in or out along the arm's own axis -- how far the arm
+# extends is left to the Gaussians, gravity and the pretension. `goal` in the
+# log records the z that was used, not the one the GUI published.
+GOAL_Z_TRACK = ("lin_tip",)
 GAUSS_GOAL_Z = float(rest_pose(0.5)[2])   # [m] = 0.2175, between sections 1 and 2
 
 GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,

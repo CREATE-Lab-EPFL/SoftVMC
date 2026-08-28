@@ -84,6 +84,10 @@ for _group in getattr(_cfg, "GOAL_LINK", []):
         LINKED[_i] = list(_idx)
 PUBLISH_ON_START = bool(getattr(_cfg, "PUBLISH_ON_START", True))
 
+# Goals whose z the torque node replaces with the attachment point's own z every
+# tick. The slider shows no useful number for those, so it says what it does.
+Z_TRACKED = {_NAMES.index(k) for k in getattr(_cfg, "GOAL_Z_TRACK", ()) if k in _NAMES}
+
 # An experiment whose stiffnesses are part of its definition rather than
 # something to tune sets LOCK_PARAMS: the values are still shown, but they
 # cannot be edited and /VC_Param is never published, so the torque node keeps
@@ -606,8 +610,9 @@ class RobotGUI:
             sl.pack(pady=2)
 
             lbl = ttk.Label(z_frame,
-                            text=f"{self._ref_pos[i, 2]:.3f} m"
-                                 + ("  (fixed)" if i in Z_LOCKED else ""))
+                            text=("follows the tip" if i in Z_TRACKED else
+                                  f"{self._ref_pos[i, 2]:.3f} m"
+                                  + ("  (fixed)" if i in Z_LOCKED else "")))
             lbl.pack()
 
             # Trace: fires on every slider move (incl. programmatic set())
@@ -939,6 +944,18 @@ class RobotGUI:
             try:
                 pose   = FK_Multi(q, float(comp.s_param))
                 attach = pose[:3]
+                if i in Z_TRACKED:
+                    # The torque node holds this goal on the attachment point's
+                    # own z. Follow it here as well, or the marker sits at the
+                    # config's starting z while the arm moves away from it --
+                    # showing a z error that is not being applied. The slider is
+                    # locked, so writing the variable publishes nothing.
+                    self._ref_pos[i, 2] = float(attach[2])
+                    vc_ref_pts[i, 2]    = float(attach[2])
+                    self._ignore_z = True
+                    self._z_vars[i].set(float(attach[2]))
+                    self._ignore_z = False
+                    self._z_lbls[i].config(text=f"{attach[2]:.3f} m  (follows tip)")
                 ref    = vc_ref_pts[i]
 
                 self._vc_attach[i].set_data([attach[0]], [attach[1]])

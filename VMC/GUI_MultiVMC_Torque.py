@@ -132,6 +132,15 @@ GRAVITY_DIR = getattr(_cfg, "GRAVITY_DIR", "-z")
 # CONTROL_FREQUENCY an unthrottled warning is hundreds of lines a second.
 CLIP_WARN_S = float(getattr(_cfg, "CLIP_WARN_S", 2.0))
 
+# Components whose goal z is not a reference but a copy of where that attachment
+# point already is, refreshed every tick -- so the goal and the point it pulls
+# stay in one x-y plane and the z error is always zero. For the tip spring that
+# means it steers the tip across the tip's own plane and never pulls it in or
+# out along the arm's axis. Opt-in: a config naming none behaves as before.
+_Z_TRACK = tuple(getattr(_cfg, "GOAL_Z_TRACK", ()))
+_Z_TRACK_IDX = [i for i, c in enumerate(VIRTUAL_COMPONENTS)
+                if (c.name or f"VC{i+1}") in _Z_TRACK]
+
 
 class VMCTorqueNode(Node):
     """
@@ -183,11 +192,17 @@ class VMCTorqueNode(Node):
                 f"overwriting any previous {run_name}")
         self.get_logger().info(f"gravity compensation: gravity pulls along "
                                f"{gravity_dir} in the robot frame")
+        if _Z_TRACK_IDX:
+            self.get_logger().info(
+                f"goal z follows the attachment point for: {', '.join(_Z_TRACK)} "
+                f"-- same x-y plane as the point it pulls, so no z force")
 
         # ── Robot state ───────────────────────────────────────────────────────
         self._q      = np.zeros(9, dtype=float)   # rad
         self._q_dot  = np.zeros(9, dtype=float)   # rad/s
         self._goal   = DEFAULT_START.reshape(-1).copy()   # flattened (3N,)
+        self._goal_effective = self._goal.copy()          # after GOAL_Z_TRACK
+        self._last_pos = None                             # previous tick's FK, (N_VC, 3)
 
         # ── Logging ───────────────────────────────────────────────────────────
         # Everything the control loop computes is kept, at control rate -- a
@@ -374,11 +389,26 @@ class VMCTorqueNode(Node):
         # position, the task-space velocity and the force of every element, so
         # the logs below cost no second kinematics pass and record exactly the
         # pose this torque was computed from.
+        # A tracked goal's z is taken from where that point actually is, so the
+        # pair stays coplanar and there is no z error to pull on. The position
+        # is the previous tick's FK -- one control period stale, a few tenths of
+        # a millimetre at 330 Hz, and it costs a second kinematics pass to do
+        # better. Before the first tick the config's z stands in, which is the
+        # straight arm's own tip, so that tick is exact too.
+        goal = self._goal
+        if _Z_TRACK_IDX and self._last_pos is not None:
+            goal = goal.reshape(N_VC, 3).copy()
+            for i in _Z_TRACK_IDX:
+                goal[i, 2] = self._last_pos[i, 2]
+            goal = goal.reshape(-1)
+        self._goal_effective = goal
+
         state           = self._vmc.multi_torques_forces_states(
             q_motor     = self._q,
             q_motor_dot = self._q_dot,
-            target_pos  = self._goal,
+            target_pos  = goal,
         )
+        self._last_pos  = state["pos"]
         tau_vmc         = state["tau"]
         f_virtual       = state["F_comp"].sum(axis=0)
         tau_grav        = self._grav_comp.gravity_compensation(self._q)
@@ -419,7 +449,7 @@ class VMCTorqueNode(Node):
         self._tau_grav_log.append(tau_grav.copy())
         self._tau_pre_log.append(tau_pretension.copy())
         self._tau_comp_log.append(state["tau_comp"].copy())
-        self._goal_log.append(self._goal.copy())
+        self._goal_log.append(self._goal_effective.copy())
         self._comp_pos_log.append(state["pos"].copy())
         self._comp_vel_log.append(state["vel"].copy())
         self._f_comp_log.append(state["F_comp"].copy())
