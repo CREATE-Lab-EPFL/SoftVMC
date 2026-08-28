@@ -4,14 +4,14 @@ Whole-body shaping around a house of cards -- driven live from the GUI.
     python3 ../VMC/GUI_MultiVMC_Torque.py --config _card_castle --run <case>   # terminal 2
     python3 ../VMC/GUI_MultiVMC.py        --config _card_castle --run <case>   # terminal 3
 
-Both get the SAME --run: the GUI publishes all three stiffnesses at once, so one
-told the wrong case would apply the wrong field. REQUIRE_RUN_NAME makes both
-refuse to start without it.
+Both get the SAME --run: the GUI publishes every stiffness at once, so one told
+the wrong case would apply the wrong field. REQUIRE_RUN_NAME makes both refuse
+to start without it.
 
 The same experiment as GUI_MultiVMC_Config_person.py with a different obstacle:
 a card castle standing at x = -0.25 m is the working area the robot must keep
 out of. The tip is driven to the button by hand from the GUI; the body is kept
-off the castle by the two Gaussians. Two runs, and the difference between them
+off the castle by the three Gaussians. Two runs, and the difference between them
 is the benefit of shaping the whole body rather than just placing the tip:
 
     --run no_gauss    no field at all -- the body goes wherever reaching takes it
@@ -29,12 +29,15 @@ built, so a case cannot be recorded under the wrong name.
   lin_tip     (s=1.0)  linear spring -- drag its goal onto the button
   gauss_seg1  (s=1/3)  repulsive Gaussian, centre on the castle
   gauss_seg2  (s=2/3)  the same, further up the body -- SHARES seg1's centre
+  gauss_seg3  (s=1.0)  and again at the tip -- SHARES it too
 
-Live from the GUI: x and y of those two points, the tip stiffness, the two
-Gaussian strengths, and a tickbox that switches the Gaussians off and back on.
-Every z is locked, and both Gaussians share one centre. Everything the hand did
-is in the log -- the goals in `goal`, the stiffnesses in `k_params` -- so a run
-reads back as what was actually done, not as what the config said.
+Every goal's z follows its own attachment point, so all four act in the x-y
+plane only and nothing pulls along the arm's axis.
+
+Live from the GUI: x and y of those two points, the tip stiffness, the Gaussian
+strengths, and a tickbox that switches the Gaussians off and back on. Everything
+the hand did is in the log -- the goals in `goal`, the stiffnesses in `k_params`
+-- so a run reads back as what was actually done, not as what the config said.
 
 Every value below is GUI_MultiVMC_Config_person.py's, unchanged, so the two are
 directly comparable. Keep them in step.
@@ -60,7 +63,11 @@ C_DAMP  = 3.0     # [N.s/m] all three -- 3x the button's 1.0. The field here is
                   #         1000 N/m against a fragile obstacle, and the damper is
                   #         what keeps the arm from ringing as it is pushed off.
 
-GAUSS_COMPONENTS = ("gauss_seg1", "gauss_seg2")   # one obstacle, two attachment points
+# One obstacle, three attachment points -- the END of each section, so every
+# part of the body that can swing into the obstacle has its own repulsion.
+# seg3 sits at s=1.0, the same point lin_tip pulls: the tip is both drawn to
+# the target and pushed off the obstacle.
+GAUSS_COMPONENTS = ("gauss_seg1", "gauss_seg2", "gauss_seg3")
 
 VIRTUAL_COMPONENTS = [
     VirtualComponent(spring=LinearSpring(K_REACH),
@@ -72,6 +79,9 @@ VIRTUAL_COMPONENTS = [
     VirtualComponent(spring=GaussianSpring(strength=K_GAUSS, sigma=SIGMA),
                      damper=LinearDamper(C_DAMP),
                      s_param=2.0 / 3.0, name="gauss_seg2"),
+    VirtualComponent(spring=GaussianSpring(strength=K_GAUSS, sigma=SIGMA),
+                     damper=LinearDamper(C_DAMP),
+                     s_param=1.0, name="gauss_seg3"),
 ]
 
 # ── The two cases ────────────────────────────────────────────────────────────
@@ -162,48 +172,38 @@ PLOT_FORCE     = False   # no load cell in this variant
 # ── GUI placement constraints ────────────────────────────────────────────────
 # Two points are placed by hand, and they are the whole experiment:
 #   - lin_tip's x/y      -- the target, dragged onto the button
-#   - the Gaussians' x/y -- the obstacle, shared by both (GOAL_LINK), so
-#                           dragging either moves both
-# The z of all three is held (z is the reach out along the arm's axis, NOT
-# height -- gravity is -y), so only x and y are ever dragged.
-#   - the button's distance along the arm's axis is known, so the tip goal's z
-#     is held at it
-#   - the two Gaussians share ONE goal, held at the midpoint between the tips
-#     of section 1 and section 2 (z is linear in s on the straight arm, so that
-#     midpoint is just rest_pose(0.5))
-TIP_GOAL_Z   = float(rest_pose(1.0)[2])   # [m] = 0.435, the straight arm's tip -- only
-                                          #     where the goal STARTS. GOAL_Z_TRACK below
-                                          #     keeps it on the tip's z from then on. The
-                                          #     arm starts straight, so this value is
-                                          #     already the tip's and even the first tick
-                                          #     has no z error. z is NOT height: gravity -y.
+#   - the Gaussians' x/y -- the obstacle, shared by all three (GOAL_LINK), so
+#                           dragging any one moves them together
+#
+# NO goal z is placed by hand. Every one of them is set to the z of its own
+# attachment point, every control tick (GOAL_Z_TRACK): each goal sits in the
+# same x-y plane as the point it acts on, so no element has a z error and none
+# of them pull along the arm's own axis. The whole model works laterally, which
+# is what an obstacle standing beside the arm calls for -- the tip is steered
+# across its plane, and each section end is pushed off the obstacle in its own.
+# How far the arm extends is left to gravity and the pretension.
+GOAL_Z_TRACK = ("lin_tip",) + GAUSS_COMPONENTS
 
-# lin_tip's goal z is not a reference: every tick it is set to where the tip
-# actually is, so the goal and the tip are always in the SAME x-y plane and the
-# spring pulls in x and y only. Dragging it steers the tip across that plane and
-# never pulls the tip in or out along the arm's own axis -- how far the arm
-# extends is left to the Gaussians, gravity and the pretension. `goal` in the
-# log records the z that was used, not the one the GUI published.
-GOAL_Z_TRACK = ("lin_tip",)
-GAUSS_GOAL_Z = float(rest_pose(0.5)[2])   # [m] = 0.2175, between sections 1 and 2
+# Where each goal's z STARTS, before the first FK is available: that point on
+# the straight arm. The arm does start straight, so tracking has nothing to
+# correct on the first tick either. z is NOT height here -- gravity is -y.
+GOAL_Z_LOCK  = {_c.name: float(rest_pose(_c.s_param)[2]) for _c in VIRTUAL_COMPONENTS}
+TIP_GOAL_Z   = GOAL_Z_LOCK["lin_tip"]                     # [m] = 0.435, the arm's tip
 
-GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,
-               "gauss_seg1": GAUSS_GOAL_Z,
-               "gauss_seg2": GAUSS_GOAL_Z}
-
-# Where the two goals start, so the arm is somewhere sensible before anything
-# is dragged. Both are meant to be moved.
-TIP_GOAL_XY   = (0.0, 0.0)     # [m] straight ahead: the tip spring pulls only
-                               # the 5.5 cm of take-up to TIP_GOAL_Z
-GAUSS_GOAL_XY = (-0.25, 0.0)   # [m] where the castle stands. Further out than
-                               # the button fixture's -0.15, so it is gauss_seg2
-                               # (s=2/3) that does the work here: with the body
-                               # curving to about -17 cm it sits ~8 cm = 1.4
-                               # sigma from the centre, near the force peak,
-                               # while gauss_seg1 at ~-6 cm is 19 cm away and
-                               # contributes about 1 N. x must stay more
-                               # negative than the body reaches, or the push
-                               # points AT the button instead of away from it.
+# Where the two placeable points start, so the arm is somewhere sensible before
+# anything is dragged. Both are meant to be moved.
+TIP_GOAL_XY   = (0.0, 0.0)     # [m] straight ahead: with the goal on the tip's
+                               # own plane the linear spring pulls NOTHING until
+                               # it is dragged
+GAUSS_GOAL_XY = (-0.25, 0.0)   # [m] where the obstacle stands, shared by all
+                               # three Gaussians. Further out than the button
+                               # fixture's -0.15, so the distal points do most
+                               # of the work: whichever section end comes within
+                               # a couple of SIGMA of it feels the push, and the
+                               # ones still far away contribute almost nothing.
+                               # x must stay more negative than the body
+                               # reaches, or the push points AT the button
+                               # instead of away from it.
 GOAL_LINK   = [GAUSS_COMPONENTS]
 
 # Live from the start, like every other folder. The tip goal starts AT the
@@ -234,18 +234,16 @@ HOME_TIMEOUT  = 120.0   # [s] the arm ends a run about 1.15 turns wound
 # ── GUI framing ──────────────────────────────────────────────────────────────
 DRAG_SPEED_MAX = 100.0     # [cm/s] top of the drag-speed slider -- the goal
                            #        crosses the whole range in a second at it
-XY_RANGE = (-2.00, 2.00)   # [m] the x-y plot's extent, and the clamp on a
-                           #     dragged goal. Far wider than the arm's 43.5 cm
-                           #     reach on purpose: a goal placed well outside it
-                           #     sets how HARD the tip pulls, not where it ends
-                           #     up. Two costs. Precision -- the plot spans 4 m
-                           #     across the same pixels, so drop "Drag speed"
-                           #     before placing the obstacle, where a couple of
-                           #     cm matter against SIGMA = 6 cm. And saturation
-                           #     -- past roughly |x| = 0.9 m the tip spring
-                           #     alone asks more than TAU_LIMIT and the limiter,
-                           #     not the virtual model, is driving the arm.
-                           #     tau_raw records what was asked.
+XY_RANGE = (-1.00, 1.00)   # [m] the x-y plot's extent, and the clamp on a
+                           #     dragged goal. Wider than the arm's 43.5 cm
+                           #     reach on purpose: a goal placed outside it sets
+                           #     how HARD the tip pulls, not where it ends up.
+                           #     It also lands close to where the tip spring
+                           #     alone starts asking more than TAU_LIMIT (about
+                           #     |x| = 0.9 m), past which the limiter rather
+                           #     than the virtual model drives the arm -- so
+                           #     most of the range is usable. tau_raw records
+                           #     what was asked.
 Z_RANGE  = (0.15, 0.50)    # [m]
 
 # ── Derived ──────────────────────────────────────────────────────────────────

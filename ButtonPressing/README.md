@@ -177,14 +177,21 @@ re-capture with `python3 ../VMC/MultiGoHome.py --read`.
 
 # The model
 
-| Component | Element | s | Goal |
-|---|---|---|---|
-| `lin_tip` | `LinearSpring(k)` | 1.0 | the button, at `TIP_GOAL_Z` |
-| `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | the obstacle, at `GAUSS_GOAL_Z` |
-| `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `gauss_seg1`'s goal** |
+`_button` has three elements, the GUI pair four:
 
-Shared by all three: `SIGMA = 0.06` m, `PRETENSION_WEIGHTS = 0.010` N·m/rad,
-`GAUSS_GOAL_Z = 0.2175` (midpoint between the tips of sections 1 and 2).
+| Component | Element | s | Goal | in |
+|---|---|---|---|---|
+| `lin_tip` | `LinearSpring(k)` | 1.0 | the button | all |
+| `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | the obstacle | all |
+| `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `seg1`'s goal** | all |
+| `gauss_seg3` | `GaussianSpring(k, 0.06)` | 1.0 | **shares it too** | GUI pair |
+
+The GUI pair puts a Gaussian at the **end of every section**, so each part of
+the body that can swing into the obstacle has its own repulsion. `gauss_seg3`
+sits at s = 1.0, the same point `lin_tip` pulls: the tip is both drawn to the
+target and pushed off the obstacle.
+
+Shared by all three: `SIGMA = 0.06` m, `PRETENSION_WEIGHTS = 0.010` N·m/rad.
 
 Four things differ between the sweep and the GUI pair:
 
@@ -193,24 +200,28 @@ Four things differ between the sweep and the GUI pair:
 | `K_REACH` | 30 N/m | 35 N/m |
 | `C_DAMP` | 1.0 N·s/m | 3.0 N·s/m |
 | `TAU_LIMIT` | 0.25 N·m | 0.35 N·m |
-| `lin_tip` goal z | fixed at 0.38 | **follows the tip, live** |
+| elements | 3 | 4 |
+| goal z | fixed constants | **each follows its own attachment point** |
 
 In all three variants a goal is only ever moved in x and y by hand. The
 difference is what its z is.
 
-`_button` holds every goal z at a constant. The GUI pair does too for the
-Gaussians (`GAUSS_GOAL_Z = 0.2175`, mid-body) — but **`lin_tip`'s goal z is set
-to the tip's own z every control tick** (`GOAL_Z_TRACK`). Goal and tip stay in
-one x–y plane, so the spring has no z component at all: it steers the tip
-across that plane and never pulls it in or out along the arm's axis. How far the
-arm extends is left to the Gaussians, gravity and the pretension.
+`_button` holds every goal z at a constant. In the GUI pair **no goal z is a
+reference at all**: every one of them is set to the z of the point it acts on,
+each control tick (`GOAL_Z_TRACK`). Each goal therefore sits in the same x–y
+plane as its own attachment point, no element has a z error, and nothing pulls
+along the arm's axis. The whole model works laterally — which is what an
+obstacle standing beside the arm calls for. The tip is steered across its plane;
+each section end is pushed off the obstacle in its own. How far the arm extends
+is left to gravity and the pretension.
 
-`TIP_GOAL_Z = 0.435` is only where the goal starts, before the first FK is
-available. The arm starts straight, so that is already the tip's z and even the
-first tick has no z error. Thereafter the goal is one control period behind the
-tip — measured at **0.085 mm worst case**, i.e. ~0.003 N, and zero at the
-median. `goal` in the log records the z that was applied, not the one the GUI
-published, and the GUI's z slider for `lin_tip` reads *follows the tip*.
+`GOAL_Z_LOCK` is only where each goal starts, before the first FK is available —
+that point on the straight arm. The arm does start straight, so tracking has
+nothing to correct on the first tick either. Thereafter a goal is one control
+period behind its point: measured on a moving arm at **0.09 mm worst case**
+(~0.003 N), zero at the median, and the residual correlates with per-tick motion
+at 1.000 — pure lag, no offset. `goal` in the log records the z applied, not the
+one the GUI published, and those z sliders read *follows the tip*.
 
 The GUI pair pulls harder and settles harder, against a heavier field: 1000 N/m
 acting on a body that has to come to rest next to a person or a stack of cards,
@@ -263,16 +274,16 @@ passes — move it, or raise `SIGMA`, before reaching for a bigger `k`.
 
 The GUI can change: both goals' x/y, the tip stiffness, both Gaussian strengths
 (cell ①, `Apply Parameters`), and a **`Gaussians active` tickbox**. Every z is
-locked. `XY_RANGE = ±2.00` m is both the plot extent and the clamp on a dragged
-goal — far past the arm's 43.5 cm reach on purpose, since a goal outside it sets
-how *hard* the tip pulls rather than where it ends up.
+locked. `XY_RANGE = ±1.00` m is both the plot extent and the clamp on a dragged
+goal — past the arm's 43.5 cm reach on purpose, since a goal outside it sets how
+*hard* the tip pulls rather than where it ends up. It also sits close to where
+the tip spring alone starts asking more than `TAU_LIMIT` (about |x| = 0.9 m),
+past which the limiter rather than the virtual model drives the arm, so most of
+the range is usable. `tau_raw` records what was asked, and the run figure shades
+where clipping bit.
 
-Two costs come with that. **Precision:** the plot spans 4 m across the same
-pixels, so drop *Drag speed* (`DRAG_SPEED_MAX = 100` cm/s) before placing the
-obstacle, where a couple of centimetres matter against `SIGMA = 6` cm.
-**Saturation:** past roughly |x| = 0.9 m the tip spring alone asks more than
-`TAU_LIMIT`, and the limiter rather than the virtual model is driving the arm —
-`tau_raw` records what was asked, and the run figure shades where it bit.
+Placing the obstacle still wants care — a couple of centimetres matter against
+`SIGMA = 6` cm — so drop *Drag speed* (`DRAG_SPEED_MAX = 100` cm/s) for that.
 
 The tickbox owns *whether* the field is on, the entries own *how strong* when it
 is — so it returns to whatever was last applied, and a strength typed while it
@@ -290,9 +301,9 @@ The arm is mounted **on its side** — both configs set `GRAVITY_DIR = "-y"`
 
 | axis | physically | set by |
 |---|---|---|
-| `x` | horizontal, across | the GUI's x (±2.00, `_button` ±0.70), `GAUSS_GOAL_XY[0]`, `--target-x` |
-| `y` | **vertical — up is +y** | the GUI's y (±2.00, `_button` ±0.70), `GAUSS_GOAL_XY[1]`, `--target-y` |
-| `z` | out along the arm's axis | `TIP_GOAL_Z`, `GAUSS_GOAL_Z` (locked — goals move in x, y only) |
+| `x` | horizontal, across | the GUI's x (±1.00, `_button` ±0.70), `GAUSS_GOAL_XY[0]`, `--target-x` |
+| `y` | **vertical — up is +y** | the GUI's y (±1.00, `_button` ±0.70), `GAUSS_GOAL_XY[1]`, `--target-y` |
+| `z` | out along the arm's axis | never placed by hand — locked (`_button`) or tracking (GUI pair) |
 
 ⚠ No single projection is the geometry. Since y is vertical an **x–z plot is a
 plan view from above**, and the arm has been recorded **lifted 16 cm** by the
@@ -314,14 +325,14 @@ every 30 s, so a crash costs seconds:
 | field | shape | |
 |---|---|---|
 | `t` / `t_wall` | (n,) | s from the first reference (`t < 0` before it); unix time |
-| `goal` | (n, 3, 3) | reference per element [m] — for `_person`, everything the hand did |
-| `comp_pos` / `comp_vel` | (n, 3, 3) | FK position [m] and task-space velocity [m/s] |
-| `f_comp` | (n, 3, 3) | **each element's force separately** [N]; `f_virtual` (n, 3) is their sum |
-| `tau_comp` | (n, 3, 9) | each element's share of the torque [N·m] |
+| `goal` | (n, N, 3) | reference per element [m] — for `_person`, everything the hand did |
+| `comp_pos` / `comp_vel` | (n, N, 3) | FK position [m] and task-space velocity [m/s] |
+| `f_comp` | (n, N, 3) | **each element's force separately** [N]; `f_virtual` (n, 3) is their sum. `N` = 3 for `_button`, 4 for the GUI pair |
+| `tau_comp` | (n, N, 9) | each element's share of the torque [N·m] |
 | `tau_vmc` / `tau_grav` / `tau_pretension` | (n, 9) | the three terms, before the limiter |
 | `tau_raw` / `tau` | (n, 9) | asked vs sent — clipping is `abs(tau_raw) > tau_limit` |
 | `q_motor` / `q_motor_dot` | (n, 9) | [rad], [rad/s] |
-| `k_params` / `c_params` | (n, 3) | spring and damper parameter per element over time — start-up ramp and every toggle included |
+| `k_params` / `c_params` | (n, N) | spring and damper parameter per element over time — start-up ramp and every toggle included |
 | `force` / `force_age` | (n,) | load-cell shear, raw **grams** (×`9.80665e-3` for N), and its staleness [s] |
 | `marks_t` / `marks_label` / `marks_wall` | (m,) | where Ctrl+C was pressed, on `t`'s clock |
 | `comp_spec` / `config_source` | (1,) | every element's type and values as JSON; the whole config file |
@@ -341,5 +352,6 @@ the window.
 | `GUI_MultiVMC_Config_card_castle.py` | `_card_castle`: `_person`'s values, a different obstacle |
 | `run_sweep.py` | `_button` only: every level × `SWEEP_REPEATS`, homed and verified between |
 | `plot_experiments.ipynb` | analysis for all three — discovers `outputs/`, positions from the data, window from the mark |
+| `replay_goal.py` | replays a recorded goal trajectory into the other case, so the pair differs only in the field |
 | `collect_run.py` | moves an unnamed `experiments/z_*` pair into `outputs/` |
 | `media/<variant>/` | photos of each set-up, alongside `outputs/<variant>/` |

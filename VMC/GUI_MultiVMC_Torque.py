@@ -263,6 +263,11 @@ class VMCTorqueNode(Node):
         # publishes it unless a config opts in, so this is inert everywhere else.
         self.create_subscription(
             Bool,              "/vmc_end_run",       self._cb_end_run,     10)
+        # Same job as a Ctrl+C mark, from a script instead of a keyboard, so a
+        # replayed run can put its window in the same place as the run it
+        # replays. Nothing publishes it unless something is replaying.
+        self.create_subscription(
+            String,            "/vmc_mark",          self._cb_mark,        10)
 
         # ── Publishers ────────────────────────────────────────────────────────
         self._pub_hw     = self.create_publisher(Float64MultiArray, "/goal_torque",     10)
@@ -358,6 +363,17 @@ class VMCTorqueNode(Node):
     def _cb_force_shear(self, msg: Float64):
         self._force_shear = float(msg.data)
         self._force_stamp = time.perf_counter()
+
+    def _cb_mark(self, msg: String):
+        """Record an operator mark asked for over ROS."""
+        label = str(msg.data).strip() or f"mark {len(self._marks) + 1}"
+        now = time.perf_counter()
+        self._marks.append((now, time.time(), label))
+        if self._pending_marks:
+            self._pending_marks.pop(0)
+        when = ("before the first reference" if self._t0 is None
+                else f"at t = {now - self._t0:.1f} s")
+        self.get_logger().info(f"mark {len(self._marks)}: {label!r} {when}")
 
     def _cb_end_run(self, _msg: Bool):
         """Someone else (the GUI, closing) is ending the run.
