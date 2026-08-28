@@ -1212,15 +1212,24 @@ def main():
     try:
         root.mainloop()
     finally:
-        try:
-            ros_node.destroy_node()
-        except Exception as e:
-            print(f"[WARN] destroy_node: {e}")
+        # Order matters. destroy_node() while the spin thread is still inside
+        # rclpy.spin() tears the node out from under the C++ executor, which
+        # aborts the process with "terminate called without an active
+        # exception". Shut down first so spin() returns, WAIT for the thread to
+        # actually leave it, and only then destroy.
         try:
             if rclpy.ok():
                 rclpy.shutdown()
         except Exception as e:
             print(f"[WARN] rclpy.shutdown: {e}")
+        ros_thread.join(timeout=5.0)
+        if ros_thread.is_alive():
+            print("[WARN] rclpy spin thread did not stop; leaving the node alone")
+        else:
+            try:
+                ros_node.destroy_node()
+            except Exception as e:
+                print(f"[WARN] destroy_node: {e}")
 
 
 if __name__ == "__main__":
