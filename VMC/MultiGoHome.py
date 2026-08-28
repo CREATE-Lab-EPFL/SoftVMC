@@ -55,15 +55,15 @@ TICKS_PER_TURN     = 4096 # one full revolution -- a miss that is a multiple of
 # --- HOME POSITION (ABSOLUTE ticks) -----------------------------------------
 # Update: put robot in desired home pose, run with --read, copy values here.
 HOME_POSITION = {
- 11: 565,
- 12: 2936,
- 13: 1470,
- 14: 2126,
- 15: 1758,
- 16: 3577,
- 17: 1372,
- 18: 395,
- 19: 93,
+ 11: 447,
+ 12: 1953,
+ 13: 1116,
+ 14: 2152,
+ 15: 1385,
+ 16: 3450,
+ 17: 1408,
+ 18: 208,
+ 19: 3923,
 }
 
 def init_bus():
