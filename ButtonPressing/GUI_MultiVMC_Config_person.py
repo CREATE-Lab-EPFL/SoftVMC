@@ -68,12 +68,12 @@ VIRTUAL_COMPONENTS = [
                      s_param=2.0 / 3.0, name="gauss_seg2"),
 ]
 
-# ── Levels ───────────────────────────────────────────────────────────────────
+# ── The two cases ────────────────────────────────────────────────────────────
 # The Gaussian strength each run name stands for. Two runs, and the pair IS the
 # experiment: the same reach with the body shaped away from the person, and
 # without. Nothing in between -- the comparison is the point, not a curve.
-# Both Gaussians take the level; the torque node ramps them in from 0 over
-# RAMP_S when the run starts, so no slider work is needed to set one up.
+# Both Gaussians take the case's strength; the torque node ramps them in from
+# 0 over RAMP_S when the run starts, so no slider work is needed to set one up.
 #
 # These are the field STRENGTHS, not forces: a Gaussian's force peaks at
 # k*exp(-1/2)*sigma = k*0.0364 N when the attachment point is sigma from the
@@ -87,10 +87,10 @@ GAUSS_CONDITIONS = {
     "gauss":      1000.0,
 }
 
-# --run is not optional here: with three levels, an unnamed run has no level.
+# --run is not optional here: an unnamed run belongs to neither case.
 REQUIRE_RUN_NAME = True
 
-# The levels are where a run STARTS. The GUI can move them from there --
+# The case's strength is where a run STARTS. The GUI can move it from there --
 # K_REACH and both Gaussian strengths are editable in cell (1) and take effect
 # on "Apply Parameters" -- and k_params records what was applied tick by tick,
 # so the log says which value was live when.
@@ -99,14 +99,13 @@ LOCK_PARAMS = False
 # A "Gaussians active" tickbox in the GUI, so the same reach can be shown with
 # the field and without it, in one recording and with nothing else changed. The
 # tickbox owns WHETHER the field is on, the entries own HOW STRONG it is when it
-# is -- so it comes back up to whatever was last applied, not to the level.
-# Either
-# way the strength is walked over RAMP_S rather than stepped: switching a placed
-# 500 N/m field on in a single tick is exactly what the start-up ramp exists to
-# avoid, and switching it off that way drops the arm.
+# is -- so it comes back up to whatever was last applied, not to the case's own
+# strength. Either way it is walked over RAMP_S rather than stepped: switching a
+# placed 1000 N/m field on in a single tick is exactly what the start-up ramp
+# exists to avoid, and switching it off that way drops the arm.
 GAUSS_TOGGLE = True
 
-# The level cannot be switched on at once: the obstacle centre is already
+# The strength cannot be switched on at once: the obstacle centre is already
 # placed, so a field at full strength shoves the arm off it within a single
 # tick. Both Gaussians are eased in from 0 over RAMP_S, starting with the torque
 # node -- before the GUI is up, so it lands at t < 0 in the log. k_params
@@ -131,8 +130,8 @@ PRETENSION_WEIGHTS   = np.full(9, 0.010, dtype=float)   # [N·m/rad] x 9 -- alwa
 OUTPUT_FOLDER  = "person_avoiding"   # --run NAME lands in outputs/<folder>/NAME.*
 
 # Nothing here ever lands in experiments/: --run is required (REQUIRE_RUN_NAME)
-# and every accepted name is a level, so every run goes straight to
-# outputs/<OUTPUT_FOLDER>/<level>.{npz,png}. Re-running a level overwrites it.
+# and every accepted name is a case, so every run goes straight to
+# outputs/<OUTPUT_FOLDER>/<case>.{npz,png}. Re-running a case overwrites it.
 SAVE_PLOT      = True
 SAVE_DATA      = True    # raw arrays to .npz alongside the plot
 COLLECTED_DATA = False   # True = never save, the recorded runs are final

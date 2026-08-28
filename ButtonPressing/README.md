@@ -4,18 +4,22 @@ A linear spring reaches the tip for a button; two repulsive Gaussians push the
 arm's *body* off an obstacle. `tau = sum_i J_i^T F_i`. Turning the Gaussians up
 buys clearance and costs reach — that trade-off is the experiment.
 
-Two variants, two protocols:
+Three variants, two protocols:
 
-| | `_button` | `_person` |
-|---|---|---|
-| obstacle | a fixture at x = −0.15 | a person's arm, held still at x = −0.25 |
-| driven by | `run_sweep.py`, unattended, no GUI | the GUI, by hand |
-| Gaussian strength | swept 0 / 200 / 600 / 1000 | 2 cases: 0 and 1000 |
-| goals | scripted, identical every run | placed by hand |
-| `TAU_LIMIT` | 0.25 N·m | **0.35 N·m** |
-| load cell | yes | no |
-| files | `outputs/button_pressing/`, 4 × 5 repeats | `outputs/person_avoiding/`, 2, one per case |
-| status | **recorded, locked** (`COLLECTED_DATA = True`) | to record |
+| | `_button` | `_person` | `_card_castle` |
+|---|---|---|---|
+| obstacle | a fixture at x = −0.15 | a person's arm, held still at x = −0.25 | a house of cards at x = −0.25 |
+| driven by | `run_sweep.py`, unattended, no GUI | the GUI, by hand | the GUI, by hand |
+| Gaussian strength | swept 0 / 200 / 600 / 1000 | 2 cases: 0 and 1000 | 2 cases: 0 and 1000 |
+| goals | scripted, identical every run | placed by hand | placed by hand |
+| `TAU_LIMIT` | 0.25 N·m | **0.35 N·m** | **0.35 N·m** |
+| load cell | yes | no | no |
+| files | `outputs/button_pressing/`, 4 × 5 repeats | `outputs/person_avoiding/`, 2 | `outputs/card_castle/`, 2 |
+| status | **recorded, locked** (`COLLECTED_DATA = True`) | to record | to record |
+
+`_person` and `_card_castle` are the same experiment with a different obstacle —
+every value in their configs matches, so they are directly comparable, and 1000
+is the button's `strong` as well. Keep them in step.
 
 ---
 
@@ -66,18 +70,24 @@ holds a 20 s measurement window, writes
 motors left holding, driver not restarted, runs already recorded named.
 `--dry-run` prints the exact plan and timings.
 
-## `_person` — the pair, from the GUI
+## `_person` and `_card_castle` — the pair, from the GUI
 
 | case | k [N/m] | |
 |---|---|---|
 | `no_gauss` | 0 | no field — the body goes wherever reaching takes it |
 | `gauss` | 1000 | the field on |
 
+Same two cases for both `_person` and `_card_castle`.
+
 Two runs, nothing in between: the comparison is the point, not a curve. Three
 terminals, **run the whole thing twice**, once per case. The tip should reach
-the button both times; what changes is how far the *body* stays off the person.
-1000 is the button's `strong`, so the fixture and the person are driven at an
-identical field.
+the button both times; what changes is how far the *body* stays off the
+obstacle.
+
+Both variants take the same commands — swap `_person` for `_card_castle` and
+the runs land in `outputs/card_castle/` instead. **With the card castle, record
+`gauss` first**: `no_gauss` is expected to knock the castle over, so rebuild it
+between the two rather than the other way round.
 
 **Terminal 1** — homes the arm, then the driver in torque mode
 
@@ -89,11 +99,19 @@ bash ../start_arm.sh
 required and only these two names are accepted.
 
 ```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run gauss
+```
+
+```bash
 python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run no_gauss
 ```
 
 ```bash
-python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run gauss
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _card_castle --run gauss
+```
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _card_castle --run no_gauss
 ```
 
 **Terminal 3** — the GUI. **`--run` must be the same case as terminal 2**: the
@@ -102,11 +120,19 @@ apply the wrong field the first time you press *Apply Parameters*. It refuses
 to start without it.
 
 ```bash
+python3 ../VMC/GUI_MultiVMC.py --config _person --run gauss
+```
+
+```bash
 python3 ../VMC/GUI_MultiVMC.py --config _person --run no_gauss
 ```
 
 ```bash
-python3 ../VMC/GUI_MultiVMC.py --config _person --run gauss
+python3 ../VMC/GUI_MultiVMC.py --config _card_castle --run gauss
+```
+
+```bash
+python3 ../VMC/GUI_MultiVMC.py --config _card_castle --run no_gauss
 ```
 
 ### Then, in order
@@ -115,11 +141,11 @@ Terminal 2 already drives the arm before the GUI is up: the tip takes up 5.5 cm
 of slack and the case's strength ramps 0 → k over 5 s. **Let it settle.**
 
 1. **Place the obstacle, with nobody in reach.** Pick `gauss_seg1` under
-   *Active VC*, click where the person's arm will be — `(-0.25, 0)` is where it
-   starts. Both Gaussians jump there
-   together. Check the body has pushed off it.
-2. **The person takes position** there and holds it for the whole run. The
-   field is already up; it is not switched on around them.
+   *Active VC*, click where the obstacle will be — `(-0.25, 0)` is where it
+   starts. Both Gaussians jump there together. Check the body has pushed off it.
+2. **Put the obstacle there** — the person takes position and holds it for the
+   whole run, or the castle goes up. The field is already at strength; it is
+   not switched on around them.
 3. **Pick `lin_tip`, drag** its goal onto the button. Drag, don't click — a
    click jumps the goal, a drag is capped by *Drag speed* (cell ②) and the arm
    follows at that rate. Slower is better with someone standing there.
@@ -130,6 +156,9 @@ of slack and the case's strength ramps 0 → k over 5 s. **Let it settle.**
    terminal 2 saves and exits → `dynamixel_node` stops (closing terminal 1) →
    the arm homes at ~9.2 rpm → terminal 3 closes.
 6. Repeat from `start_arm.sh` for the other case.
+
+⚠ Homing hands the arm back in **current mode**, so it goes limp at
+`HOME_POSITION`. Check nothing fragile is under where it comes to rest.
 
 The run is saved **first**, before anything is stopped — it is the only step
 that cannot be redone. Once a run is ending, **Ctrl+C is ignored**: pressing it
@@ -184,7 +213,7 @@ pulls there: 8.97 N, asking 0.189 N·m. Each level is recorded `SWEEP_REPEATS`
 the analysis groups them automatically. This is the only folder with error
 bars.
 
-## `_person` only
+## `_person` and `_card_castle` only
 
 Strengths are **field strengths, not forces**: a Gaussian peaks at
 `k·exp(−½)·σ = k·0.0364` N when its attachment point is σ from the centre, so
@@ -194,7 +223,7 @@ the reach. **Placement matters more than strength.** What the motors get is
 clipped at `TAU_LIMIT`, which is 0.35 here against the button's 0.25, so the
 limiter has less say in the pose.
 
-With the person at −0.25 it is **`gauss_seg2` (s = 2/3) that does the work**:
+With the obstacle at −0.25 it is **`gauss_seg2` (s = 2/3) that does the work**:
 the body curves to about −17 cm, putting it ~8 cm = 1.4σ from the centre, near
 the peak. `gauss_seg1` sits around −6 cm, 19 cm away, and contributes ~1 N. If
 the arm barely reacts, the centre is too far from where the body actually
@@ -268,7 +297,9 @@ the window.
 | File | |
 |---|---|
 | `GUI_MultiVMC_Config_button.py` | `_button`: the elements, the four swept levels |
-| `GUI_MultiVMC_Config_person.py` | `_person`: the three levels, `TAU_LIMIT = 0.35`, what the GUI may touch |
+| `GUI_MultiVMC_Config_person.py` | `_person`: the two cases, `TAU_LIMIT = 0.35`, what the GUI may touch |
+| `GUI_MultiVMC_Config_card_castle.py` | `_card_castle`: `_person`'s values, a different obstacle |
 | `run_sweep.py` | `_button` only: every level × `SWEEP_REPEATS`, homed and verified between |
-| `plot_button_and_person.ipynb` | analysis — discovers `outputs/`, positions from the data, window from the mark |
+| `plot_experiments.ipynb` | analysis for all three — discovers `outputs/`, positions from the data, window from the mark |
 | `collect_run.py` | moves an unnamed `experiments/z_*` pair into `outputs/` |
+| `media/<variant>/` | photos of each set-up, alongside `outputs/<variant>/` |
