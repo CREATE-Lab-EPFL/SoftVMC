@@ -54,7 +54,9 @@ CONFIG_NAME = "card_castle"
 K_REACH = 30.0    # [N/m]   tip spring
 K_GAUSS = 0.0     # [N/m]   the run's level sets this; see GAUSS_CONDITIONS
 SIGMA   = 0.06    # [m]     Gaussian width
-C_DAMP  = 1.0     # [N.s/m] all three
+C_DAMP  = 3.0     # [N.s/m] all three -- 3x the button's 1.0. The field here is
+                  #         1000 N/m against a fragile obstacle, and the damper is
+                  #         what keeps the arm from ringing as it is pushed off.
 
 GAUSS_COMPONENTS = ("gauss_seg1", "gauss_seg2")   # one obstacle, two attachment points
 

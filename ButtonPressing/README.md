@@ -182,10 +182,21 @@ re-capture with `python3 ../VMC/MultiGoHome.py --read`.
 | `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | the obstacle, at `GAUSS_GOAL_Z` |
 | `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `gauss_seg1`'s goal** |
 
-Shared by both variants: `K_REACH = 30` N/m, `C_DAMP = 1.0` N·s/m,
-`SIGMA = 0.06` m, `PRETENSION_WEIGHTS = 0.010` N·m/rad, `TIP_GOAL_Z = 0.38`,
-`GAUSS_GOAL_Z = 0.2175` (midpoint between the tips of sections 1 and 2). Only
-`TAU_LIMIT` differs.
+Shared by all three: `K_REACH = 30` N/m, `SIGMA = 0.06` m,
+`PRETENSION_WEIGHTS = 0.010` N·m/rad, `TIP_GOAL_Z = 0.38`, `GAUSS_GOAL_Z =
+0.2175` (midpoint between the tips of sections 1 and 2).
+
+Two things differ between the sweep and the GUI pair:
+
+| | `_button` | `_person`, `_card_castle` |
+|---|---|---|
+| `TAU_LIMIT` | 0.25 N·m | 0.35 N·m |
+| `C_DAMP` | 1.0 N·s/m | 3.0 N·s/m |
+
+The heavier damping goes with the heavier field: 1000 N/m acting on a body that
+has to settle next to a person or a stack of cards, where ringing is the thing
+to avoid. It costs nothing in steady state — a damper only pushes back while
+the arm is moving.
 
 **Strengths are ramped 0 → k over `RAMP_S` = 5 s** at start-up, before anything
 publishes, so it lands at `t < 0`. Switched on at once, a placed field shoves
