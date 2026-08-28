@@ -84,11 +84,6 @@ for _group in getattr(_cfg, "GOAL_LINK", []):
         LINKED[_i] = list(_idx)
 PUBLISH_ON_START = bool(getattr(_cfg, "PUBLISH_ON_START", True))
 
-# Goals whose z the torque node overwrites with the attachment point's own z
-# every tick. The slider is meaningless for those, so say that rather than show
-# a number that is not used.
-Z_TRACKED = {_NAMES.index(k) for k in getattr(_cfg, "GOAL_Z_TRACK", ()) if k in _NAMES}
-
 # An experiment whose stiffnesses are part of its definition rather than
 # something to tune sets LOCK_PARAMS: the values are still shown, but they
 # cannot be edited and /VC_Param is never published, so the torque node keeps
@@ -611,9 +606,8 @@ class RobotGUI:
             sl.pack(pady=2)
 
             lbl = ttk.Label(z_frame,
-                            text=("tracks tip" if i in Z_TRACKED else
-                                  f"{self._ref_pos[i, 2]:.3f} m"
-                                  + ("  (fixed)" if i in Z_LOCKED else "")))
+                            text=f"{self._ref_pos[i, 2]:.3f} m"
+                                 + ("  (fixed)" if i in Z_LOCKED else ""))
             lbl.pack()
 
             # Trace: fires on every slider move (incl. programmatic set())
