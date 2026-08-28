@@ -49,10 +49,12 @@ from VMC_utils.ConfigHelpers import default_start, param_info, rest_pose
 CONFIG_NAME = "person"
 
 # ── Virtual elements ─────────────────────────────────────────────────────────
-K_REACH = 30.0    # [N/m]   tip spring
+K_REACH = 40.0    # [N/m]   tip spring -- stiffer than the button's 30, so the
+                  #         tip still gets to the button while the body is being
+                  #         pushed off a 1000 N/m field
 K_GAUSS = 0.0     # [N/m]   the run's level sets this; see GAUSS_CONDITIONS
 SIGMA   = 0.06    # [m]     Gaussian width
-C_DAMP  = 3.0     # [N.s/m] all three -- 3x the button's 1.0. The field here is
+C_DAMP  = 5.0     # [N.s/m] all three -- 5x the button's 1.0. The field here is
                   #         1000 N/m against a fragile obstacle, and the damper is
                   #         what keeps the arm from ringing as it is pushed off.
 
@@ -191,7 +193,7 @@ GAUSS_GOAL_XY = (-0.25, 0.0)   # [m] where the person stands. Further out than
 GOAL_LINK   = [GAUSS_COMPONENTS]
 
 # Live from the start, like every other folder. The tip goal sits 5.5 cm below
-# the resting tip, so the arm takes up that slack (~1.65 N at K_REACH = 30) as
+# the resting tip, so the arm takes up that slack (~2.2 N at K_REACH = 40) as
 # soon as the torque node is up, while the Gaussians ramp in. Untick "Publisher
 # Active" in the GUI to place the goals quietly.
 PUBLISH_ON_START = True

@@ -182,21 +182,24 @@ re-capture with `python3 ../VMC/MultiGoHome.py --read`.
 | `gauss_seg1` | `GaussianSpring(k, 0.06)` | 1/3 | the obstacle, at `GAUSS_GOAL_Z` |
 | `gauss_seg2` | `GaussianSpring(k, 0.06)` | 2/3 | **shares `gauss_seg1`'s goal** |
 
-Shared by all three: `K_REACH = 30` N/m, `SIGMA = 0.06` m,
-`PRETENSION_WEIGHTS = 0.010` N·m/rad, `TIP_GOAL_Z = 0.38`, `GAUSS_GOAL_Z =
-0.2175` (midpoint between the tips of sections 1 and 2).
+Shared by all three: `SIGMA = 0.06` m, `PRETENSION_WEIGHTS = 0.010` N·m/rad,
+`TIP_GOAL_Z = 0.38`, `GAUSS_GOAL_Z = 0.2175` (midpoint between the tips of
+sections 1 and 2).
 
-Two things differ between the sweep and the GUI pair:
+Three things differ between the sweep and the GUI pair:
 
 | | `_button` | `_person`, `_card_castle` |
 |---|---|---|
+| `K_REACH` | 30 N/m | 40 N/m |
+| `C_DAMP` | 1.0 N·s/m | 5.0 N·s/m |
 | `TAU_LIMIT` | 0.25 N·m | 0.35 N·m |
-| `C_DAMP` | 1.0 N·s/m | 3.0 N·s/m |
 
-The heavier damping goes with the heavier field: 1000 N/m acting on a body that
-has to settle next to a person or a stack of cards, where ringing is the thing
-to avoid. It costs nothing in steady state — a damper only pushes back while
-the arm is moving.
+The GUI pair pulls harder and settles harder, against a heavier field: 1000 N/m
+acting on a body that has to come to rest next to a person or a stack of cards,
+where ringing is the thing to avoid. The stiffer tip spring keeps the tip
+arriving at the button while the body is being pushed off, and the higher torque
+limit leaves room for both. Damping costs nothing in steady state — a damper
+only pushes back while the arm is moving.
 
 **Strengths are ramped 0 → k over `RAMP_S` = 5 s** at start-up, before anything
 publishes, so it lands at `t < 0`. Switched on at once, a placed field shoves
