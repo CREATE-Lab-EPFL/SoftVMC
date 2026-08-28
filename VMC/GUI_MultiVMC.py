@@ -28,6 +28,7 @@ from tkinter import messagebox, ttk
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from mpl_toolkits.mplot3d import Axes3D          # noqa – registers 3-D projection
 
@@ -273,6 +274,7 @@ class RobotGUI:
         self._dragging     = False
         self._run_ended    = False   # /vmc_end_run is sent once, whichever way out
         self._pending_after = []     # after() ids to cancel on the way out
+        self._closing      = False   # _on_close runs once, however it is reached
         self._ignore_z     = False   # guard against programmatic slider set()
         self._goal_speed   = tk.DoubleVar(value=5.0)  # cm/s
 
@@ -541,7 +543,12 @@ class RobotGUI:
         xy_frame = ttk.Frame(mid)
         xy_frame.pack(side="left", fill="both", expand=True)
 
-        self._fig_xy, self._ax_xy = plt.subplots(figsize=(6.0, 6.0))
+        # Figure(), not plt.subplots(): a pyplot figure carries its own Tk
+        # manager, and this one is handed to a FigureCanvasTkAgg of our own --
+        # two owners of the same widgets, both deleting the same Tcl commands
+        # when the window closes.
+        self._fig_xy = Figure(figsize=(6.0, 6.0))
+        self._ax_xy  = self._fig_xy.add_subplot(111)
         self._ax_xy.set_xlim(*XY_RANGE)
         self._ax_xy.set_ylim(*XY_RANGE)
         self._ax_xy.set_xlabel("X [m]")
@@ -782,7 +789,7 @@ class RobotGUI:
         c3_right.pack(side="right", fill="both", expand=True)
 
         # ── LEFT: 3-D backbone ───────────────────────────────────────────────
-        self._fig3d = plt.figure(figsize=(4, 3))
+        self._fig3d = Figure(figsize=(4, 3))
         self._ax3d  = self._fig3d.add_subplot(111, projection="3d")
         ax = self._ax3d
         ax.set_xlabel("X [m]", fontsize=8)
@@ -827,7 +834,8 @@ class RobotGUI:
         ee_xy_frame = ttk.Frame(ee_mid)
         ee_xy_frame.pack(side="left", fill="both", expand=True)
 
-        self._fig_ee, self._ax_ee = plt.subplots(figsize=(3.5, 3.5))
+        self._fig_ee = Figure(figsize=(3.5, 3.5))
+        self._ax_ee  = self._fig_ee.add_subplot(111)
         aee = self._ax_ee
         aee.set_xlim(*XY_RANGE)
         aee.set_ylim(*XY_RANGE)
@@ -933,7 +941,8 @@ class RobotGUI:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _setup_cell_force(self):
-        self._fig_force, self._ax_force = plt.subplots(figsize=(5, 2))
+        self._fig_force = Figure(figsize=(5, 2))
+        self._ax_force  = self._fig_force.add_subplot(111)
         ax = self._ax_force
         ax.set_xlabel("Time [s]", fontsize=8)
         ax.set_ylabel("F_shear [N]", fontsize=8)
@@ -972,7 +981,8 @@ class RobotGUI:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _setup_cell4(self):
-        self._fig_tau, self._ax_tau = plt.subplots(figsize=(5, 3))
+        self._fig_tau = Figure(figsize=(5, 3))
+        self._ax_tau  = self._fig_tau.add_subplot(111)
         ax = self._ax_tau
         ax.set_xlabel("Time [s]", fontsize=8)
         ax.grid(True, alpha=0.3)
@@ -1074,6 +1084,12 @@ class RobotGUI:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _on_close(self):
+        # Reached from three places -- the window manager's X, Home & Quit, and
+        # the Ctrl+C handler -- and Tk will happily call it again while a
+        # half-finished teardown is still unwinding.
+        if self._closing:
+            return
+        self._closing = True
         if END_RUN_ON_CLOSE:
             self._end_run("[quit] window closing -- telling the torque node to save")
         for after_id in [self._after_id] + self._pending_after:
@@ -1095,7 +1111,19 @@ class RobotGUI:
                 except Exception:
                     pass
                 canvas._idle_draw_id = None
-        self.root.destroy()
+
+        # quit() first: it only tells mainloop() to return, so main() reaches
+        # its ROS shutdown even if the teardown below throws. destroy() on a
+        # tree Tk is already unwinding can raise TclError, and an exception
+        # escaping here left the window up and the process alive.
+        try:
+            self.root.quit()
+        except Exception:
+            pass
+        try:
+            self.root.destroy()
+        except Exception as exc:
+            print(f"[gui] teardown: {exc}", flush=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
