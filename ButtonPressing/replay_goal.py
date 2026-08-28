@@ -7,12 +7,20 @@ Replay a recorded run's goal trajectory into a new run, with no GUI.
     python3 replay_goal.py --from gauss --run no_gauss      # the other way round
     python3 replay_goal.py --dry-run                        # print the plan, publish nothing
 
-The point is the comparison. Driven by hand, the two cases differ in the field
-AND in wherever the mouse happened to go, and the second difference is the
-bigger one -- in the button sweep, two hand-driven runs landed 7.4 cm apart in x
-and 5.4 cm apart in y. Here the first run is driven from the GUI and its goal
-trajectory is recorded; this script publishes that same trajectory back into the
-second run, sample for sample. What is left between them is the Gaussian field.
+ONLY THE REFERENCE IS REPLAYED -- the goals on /VC_ref_pos, nothing else. The
+torque is still computed live by the torque node, from the arm's actual state
+and whatever field this run has. That is the whole idea: replaying the torque
+would replay the no_gauss motion verbatim and the Gaussians could not change
+anything, which is the opposite of the experiment. Replaying the reference makes
+the operator's input identical and lets the field do what it does.
+
+    replayed:  the goal trajectory -- what the hand asked for
+    NOT:       torque, joint angles, or any part of the response
+
+So the two runs share an input and differ in a controller. Driven by hand
+instead, they would differ in the field AND in wherever the mouse happened to
+go, and the second difference is the bigger one -- in the button sweep, two
+hand-driven runs landed 7.4 cm apart in x and 5.4 cm apart in y.
 
 It replaces the GUI, not the torque node. Terminal 3 runs this instead:
 
@@ -61,9 +69,12 @@ def parse_args():
                    help="the run being recorded now -- must match the torque node's "
                         "--run (default: gauss). Used only to check you have not "
                         "pointed source and destination at the same file.")
-    p.add_argument("--rate", type=float, default=50.0, metavar="HZ",
-                   help="publish rate (default: 50). The log is at control rate; "
-                        "the GUI itself only published about 10 Hz while dragging.")
+    p.add_argument("--rate", type=float, default=100.0, metavar="HZ",
+                   help="publish rate (default: 100). The log is at control rate and "
+                        "the GUI published about 10 Hz while dragging, so this is "
+                        "already finer than the source. A click JUMPS the goal, and a "
+                        "step is smeared over one interval, so raise it (or drop "
+                        "--speed) if the source has big jumps.")
     p.add_argument("--settle", type=float, default=8.0, metavar="S",
                    help="wait this long before starting, so the field has finished "
                         "ramping in and the arm has settled (default: 8)")

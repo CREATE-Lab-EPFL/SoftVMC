@@ -135,6 +135,44 @@ python3 ../VMC/GUI_MultiVMC.py --config _card_castle --run gauss
 python3 ../VMC/GUI_MultiVMC.py --config _card_castle --run no_gauss
 ```
 
+### Replaying the trajectory instead of driving it twice
+
+Hand-driving both cases makes them differ in the field **and** in wherever the
+mouse went — and the second difference is usually the bigger one. `replay_goal.py`
+removes it: record the first case from the GUI, then publish that same goal
+trajectory back into the second, sample for sample.
+
+**It replays only the reference** — the goals on `/VC_ref_pos`. Torque is still
+computed live by the torque node from the arm's actual state and this run's
+field. Replaying the torque would replay the first run's motion verbatim and the
+Gaussians could not change anything, which is the opposite of the experiment.
+The two runs share an *input* and differ in a *controller*.
+
+Run 1 from the GUI as above. For run 2, terminal 3 runs this instead of the GUI:
+
+```bash
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _person --run gauss
+```
+
+```bash
+python3 replay_goal.py --config _person --from no_gauss --run gauss
+```
+
+```bash
+python3 replay_goal.py --config _person --dry-run
+```
+
+It waits `--settle` (8 s, so the field finishes ramping in), replays at
+`--rate` 100 Hz, re-emits any marks at their recorded times over `/vmc_mark`,
+then ends the run with `/vmc_end_run` so the torque node writes it — nothing is
+pressed by hand. Goals are matched by component **name**, so a source recorded
+with a different set of elements still replays: `gauss_seg3` takes
+`gauss_seg1`'s goal, since they share one.
+
+⚠ A click in the GUI *jumps* the goal, so a source can contain steps of a few
+centimetres in one frame. A step is reproduced within one publish interval
+(10 ms at the default rate); `--speed` above 1 widens that.
+
 ### Then, in order
 
 Terminal 2 already drives the arm before the GUI is up. The tip goal starts *at*
