@@ -169,9 +169,18 @@ PLOT_FORCE     = False   # no load cell in this variant
 #   - the two Gaussians share ONE goal, held at the midpoint between the tips
 #     of section 1 and section 2 (z is linear in s on the straight arm, so that
 #     midpoint is just rest_pose(0.5))
-TIP_GOAL_Z   = 0.38                       # [m] button distance from the base, along
-                                          #     the arm's axis -- z is NOT height here
+TIP_GOAL_Z   = 0.38                       # [m] only the value lin_tip's goal starts
+                                          #     at, before the first FK -- GOAL_Z_TRACK
+                                          #     takes over from the first tick
 GAUSS_GOAL_Z = float(rest_pose(0.5)[2])   # [m] = 0.2175, between sections 1 and 2
+
+# lin_tip's goal z is not a reference here: every tick it is set to where the tip
+# actually is, so the z error is always zero and the tip spring pulls in x and y
+# ONLY. It steers the tip without ever pulling it in or out along the arm's own
+# axis -- how far the arm extends is left to the Gaussians, gravity and the
+# pretension. `goal` in the log records the z that was actually used, not the
+# one the GUI published.
+GOAL_Z_TRACK = ("lin_tip",)
 
 GOAL_Z_LOCK = {"lin_tip":    TIP_GOAL_Z,
                "gauss_seg1": GAUSS_GOAL_Z,
