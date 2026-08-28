@@ -100,7 +100,7 @@ VIRTUAL_COMPONENTS = [
 # needs less per element.
 GAUSS_CONDITIONS = {
     "no_gauss":      0.0,
-    "gauss":       700.0,
+    "gauss":       500.0,
 }
 
 # --run is not optional here: an unnamed run belongs to neither case.
@@ -150,7 +150,7 @@ OUTPUT_FOLDER  = "person_avoiding"   # --run NAME lands in outputs/<folder>/NAME
 # outputs/<OUTPUT_FOLDER>/<case>.{npz,png}. Re-running a case overwrites it.
 SAVE_PLOT      = True
 SAVE_DATA      = True    # raw arrays to .npz alongside the plot
-COLLECTED_DATA = False   # True = never save, the recorded runs are final
+COLLECTED_DATA = True   # True = never save, the recorded runs are final
 
 # Checkpoint the logs to <run>.autosave.npz every 30 s while the run is going,
 # and print a status line. These runs are minutes long and hand-driven, so a
