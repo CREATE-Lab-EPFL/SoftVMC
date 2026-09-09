@@ -10,13 +10,13 @@ Three variants, two protocols:
 |---|---|---|---|
 | what it shows | reach traded for clearance, swept | whole-body shaping past a person | the tip stalled by the field short of the cards |
 | elements | 3: tip + 2 body Gaussians | 4: tip + 3 body Gaussians | **2, both on the tip** |
-| obstacle | a fixture at x = −0.15 | a person's arm at x = −0.25 | the cards at (0, +0.20), target beyond at (0, +0.40) |
+| obstacle | a fixture at x = −0.15 | a person's arm at x = −0.25 | the cards at (0, +0.25), target beyond at (0, +0.50) |
 | driven by | `run_sweep.py`, no GUI | the GUI, by hand | `castle_demo.py`, **no GUI** |
-| Gaussian strength | swept 0 / 200 / 600 / 1000 | 2 cases: 0 and 500 | 2 cases: 0 and 500 |
+| Gaussian strength | swept 0 / 200 / 600 / 1000 | 2 cases: 0 and 500 | 2 cases: 0 and 1500 |
 | `TAU_LIMIT` | 0.25 N·m | **0.35 N·m** | **0.35 N·m** |
 | load cell | yes | no | no |
 | files | `outputs/button_pressing/`, 4 × 5 repeats | `outputs/person_avoiding/`, 2 | `outputs/card_castle/`, 2 |
-| status | **recorded, locked** (`COLLECTED_DATA = True`) | to record | to record |
+| status | **recorded, locked** (`COLLECTED_DATA = True`) | **recorded, locked** (`COLLECTED_DATA = True`) | to record (`COLLECTED_DATA = False`) |
 
 `_person` keeps the body-shaping model — Gaussians spread along the arm, goals
 placed by hand. `_card_castle` is a different demo: both elements sit on the
@@ -268,8 +268,8 @@ castle sits between the tip and where it is being sent:
 
 | | | aimed at | |
 |---|---|---|---|
-| `lin_tip` | `LinearSpring(35)` | `TARGET_XY = (0, +0.40)` | pulls the tip **past** the cards |
-| `gauss_tip` | `GaussianSpring(k, 0.06)` | `CASTLE_XY = (0, +0.20)` | pushes it **away** from them |
+| `lin_tip` | `LinearSpring(35)` | `TARGET_XY = (0, +0.50)` | pulls the tip **past** the cards |
+| `gauss_tip` | `GaussianSpring(k, 0.06)` | `CASTLE_XY = (0, +0.25)` | pushes it **away** from them |
 
 So the tip is asked to cross the castle and the field is the only thing in the
 way. It stalls where the two cancel along the path:
@@ -277,13 +277,13 @@ way. It stalls where the two cancel along the path:
 | `--run` | k [N/m] | |
 |---|---|---|
 | `no_gauss` | 0 | nothing stops the tip — it drives for the target **through** the cards |
-| `gauss` | 500 | the tip stalls **10.8 cm short** of them |
+| `gauss` | 1500 | the tip stalls **14.0 cm short** of them |
 
 That stall point is *stable*: nearer the push wins and the tip is driven back,
 further out the pull wins and it is drawn in.
 
 ⚠ **The barrier is finite, not a wall.** There is a second, *unstable*
-equilibrium 1.6 cm from the castle: past it the Gaussian falls off faster than
+equilibrium 0.6 cm from the castle: past it the Gaussian falls off faster than
 the linear pull grows, and the tip would pop through to the far side.
 Approaching from the start it never gets there — but raise `K_REACH`, or push
 `TARGET_XY` further out, and the two equilibria merge and the barrier
@@ -291,13 +291,13 @@ disappears. `castle_demo.py --dry-run` solves for both and prints them, so any
 change can be checked **before** the cards are built:
 
 ```
-[demo] expected: the tip stalls 10.8 cm short of the castle
-[demo]     stable   at (+0.000, +0.092),  10.8 cm from the cards
-[demo]     unstable at (+0.000, +0.184),   1.6 cm from the cards
+[demo] expected: the tip stalls 14.0 cm short of the castle
+[demo]     stable   at (+0.000, +0.110),  14.0 cm from the cards
+[demo]     unstable at (+0.000, +0.244),   0.6 cm from the cards
 ```
 
 The stall point moves out only slowly with strength — the balance is logarithmic
-in the ratio — so `SIGMA` and `TARGET_XY` are the better handles if 10.8 cm is
+in the ratio — so `SIGMA` and `TARGET_XY` are the better handles if 14.0 cm is
 the wrong distance.
 
 Record `gauss` first, then rebuild the castle for `no_gauss`.
@@ -405,9 +405,9 @@ period behind its point: measured on a moving arm at **0.09 mm worst case**
 at 1.000 — pure lag, no offset. `goal` in the log records the z applied, not the
 one the GUI published, and the GUI's z sliders read *follows the tip*.
 
-Both pull harder and settle harder than the sweep, against a heavier field:
-500 N/m acting next to a person or a stack of cards, where ringing is the thing
-to avoid. The stiffer tip spring keeps the tip
+Both pull harder and settle harder than the sweep, against a heavier field —
+500 N/m next to the person, 1500 N/m against the cards — where ringing is the
+thing to avoid. The stiffer tip spring keeps the tip
 arriving at the button while the body is being pushed off, and the higher torque
 limit leaves room for both. Damping costs nothing in steady state — a damper
 only pushes back while the arm is moving.
@@ -538,7 +538,7 @@ the window.
 | `GUI_MultiVMC_Config_card_castle.py` | `_card_castle`: two tip elements with separate targets, and the demo's timings |
 | `castle_demo.py` | `_card_castle` only: the whole scripted demo, no GUI |
 | `run_sweep.py` | `_button` only: every level × `SWEEP_REPEATS`, homed and verified between |
-| `plot_experiments.ipynb` | analysis for all three — discovers `outputs/`, positions from the data, window from the mark |
+| `plot_button.ipynb` / `plot_person.ipynb` / `plot_card_castle.ipynb` | analysis, one notebook per variant — discovers `outputs/`, positions from the data, window from the mark |
 | `replay_goal.py` | replays a recorded goal trajectory into the other case, so the pair differs only in the field |
 | `collect_run.py` | moves an unnamed `experiments/z_*` pair into `outputs/` |
 | `media/<variant>/` | photos of each set-up, alongside `outputs/<variant>/` |

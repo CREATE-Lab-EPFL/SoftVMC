@@ -1,42 +1,33 @@
-Run the GUI interface:
-0. Run GUI_MultiVMC_Torque.py and bash start_arm.sh and GUI_MultiVMC.py
-1. put gauss_seg1 and gauss_seg2 to x = -17cm
-2. set lin_seg3 = 33 (stiffness), gauss_seg1 = 240 , gauss_seg2 = 200 (strength)
-3. Select lin_seg3 and move it to x = -50cm 
-4. Once reached steady state, set gauss_seg1 and gauss_seg2 = 0 (strength)
+# fixed_gauss — recording procedure
 
+Both Gaussians (`gauss_seg1`, `gauss_seg2`) sit at a fixed obstacle position;
+the arm reaches past it and the field is switched off partway through, so the
+run shows both the obstacle-avoiding posture and the free one.
 
-Configuration:
-dict(
-        component=VirtualComponent(
-            # Gaussian spring produces max force when sigma = delta_x so when initializing on the robot it could produce very large forces
-            # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
-            # once the reference is moved we can increase the strength to a nonzero force Typically stregnth = 140 is quite good
-            # the max force produced by the gauss spring is when delta_x = sigma 
-            spring=GaussianSpring(strength=0.0, sigma=0.06), 
-            damper=LinearDamper(1.5),
-            s_param=1.0 / 3.0,
-            name="gauss_seg1",
-        ),
-        goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
-    ),
-    dict(
-        component=VirtualComponent(
-            # Gaussian spring produces max force when sigma = delta_x so when initializing on the robot it could produce very large forces
-            # set stregnth to 0.0 to effectively disable the spring until we can move the reference in the GUI far from robot 
-            # once the reference is moved we can increase the strength to a nonzero force
-            spring=GaussianSpring(strength=0.0, sigma=0.06), 
-            damper=LinearDamper(1.5),
-            s_param=2.0 / 3.0,
-            name="gauss_seg2",
-        ),
-        goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
-    ),
+## Procedure
 
-    DEFAULT_START = np.array([
-    [0.0, 0.0, 0.435],   # lin_seg3  (s=1.0)
-    [0.0, 0.0, 0.145+0.0725],   # gauss_seg1 (s=1/3)
-    [0.0, 0.0, 0.145+0.0725],   # gauss_seg2 (s=2/3)
-], dtype=float)  # (N,3)
+0. `bash ../../start_arm.sh`, then `python3 ../../VMC/GUI_MultiVMC_Torque.py`,
+   then `python3 ../../VMC/GUI_MultiVMC.py` (from `GaussianElement/`, both with
+   `--config _fixed`).
+1. Move `gauss_seg1` and `gauss_seg2` to x = −17 cm.
+2. Set `lin_seg3` stiffness = 33, `gauss_seg1` strength = 240, `gauss_seg2`
+   strength = 200.
+3. Select `lin_seg3` and move it to x = −50 cm.
+4. Once the arm reaches steady state, set `gauss_seg1` and `gauss_seg2`
+   strength back to 0.
 
+A Gaussian spring's force peaks when its attachment point is exactly `sigma`
+from the centre, so both start at strength 0 in the config — raising them
+before the reference is moved away from the robot risks a very large force at
+start-up.
 
+## Component layout
+
+| Component | s | Start (x, y, z) [m] |
+|---|---|---|
+| `lin_seg3` | 1.0 | (0, 0, 0.435) |
+| `gauss_seg1` | 1/3 | (0, 0, 0.2175) |
+| `gauss_seg2` | 2/3 | (0, 0, 0.2175) |
+
+Both Gaussians' `goal` in the config is a placeholder — the GUI overrides it
+once dragged.
