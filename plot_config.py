@@ -19,6 +19,7 @@ Setup block (copy into each notebook, override as needed):
 import os as _os
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 
 # Apply the shared mplstyle automatically when this module is imported.
 _REPO = _os.path.dirname(_os.path.abspath(__file__))
@@ -51,19 +52,28 @@ FIG_W_SINGLE = 3.46   # 88 mm  — single column
 FIG_W_DOUBLE = 7.09   # 180 mm — double column
 FIG_W_1P5    = 4.72   # 120 mm — 1.5 column
 
-# ── NPG color palette (same order as prop_cycle in plot_config.mplstyle) ──────
+# ── Pastel palette (same order as prop_cycle in plot_config.mplstyle) ─────────
+# Softened/lightened version of the original NPG palette, same hue order.
 COLORS = [
-    '#4DBBD5',  # C0 blue/cyan
-    '#E64B35',  # C1 red
-    '#00A087',  # C2 teal
-    '#3C5488',  # C3 navy
-    '#F39B7F',  # C4 coral
-    '#8491B4',  # C5 lavender
-    '#91D1C2',  # C6 light teal
-    '#DC0000',  # C7 bright red
-    '#7E6148',  # C8 brown
-    '#949494',  # C9 gray
+    '#8FC1D9',  # C0 pastel blue/cyan
+    '#F19C90',  # C1 pastel red/coral
+    '#7FC4B0',  # C2 pastel teal
+    '#94A1BE',  # C3 pastel navy
+    '#F4B8A8',  # C4 pastel coral
+    '#AEB4D6',  # C5 pastel lavender
+    '#A9DED0',  # C6 pastel light teal
+    '#E28B8B',  # C7 pastel bright red/rose
+    '#C2AC8E',  # C8 pastel brown/tan
+    '#BFBFBF',  # C9 pastel gray
 ]
+
+# Pastel diverging colormap for continuous sweeps (k-value, time, ...) — a
+# softened stand-in for 'coolwarm', bookended a bit deeper than the palette
+# above so the extremes stay legible against white.
+PASTEL_CMAP = LinearSegmentedColormap.from_list(
+    'pastel_diverging',
+    ['#6F8FB0', '#AEB4D6', '#EDEAE4', '#F4B8A8', '#D97B67'],
+)
 
 
 def set_font_size(size, legend_size=None):
