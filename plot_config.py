@@ -9,10 +9,11 @@ Usage in every notebook:
     from plot_config import COLORS, FIG_W_SINGLE, FIG_W_DOUBLE, set_font_size
 
 Setup block (copy into each notebook, override as needed):
-    FIG_W     = 10    # inches — change freely
-    FIG_H     = 6     # inches — change freely
-    FONT_SIZE = 18    # pt — change to rescale all text uniformly
-    set_font_size(FONT_SIZE)
+    FIG_W     = 10             # inches — change freely
+    FIG_H     = 6              # inches — change freely
+    FONT_SIZE = 18             # pt — change to rescale all text uniformly
+    LEGEND_FONT_SIZE = FONT_SIZE * 0.75  # pt — change to resize legend text only
+    set_font_size(FONT_SIZE, LEGEND_FONT_SIZE)
 """
 
 import os as _os
@@ -65,14 +66,19 @@ COLORS = [
 ]
 
 
-def set_font_size(size):
-    """Override all text sizes uniformly. Call after import in each notebook setup cell."""
+def set_font_size(size, legend_size=None):
+    """Override all text sizes uniformly. Call after import in each notebook setup cell.
+
+    legend_size: font size for legend text/title. Defaults to size * 0.75.
+    """
+    if legend_size is None:
+        legend_size = size * 0.75
     plt.rcParams.update({
         'font.size':             size,
         'axes.labelsize':        size,
         'axes.titlesize':        size,
         'xtick.labelsize':       size,
         'ytick.labelsize':       size,
-        'legend.fontsize':       size * 0.75,
-        'legend.title_fontsize': size * 0.75,
+        'legend.fontsize':       legend_size,
+        'legend.title_fontsize': legend_size,
     })
