@@ -75,6 +75,33 @@ PASTEL_CMAP = LinearSegmentedColormap.from_list(
     ['#6F8FB0', '#AEB4D6', '#EDEAE4', '#F4B8A8', '#D97B67'],
 )
 
+# Second pastel diverging colormap (teal -> purple) for continuous sweeps that
+# need to stay visually distinct from PASTEL_CMAP (blue -> red) when both kinds
+# of plot are compared side by side, e.g. disturbance-rejection vs. force/k
+# characterization sweeps.
+PASTEL_CMAP_ALT = LinearSegmentedColormap.from_list(
+    'pastel_diverging_alt',
+    ['#3E8E7E', '#7FC4B0', '#EDEAE4', '#C9A8D9', '#8E5BA6'],
+)
+
+
+def pick_spread(values, n, bias=1.0):
+    """Pick n values spread across a sorted sequence (by index, not by value),
+    so a subset stays representative of the full range even when the values
+    themselves aren't evenly spaced. Returns all of `values`, sorted, if
+    n >= len(values).
+
+    bias: 1.0 spreads picks evenly by index. bias < 1 concentrates more picks
+    toward the end (high-value side); bias > 1 concentrates more toward the
+    start. Endpoints are always included.
+    """
+    values = sorted(values)
+    if n >= len(values):
+        return values
+    frac = np.linspace(0, 1, n) ** bias
+    idx = sorted(set(int(round(f * (len(values) - 1))) for f in frac))
+    return [values[i] for i in idx]
+
 
 def set_font_size(size, legend_size=None):
     """Override all text sizes uniformly. Call after import in each notebook setup cell.
