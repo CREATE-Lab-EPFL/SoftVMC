@@ -84,6 +84,36 @@ PASTEL_CMAP_ALT = LinearSegmentedColormap.from_list(
     ['#3E8E7E', '#7FC4B0', '#EDEAE4', '#C9A8D9', '#8E5BA6'],
 )
 
+# ── Pastel SEQUENTIAL colormaps (monotonic lightness, no washed-out midpoint) ──
+# PASTEL_CMAP/PASTEL_CMAP_ALT above are diverging (light midpoint) shaped, which
+# is the wrong tool for a swept scalar like a spring stiffness k: the values
+# near the middle of the range come out nearly white (~0.82 relative luminance)
+# and lose contrast against a white page/background, which fails print/grayscale
+# legibility (e.g. for RA-L). These two are built to have strictly decreasing
+# luminance end-to-end (light -> dark) while keeping the same hue families
+# (blue->red / teal->purple) so the two stay visually distinct from each other.
+PASTEL_CMAP_SEQ = LinearSegmentedColormap.from_list(
+    'pastel_sequential_blue_red',
+    ['#96d1fa', '#a5c2fa', '#b0b6f5', '#b3abdc', '#c795db', '#d97ebf', '#e06c7f'],
+)
+PASTEL_CMAP_ALT_SEQ = LinearSegmentedColormap.from_list(
+    'pastel_sequential_teal_purple',
+    ['#82d8c7', '#8ec9d5', '#9eb8d8', '#a6a9cf', '#a499d1', '#a687ca', '#aa71bd'],
+)
+
+# ── Shared layout constants for figures meant to stack into one multi-panel
+# figure (e.g. LinearSpring's force/stiffness-vs-k panels above a
+# disturbance-response-vs-k panel). Keeping figure width, font size, and
+# colorbar fraction/pad identical across figures makes their axes and
+# colorbars line up when the panels are stacked vertically.
+ALIGNED_FIG_W            = 9.0    # inches
+ALIGNED_FONT_SIZE        = 28     # pt
+ALIGNED_LEGEND_FONT_SIZE = ALIGNED_FONT_SIZE * 0.75
+ALIGNED_LEFT             = 0.13   # axes left edge, fraction of figure width
+ALIGNED_RIGHT            = 0.86   # axes right edge (before colorbar), fraction of figure width
+ALIGNED_CBAR_FRACTION    = 0.06   # colorbar width, fraction of the axes it's attached to
+ALIGNED_CBAR_PAD         = 0.02   # gap between axes and colorbar, fraction of figure width
+
 
 def pick_spread(values, n, bias=1.0):
     """Pick n values spread across a sorted sequence (by index, not by value),
