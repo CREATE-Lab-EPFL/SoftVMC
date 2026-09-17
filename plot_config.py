@@ -114,6 +114,16 @@ ALIGNED_RIGHT            = 0.86   # axes right edge (before colorbar), fraction 
 ALIGNED_CBAR_FRACTION    = 0.06   # colorbar width, fraction of the axes it's attached to
 ALIGNED_CBAR_PAD         = 0.02   # gap between axes and colorbar, fraction of figure width
 
+# matplotlib's colorbar ties its width to its height via `aspect` (height =
+# aspect * width, default aspect=20) and enforces that at draw/save time --
+# so a colorbar spanning a taller region (e.g. 2 stacked panels) comes out
+# visibly *thicker* than a shorter one even with identical fraction/pad. To
+# hold the physical thickness constant across figures, each colorbar call
+# should pass aspect=<its own vertical span in inches> / ALIGNED_CBAR_WIDTH_IN.
+# Value = plot_disturbance.ipynb's single-panel colorbar span at the default
+# aspect=20, i.e. the thickness that was already right there.
+ALIGNED_CBAR_WIDTH_IN = ((0.94 - 0.18) * 5.2) / 20
+
 
 def pick_spread(values, n, bias=1.0):
     """Pick n values spread across a sorted sequence (by index, not by value),
