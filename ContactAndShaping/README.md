@@ -74,9 +74,9 @@ no `--gravity-dir` flag needed for them.
 ## Running
 
 `GUI_MultiVMC.py`/`GUI_MultiVMC_Torque.py` always import a module literally named
-`GUI_MultiVMC_Config` from the current directory. Since this folder holds two
-named variants (no single unambiguous default), copy the one you want into
-place before launching:
+`GUI_MultiVMC_Config` from the current directory. Since this folder holds several
+named variants (no single unambiguous default), pass `--config` to pick one
+rather than copying it into place:
 
 ```bash
 conda activate finger
@@ -90,9 +90,13 @@ python3 ../VMC/GUI_MultiVMC.py --config _surface
 python3 ../VMC/GUI_MultiVMC_Torque.py --config _three_springs &
 python3 ../VMC/GUI_MultiVMC.py --config _three_springs
 
-# Whole-body shaping -- set COLLECTED_DATA = False in
-# GUI_MultiVMC_Config_fullbody.py first, tune the pose live in the GUI,
-# then Ctrl+C the torque node once settled (writes outputs/body_shaping/final.*):
-python3 ../VMC/GUI_MultiVMC_Torque.py --config _fullbody --run final &
-python3 ../VMC/GUI_MultiVMC.py --config _fullbody
+# Whole-body shaping, right side -- COLLECTED_DATA is already False, tune
+# the pose live in the GUI, then Ctrl+C the torque node once settled
+# (writes outputs/body_shaping/right.*):
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _linear_right --run right &
+python3 ../VMC/GUI_MultiVMC.py --config _linear_right
+
+# Left side (separate run, same idea, writes outputs/body_shaping/left.*):
+python3 ../VMC/GUI_MultiVMC_Torque.py --config _linear_left --run left &
+python3 ../VMC/GUI_MultiVMC.py --config _linear_left
 ```
