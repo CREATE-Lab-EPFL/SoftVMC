@@ -38,7 +38,7 @@ DAMPER_PARAM_INIT = _cfg.DAMPER_PARAM_INIT
 # ── Test parameters ────────────────────────────────────────────────────────────
 CTRL_HZ        = 10.0    # [Hz]  timer rate
 
-K_LIN          = 10.0    # linear spring stiffness
+K_LIN          = 5.0     # linear spring stiffness
 K_GAUSS        = 140.0   # gaussian strength once enabled
 
 GAUSS_FAR_X    = -0.40   # [m] far start position (strength disabled here)
