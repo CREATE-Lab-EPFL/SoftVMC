@@ -17,7 +17,7 @@ case is fixed here -- direction, X/Y/Z of BOTH goals and both strengths are all
 set live in the GUI (no Z lock, so every goal has a working Z slider). A case is
 just the name you give the run:
 
-    python3 ../VMC/GUI_MultiVMC_Torque.py --config _bending --run linear_left
+    python3 ../VMC/GUI_MultiVMC_Torque.py --config _bending --run bending_1
     python3 ../VMC/GUI_MultiVMC.py --config _bending
 
 plot_full_body_shaping.ipynb plots every run it finds. Full steps:

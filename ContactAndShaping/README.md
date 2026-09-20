@@ -82,10 +82,12 @@ Names used so far:
 
 | `<name>` | What it is |
 |---|---|
-| `linear_left` | Tip goal dragged to the left (−X) |
-| `linear_right` | Tip goal dragged to the right (+X) |
-| `bending` | More bending: tip goal also pulled down in Z |
-| `left`, `right` | The first two recordings, made before the configs were merged. Both K = 50 N/m, A = 2000 N; tip goal (−16.7, 1.6, 43.5) cm and (34.3, −3.9, 43.5) cm |
+| `bending_1` | Tip goal dragged to the right (+X). K = 50 N/m, A = 2000 N; tip goal (34.3, −3.9, 43.5) cm. Photo: `media/full_body_shaping/bending_1.jpg` |
+| `bending_2` | Tip goal dragged to the left (−X). K = 50 N/m, A = 2000 N; tip goal (−16.7, 1.6, 43.5) cm. Photo: `media/full_body_shaping/bending_2.jpg` |
+
+Both were recorded with a fully extended tip goal (Z = 43.5 cm). Use the same
+name for a case's data (`outputs/body_shaping/<name>.npz`), its photo
+(`media/full_body_shaping/<name>.jpg`) and its plots (`<name>_backbone.*`).
 
 Watch out for:
 
