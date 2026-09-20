@@ -11,12 +11,17 @@ from VMC_utils.VirtualModels import (
 """
 Config for Modular VMC — shared by both vmc_torque_node.py and robot_gui.py.
 
-Whole-body shaping, LEFT variant: a Gaussian pushing on segment 1 (s=1/3)
-and a linear spring pulling the tip (s=1.0) toward -X, both goals and
-strengths tunable live from the GUI. Same as GUI_MultiVMC_Config_linear_right.py
-except the tip goal's X sign -- see plot_full_body_shaping.ipynb, which
-compares the two. Only the settled final pose matters; there is no
-sweep/condition set to record.
+Whole-body shaping / bending, ALL cases in one file: a Gaussian pushing on
+segment 1 (s=1/3) and a linear spring pulling the tip (s=1.0). Nothing about a
+case is fixed here -- direction, X/Y/Z of BOTH goals and both strengths are all
+set live in the GUI (no Z lock, so every goal has a working Z slider). A case is
+just the name you give the run:
+
+    python3 ../VMC/GUI_MultiVMC_Torque.py --config _bending --run linear_left
+    python3 ../VMC/GUI_MultiVMC.py --config _bending
+
+plot_full_body_shaping.ipynb plots every run it finds. Full steps:
+"Whole-body shaping" in README.md.
 
 REQUIREMENT: len(COMPONENT_SPECS) == number of virtual components == number of goals.
 """
@@ -25,7 +30,7 @@ REQUIREMENT: len(COMPONENT_SPECS) == number of virtual components == number of g
 # Reference positions (keep existing)
 # ─────────────────────────────────────────────────────────────────────────────
 rest_pos_seg3 = np.array([0.0, 0.0, 3 * 0.145], dtype=float)
-go_left       = np.array([-0.2, 0.15, 0.3],       dtype=float)   # tip goal, -X = left
+go_tip        = np.array([0.2, 0.15, 0.3],        dtype=float)   # only read by MultiVMC_MovingGoal_Pub.py; the GUI starts from DEFAULT_START
 gauss_y       = np.array([0.0, 0.15, 0.2],         dtype=float)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -39,7 +44,7 @@ COMPONENT_SPECS = [
             s_param=1.0,
             name="lin_seg3",
         ),
-        goal=go_left,# GUI OVERRIDES THIS GOAL --- IGNORE ---
+        goal=go_tip,# GUI OVERRIDES THIS GOAL --- IGNORE ---
     ),
     dict(
         component=VirtualComponent(
@@ -100,7 +105,9 @@ TAU_LIMIT  = 0.25  # [N·m] per motor
 OUTPUT_FOLDER       = "body_shaping"   # --run NAME lands in outputs/body_shaping/NAME.*
 SAVE_PLOT           = True
 SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
-COLLECTED_DATA      = False  # no data recorded for this config yet -- flip to True once "left" is recorded, to protect it (see GUI_MultiVMC_Torque.py)
+# False on purpose: every case is a new name you choose, so there is no fixed
+# recorded set to protect. The price: re-using a --run name OVERWRITES that run.
+COLLECTED_DATA      = False
 PLOT_Z              = True   # include z-axis subplot in saved plot
 PLOT_FORCE          = False  # include /force_shear subplot in saved plot
 PLOT_VIRTUAL_FORCES = True  # if True, Cell 4 in the GUI shows virtual forces instead of motor torques
@@ -148,7 +155,7 @@ DAMPER_PARAM_INIT   = [t[1] for t in _damper_info]   # e.g. [1.5, 1.5]
 
 # ── Position-control graph ranges ─────────────────────────────────────────────
 XY_RANGE = (-0.5, 0.5)   # [m] both x and y axes
-Z_RANGE  = (0.0,  0.45)  # [m] z slider range
+Z_RANGE  = (0.0,  0.45)  # [m] z slider range (the arm is 0.435 m long straight)
 
 # ── Torque-plot rolling window ─────────────────────────────────────────────────
 TAU_PLOT_WINDOW = 10.0   # [s] how many seconds are visible in the live torque chart
