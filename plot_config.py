@@ -143,6 +143,36 @@ def pick_spread(values, n, bias=1.0):
     return [values[i] for i in idx]
 
 
+def make_square_panel_row(n_panels, w_in, gap, left_margin, right_margin, bottom_margin, top_margin):
+    """Lay out n_panels square (aspect='equal') panels left-to-right with a
+    genuinely controllable physical gap between them, at a fixed total figure
+    width.
+
+    constrained_layout can't deliver this: when every panel is forced
+    aspect='equal', each becomes a square whose side is fixed by the panel
+    height, and if the requested total width is wider than N squares +
+    margins, constrained_layout dumps ALL of that leftover width into the
+    inter-panel gap regardless of the wspace/w_pad settings (measured
+    ~1.08in gap even with both cranked to ~0, for N=2). This instead derives
+    the square side from what's left after margins and the chosen gap, and
+    places every axes by hand with fig.add_axes.
+
+    Pass the same w_in as a companion figure (rather than matching per-panel
+    width) to keep a fixed-pt font reading at the same size across both.
+
+    All size arguments are in inches. Returns (fig, axes) -- axes is a list
+    of length n_panels, left to right.
+    """
+    s = (w_in - left_margin - right_margin - (n_panels - 1) * gap) / n_panels
+    h_in = s + bottom_margin + top_margin
+    fig = plt.figure(figsize=(w_in, h_in))
+    axes = [
+        fig.add_axes([(left_margin + i * (s + gap)) / w_in, bottom_margin / h_in, s / w_in, s / h_in])
+        for i in range(n_panels)
+    ]
+    return fig, axes
+
+
 def set_font_size(size, legend_size=None):
     """Override all text sizes uniformly. Call after import in each notebook setup cell.
 
