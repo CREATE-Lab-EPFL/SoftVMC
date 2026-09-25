@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="247.426891pt" height="93.6pt" viewBox="0 0 247.426891 93.6" xmlns="http://www.w3.org/2000/svg" version="1.1">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="244.8pt" height="93.6pt" viewBox="0 0 244.8 93.6" xmlns="http://www.w3.org/2000/svg" version="1.1">
  <metadata>
   <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
    <cc:Work>
     <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
-    <dc:date>2026-09-24T14:28:08.119572</dc:date>
+    <dc:date>2026-09-25T09:39:40.863371</dc:date>
     <dc:format>image/svg+xml</dc:format>
     <dc:creator>
      <cc:Agent>
-      <dc:title>Matplotlib v3.11.0, https://matplotlib.org/</dc:title>
+      <dc:title>Matplotlib v3.11.2, https://matplotlib.org/</dc:title>
      </cc:Agent>
     </dc:creator>
    </cc:Work>
@@ -22,8 +22,8 @@
  <g id="figure_1">
   <g id="patch_1">
    <path d="M 0 93.6 
-L 247.426891 93.6 
-L 247.426891 0 
+L 244.8 93.6 
+L 244.8 0 
 L 0 0 
 z
 " style="fill: #ffffff"/>
@@ -31,14 +31,14 @@ z
   <g id="axes_1">
    <g id="legend_1">
     <g id="line2d_1">
-     <path d="M 14.4 32.512787 
-L 32.4 32.512787 
-L 50.4 32.512787 
+     <path d="M 37.761868 36.085445 
+L 51.261868 36.085445 
+L 64.761868 36.085445 
 " style="fill: none; stroke-dasharray: 11.1,4.8; stroke-dashoffset: 0; stroke: #000000; stroke-width: 3"/>
     </g>
     <g id="text_1">
      <!-- Gaussian reference -->
-     <g transform="translate(64.8 38.812787) scale(0.18 -0.18)">
+     <g transform="translate(75.561868 40.810445) scale(0.135 -0.135)">
       <defs>
        <path id="SFRM1728-34" d="M 3648 427 
 C 3693 304 3859 -20 3974 -20 
@@ -330,14 +330,14 @@ z
      </g>
     </g>
     <g id="line2d_2">
-     <path d="M 14.4 57.6 
-L 32.4 57.6 
-L 50.4 57.6 
+     <path d="M 37.761868 54.9 
+L 51.261868 54.9 
+L 64.761868 54.9 
 " style="fill: none; stroke: #000000; stroke-width: 3; stroke-linecap: square"/>
     </g>
     <g id="text_2">
      <!-- End-effector trajectory -->
-     <g transform="translate(64.8 63.9) scale(0.18 -0.18)">
+     <g transform="translate(75.561868 59.625) scale(0.135 -0.135)">
       <defs>
        <path id="SFRM1728-29" d="M 358 4352 
 L 358 4185 
