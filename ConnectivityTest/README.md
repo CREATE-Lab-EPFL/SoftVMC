@@ -8,10 +8,15 @@ demo. Nothing is ever saved here (`SAVE_PLOT`/`SAVE_DATA` are `False` in
 this folder.
 
 `GUI_MultiVMC_Config.py` defines a single X-constrained spring at the arm tip
-with intentionally conservative gains (`k=10`, `c=1`) and a low `TAU_LIMIT` —
-enough authority to confirm the arm responds, without needing much. Raise
-them live via the GUI sliders if you want more, and keep `TAU_LIMIT` low
-while doing so.
+(`ConstrainedLinearSpring`, `n = [1, 0, 0]`) with intentionally conservative
+gains (`k=10`, `c=1`) — enough authority to confirm the arm responds, without
+needing much. Raise them live via the GUI sliders if you want more.
+
+⚠ `TAU_LIMIT` here is **0.5 N·m per motor**, the *highest* limit in the repo (the
+experiments use 0.15–0.35). The config's own comment calls it a "low hard
+ceiling", but it is not low next to them: it is the gains, not the limit, that
+keep this folder gentle. Lower `TAU_LIMIT` in the config before raising the
+gains live.
 
 ## Gravity direction
 

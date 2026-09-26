@@ -8,7 +8,7 @@ The tanh spring provides **bounded interaction forces** while preserving the res
 
 | Subfolder | Description |
 |---|---|
-| `outputs/tanh_spring/` | Sequential jump tests: compares tanh spring tracking vs. linear spring |
+| `outputs/tanh_spring/` | Sequential jump tests: the tip's reference is stepped out to targets from −5 to −50 cm (10 test windows), once with a tanh spring and once with a linear spring of the same K, while a load cell measures the shear force on a string wrapped round the tip. Needs `LoadCell/arduino_force.py` running |
 
 ## Scripts
 
@@ -20,7 +20,14 @@ The tanh spring provides **bounded interaction forces** while preserving the res
 
 ## Notebook
 
-`plot_tanh_spring.ipynb` — torque saturation and trajectory tracking comparison.
+`plot_tanh_spring.ipynb` — the tanh spring's force law and the measured evidence that it saturates. It writes, in `outputs/tanh_spring/` (each `.pdf` + `.svg`, and `.png`):
+
+- `virtual_vs_real_tanh_fmax133` — the controller's virtual force against the load cell's measured shear force for the tanh run (separate y-axes: they live on very different scales; the point is the shape);
+- `measured_force_vs_displacement` — measured shear force vs. commanded displacement, tanh against linear on one axis. At −50 cm the tanh spring's force has plateaued at ≈ 0.71 N while the linear spring's is still rising (≈ 0.94 N).
+
+The notebook uses **mathtext with `cmr10`** (`usetex` off), unlike the rest of the repo's figures, and prints a matplotlib `cmr10` warning about tick labels and a `SyntaxWarning` for `"$\eta$"` (an invalid `\e` escape in a non-raw string, which a future Python will make an error).
+
+**Config vs. recorded runs.** The shipped `GUI_MultiVMC_Config.py` has `TanhSpring(15.0, 1.5)` (K = 15 N/m, F_max = 1.5 N); the notebook describes the recorded runs as K = 10 N/m, F_max = 1.33 N (hence `fmax133` in the file name). Set those in the config, not the shipped values, to reproduce them.
 
 ## Run names
 

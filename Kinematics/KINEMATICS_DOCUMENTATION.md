@@ -32,9 +32,11 @@ Each segment `i` is described by three scalar parameters:
 
 | Symbol | Meaning | Units |
 |---|---|---|
-| `Dxᵢ` | lateral curvature in x | rad/m |
-| `Dyᵢ` | lateral curvature in y | rad/m |
+| `Dxᵢ` | lateral bending in x | m |
+| `Dyᵢ` | lateral bending in y | m |
 | `Dlᵢ` | elongation (extra length) | m |
+
+`Dx` and `Dy` are lengths, not curvatures: they come from tendon-length differences (`pcc = A⁻¹ · ΔL`, ΔL in metres), and the bending angle of a whole segment is `√(Dx² + Dy²) / d` radians, with `d` the section radius (see `θ(s)` below). The code's docstrings say `[m]` too.
 
 The full PCC state vector is `pcc = [Dx1, Dy1, Dl1, Dx2, Dy2, Dl2, Dx3, Dy3, Dl3] ∈ ℝ⁹`.
 
@@ -73,12 +75,14 @@ For a segment with curvature parameters `(Dx, Dy)` and arc length `s ∈ [0,1]`:
 D     = √(Dx² + Dy²)          (total curvature magnitude)
 θ(s)  = s · D / d             (bending angle at arc position s)
 
-R(s) = I  +  (cos θ − 1)/D² · [Dx²   DxDy   0 ] + sin θ / D · [0  0   Dx]
-                                 [DxDy  Dy²   0 ]               [0  0   Dy]
-                                 [0     0     0 ]               [-Dx -Dy  0]
+R(s) = I  +  (cos θ − 1)/D² · [Dx²   DxDy   0 ] + sin θ / D · [0    0    Dx]
+                                 [DxDy  Dy²   0 ]               [0    0    Dy]
+                                 [0     0     D²]               [-Dx  -Dy  0 ]
 
 t(s) = (s · d · (L₀+Dl) / D²) · [Dx(1 − cos θ), Dy(1 − cos θ), D sin θ]ᵀ
 ```
+
+The `D²` in the bottom-right of the first matrix is what makes `R₃₃ = cos θ` and `R` a proper rotation (`RᵀR = I`); with a `0` there — as an earlier version of this document had it — `R₃₃` would stay 1 and `R` would not be orthonormal. This is the `R_MATRIX` of `FK_Multi.py` (checked numerically) and, written out identically in sympy, of `JacobiansMulti.py`.
 
 This gives the homogeneous transform `T(s) = [R(s) | t(s)]` of any point along the segment arc.
 

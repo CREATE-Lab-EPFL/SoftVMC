@@ -13,7 +13,7 @@ Single-segment VMC implementation — kept for reference and simulation testing.
 | `SingleVMCTaskSpace.py` | VMC controller for 1-segment arm (3 motors) |
 | `SingleController.py` | Motor-space PD controller |
 | `SingleGoHome.py` | Homing routine |
-| `SingleVMC.py` | Hardware run: task-space VMC on the real 1-segment arm; on exit, saves a position/torque summary plot to `plots/` if `SAVE_PLOT = True` |
+| `SingleVMC.py` | Hardware run: task-space VMC on the real 1-segment arm; on exit, saves a position/torque summary plot to `plots/` if `SAVE_PLOT = True` (it ships `False`) |
 | `SingleVMCSimulation.py` | Offline simulation for VMC tuning (no hardware required); only calls `plt.show()`, does not save to disk |
 | `plots/` | Per-run snapshots saved by `SingleVMC.py` hardware runs — no analysis notebook combines them |
 

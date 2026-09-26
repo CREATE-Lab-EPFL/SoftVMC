@@ -7,7 +7,7 @@ Experiments involving physical contact and body shaping — multiple virtual ele
 | Subfolder | Description |
 |---|---|
 | `outputs/sponge/` | End-effector pressed against a sponge; sweep contact stiffness k. Only raw `.npz` + auto-generated `GUI_MultiVMC_Torque.py` per-run snapshot PNGs exist here — **no analysis notebook in the repo processes this data into a comparison figure**. |
-| `outputs/surface_tracking/` | Arm slides along a rigid surface with a constrained spring |
+| `outputs/surface_tracking/` | Arm slides along a rigid surface with a constrained spring, one run per stiffness (`k5` … `k130`). `k8.xlsx`, `k70.xlsx` and `k_compare.xlsx` are tip-marker trajectories from video tracking, hand-corrected; `plot_surface_tracking.ipynb` reads `k_compare.xlsx` |
 | `outputs/body_shaping/` | Whole-body shaping / bending: a Gaussian on segment 1 (`gauss_seg1`) and a linear spring on the tip (`lin_seg3`), goals and strengths tuned live from the GUI. **One config for every case** (`GUI_MultiVMC_Config_bending.py`); a case is just the name you give `--run`. Only each run's settled final pose is analyzed (`plot_full_body_shaping.ipynb`), not a time series. See [Whole-body shaping](#whole-body-shaping-recording-a-case). `old/whole_body_shaping_bad.*` is an earlier discarded run from before this config existed. |
 | `outputs/three_spring_vs_one/` | Comparison: 1 end-effector spring vs. 3 distributed springs for posture |
 
@@ -25,7 +25,7 @@ Experiments involving physical contact and body shaping — multiple virtual ele
 |---|---|
 | `plot_three_spring_vs_one.ipynb` | Posture error comparison: 1 vs. 3 springs |
 | `plot_surface_tracking.ipynb` | XY/X-position trajectory comparisons, soft-vs-stiff energy comparison, and per-k Y-position tracking across the `outputs/surface_tracking/` k-sweep |
-| `plot_full_body_shaping.ipynb` | Side-view (X-Z) backbone of **every** run in `outputs/body_shaping/`: `all_backbones.{pdf,svg}` with all runs overlaid, plus one `<run>_backbone.{pdf,svg}` per run, all on the same axes. Drawn from the motor encoders (FK on `q_motor`), not the virtual model's internal reference; each run's K and A are read from the run itself |
+| `plot_full_body_shaping.ipynb` | X–Z backbone of **every** run in `outputs/body_shaping/` (the notebook calls it the "side view"; with `GRAVITY_DIR = "-y"` in `_bending` the X–Z plane is the plan view from above): `all_backbones.{pdf,svg}` with all runs overlaid, plus one `<run>_backbone.{pdf,svg}` per run, all on the same axes. Drawn from the motor encoders (FK on `q_motor`), not the virtual model's internal reference; each run's K and A are read from the run itself |
 
 ## Whole-body shaping: recording a case
 
@@ -57,9 +57,9 @@ python3 ../VMC/GUI_MultiVMC.py --config _bending
 In the GUI:
 
 1. Drag each goal in X/Y and set its **Z** with the vertical slider (0 – 0.45 m;
-   the arm is 0.435 m long straight, and both recorded runs so far left the tip
+   the arm is 0.435 m long straight, and `bending_1`, `_2` and `_6` left the tip
    goal's Z at 0.435, i.e. fully extended — lowering it is what bends the arm
-   more).
+   more, as in `bending_3` and `_4` at Z = 0).
 2. Set the tip spring's stiffness **K** and the Gaussian's strength **A** with
    the sliders. The Gaussian starts at A = 0: move its goal away from the arm
    first, then raise A (it pushes hardest when its attachment point is one
@@ -82,11 +82,20 @@ Names used so far:
 
 | `<name>` | What it is |
 |---|---|
-| `bending_1` | Tip goal dragged to the right (+X). K = 50 N/m, A = 2000 N; tip goal (34.3, −3.9, 43.5) cm. Photo: `media/full_body_shaping/bending_1.jpg` |
-| `bending_2` | Tip goal dragged to the left (−X). K = 50 N/m, A = 2000 N; tip goal (−16.7, 1.6, 43.5) cm. Photo: `media/full_body_shaping/bending_2.jpg` |
+| `bending_1` | Tip goal dragged to the right (+X). K = 50 N/m, A = 2000 N/m; tip goal (34.3, −3.9, 43.5) cm, Gaussian goal (4.5, −0.3, 14.5) cm |
+| `bending_2` | Tip goal dragged to the left (−X). K = 50 N/m, A = 2000 N/m; tip goal (−16.7, 1.6, 43.5) cm, Gaussian goal (−6.7, 1.9, 14.5) cm |
+| `bending_3` | K = 50 N/m, A = 1500 N/m; tip goal (36.7, −3.4, **0.0**) cm, Gaussian goal (7.1, −0.5, 8.9) cm |
+| `bending_4` | K = 50 N/m, A = 1500 N/m; tip goal (38.0, −7.4, **0.0**) cm, Gaussian goal (−3.7, 0.5, 19.2) cm |
+| `bending_5` | K = **100** N/m, A = 1500 N/m; tip goal (4.5, −0.6, 41.7) cm, Gaussian goal (0.0, 0.0, 14.5) cm |
+| `bending_6` | K = 100 N/m, A = 1800 N/m; tip goal (3.3, 0.2, 43.5) cm, Gaussian goal (1.5, 0.1, 14.5) cm |
 
-Both were recorded with a fully extended tip goal (Z = 43.5 cm). Use the same
-name for a case's data (`outputs/body_shaping/<name>.npz`), its photo
+Read from each run's last 3 s (goals, `k_params`), which is what the notebook
+uses; `bending_1..6` all have a photo, `media/full_body_shaping/bending_<n>.jpg`.
+`bending_1` and `_2` left the tip goal fully extended (Z = 43.5 cm); `_3` and
+`_4` put it at Z = 0, and `_5` and `_6` aim it almost straight ahead (x ≈ 3–5 cm). **A is a stiffness in
+N/m**, not a force (see [the Gaussian's force law](../GaussianElement/README.md));
+older notebook legends print it as "N". Use the same name for a case's data
+(`outputs/body_shaping/<name>.npz`), its photo
 (`media/full_body_shaping/<name>.jpg`) and its plots (`<name>_backbone.*`).
 
 Watch out for:

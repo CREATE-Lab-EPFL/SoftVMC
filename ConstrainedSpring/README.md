@@ -19,7 +19,9 @@ This element implements **sliding contact**: the arm can move freely parallel to
 
 ## Notebook
 
-`plot_constrained_spring.ipynb` — position traces and normal/tangential force decomposition.
+`plot_constrained_spring.ipynb` — the end-effector's X–Y trajectory under the constrained spring against the same reference under a plain linear spring (both k = 10 N/m), time colour-coded, saved as `outputs/constrained_spring/xy_trajectory_markers.{pdf,svg}`. The reference goes 0 → x = 0.2 m → back to 0; the constrained run stays on its line (y range ≈ 0.4 cm) while the linear run moves in both x and y (y range ≈ 21 cm). There is **no force decomposition** — the notebook plots positions only.
+
+The shipped config uses `ConstrainedLinearSpring(10.0, n=[1, 0, 1])` (normalised): force acts only along the x + z direction. (`ConnectivityTest/` uses `n = [1, 0, 0]`.)
 
 ## Run names
 
