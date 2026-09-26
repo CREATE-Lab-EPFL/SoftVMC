@@ -173,6 +173,54 @@ def make_square_panel_row(n_panels, w_in, gap, left_margin, right_margin, bottom
     return fig, axes
 
 
+def fit_equal_scale(fig, axes, width, pad=0.06, gap=0.18):
+    """Size `fig` and place `axes` so every axis of every panel has the SAME scale
+    (inches per data unit): 10 cm along X, Y or Z is the same length on the page,
+    in every panel, and a circle in the data is a circle on the page.
+
+    Only `width` [in] is chosen. The height follows from the panels' data ranges
+    -- panels stacked top to bottom, sharing one X range, each with its own Y
+    range -- plus room for the text around them, which is measured, not guessed.
+    Call it LAST: after plotting, limits, labels, ticks and the legend (a legend
+    outside an axes is measured too). Panels are placed by hand and then held to
+    aspect='equal'; nothing else may move them afterwards.
+
+    pad: [in] clearance kept around the text; gap: [in] extra clearance between
+    stacked panels (the upper one's X label above the lower one's frame).
+    Returns the figure height [in].
+    """
+    axes = list(axes)
+    fig.set_size_inches(width, 4.0)   # provisional: only the text extents are read from it
+    fig.canvas.draw()
+    r, inv = fig.canvas.get_renderer(), fig.dpi_scale_trans.inverted()
+
+    # Text/tick clearance outside each axes box [in]: left, right, below, above.
+    dec = []
+    for ax in axes:
+        box = ax.get_window_extent(r).transformed(inv)
+        tb  = ax.get_tightbbox(r).transformed(inv)
+        dec.append((box.x0 - tb.x0, tb.x1 - box.x1, box.y0 - tb.y0, tb.y1 - box.y1))
+
+    left   = max(d[0] for d in dec) + pad
+    right  = max(d[1] for d in dec) + pad
+    top    = dec[0][3] + pad
+    bottom = dec[-1][2] + pad
+    gaps   = [dec[i][2] + dec[i + 1][3] + gap for i in range(len(axes) - 1)]
+
+    axes_w = width - left - right
+    scale  = axes_w / abs(np.subtract(*axes[0].get_xlim()))   # in/cm, shared by every axis below
+    heights = [scale * abs(np.subtract(*ax.get_ylim())) for ax in axes]
+    total   = top + sum(heights) + sum(gaps) + bottom
+
+    fig.set_size_inches(width, total)
+    y_top = total - top
+    for k, (ax, h) in enumerate(zip(axes, heights)):
+        ax.set_position([left / width, (y_top - h) / total, axes_w / width, h / total])
+        ax.set_aspect('equal', adjustable='box')
+        y_top -= h + (gaps[k] if k < len(gaps) else 0)
+    return total
+
+
 def set_font_size(size, legend_size=None):
     """Override all text sizes uniformly. Call after import in each notebook setup cell.
 
