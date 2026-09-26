@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="250.545577pt" height="156.568086pt" viewBox="0 0 250.545577 156.568086" xmlns="http://www.w3.org/2000/svg" version="1.1">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="130.83817pt" height="80.440242pt" viewBox="0 0 130.83817 80.440242" xmlns="http://www.w3.org/2000/svg" version="1.1">
  <metadata>
   <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
    <cc:Work>
     <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
-    <dc:date>2026-09-26T16:00:19.331445</dc:date>
+    <dc:date>2026-09-26T16:03:51.108668</dc:date>
     <dc:format>image/svg+xml</dc:format>
     <dc:creator>
      <cc:Agent>
@@ -21,9 +21,9 @@
  </defs>
  <g id="figure_1">
   <g id="patch_1">
-   <path d="M 0 156.568086 
-L 250.545577 156.568086 
-L 250.545577 0 
+   <path d="M 0 80.440242 
+L 130.83817 80.440242 
+L 130.83817 0 
 L 0 0 
 z
 " style="fill: #ffffff"/>
@@ -31,14 +31,14 @@ z
   <g id="axes_1">
    <g id="legend_1">
     <g id="line2d_1">
-     <path d="M 2.16 12.66 
-L 32.16 12.66 
-L 62.16 12.66 
+     <path d="M 2.16 7.41 
+L 17.16 7.41 
+L 32.16 7.41 
 " style="fill: none; stroke: #1b9e77; stroke-opacity: 0.85; stroke-width: 2; stroke-linecap: square"/>
     </g>
     <g id="text_1">
      <!-- No gaussian -->
-     <g transform="translate(86.16 23.16) scale(0.3 -0.3)">
+     <g transform="translate(44.16 12.66) scale(0.15 -0.15)">
       <defs>
        <path id="SFRM1728-48" d="M 358 4352 
 L 358 4185 
@@ -295,14 +295,14 @@ z
      </g>
     </g>
     <g id="line2d_2">
-     <path d="M 2.16 54.472021 
-L 32.16 54.472021 
-L 62.16 54.472021 
+     <path d="M 2.16 28.315061 
+L 17.16 28.315061 
+L 32.16 28.315061 
 " style="fill: none; stroke: #d95f02; stroke-opacity: 0.85; stroke-width: 2; stroke-linecap: square"/>
     </g>
     <g id="text_2">
      <!-- Gaussian -->
-     <g transform="translate(86.16 64.972021) scale(0.3 -0.3)">
+     <g transform="translate(44.16 33.565061) scale(0.15 -0.15)">
       <defs>
        <path id="SFRM1728-34" d="M 3648 427 
 C 3693 304 3859 -20 3974 -20 
@@ -347,7 +347,7 @@ z
     </g>
     <g id="line2d_3">
      <defs>
-      <path id="m03f4e07ed0" d="M 0 -6.5 
+      <path id="ma0bb601bd8" d="M 0 -6.5 
 L -1.459341 -2.00861 
 L -6.181867 -2.00861 
 L -2.361263 0.767221 
@@ -361,12 +361,12 @@ z
 " style="stroke: #000000; stroke-linejoin: bevel"/>
      </defs>
      <g>
-      <use xlink:href="#m03f4e07ed0" x="32.16" y="96.284043" style="stroke: #000000; stroke-linejoin: bevel"/>
+      <use xlink:href="#ma0bb601bd8" x="17.16" y="49.220121" style="stroke: #000000; stroke-linejoin: bevel"/>
      </g>
     </g>
     <g id="text_3">
      <!-- Anchor point -->
-     <g transform="translate(86.16 106.784043) scale(0.3 -0.3)">
+     <g transform="translate(44.16 54.470121) scale(0.15 -0.15)">
       <defs>
        <path id="SFRM1728-1" d="M 185 166 
 L 185 0 
@@ -545,7 +545,7 @@ z
     </g>
     <g id="line2d_4">
      <defs>
-      <path id="m36412e941d" d="M -2.25 4.5 
+      <path id="mb354f0e19d" d="M -2.25 4.5 
 L 0 2.25 
 L 2.25 4.5 
 L 4.5 2.25 
@@ -561,12 +561,12 @@ z
 " style="stroke: #000000; stroke-linejoin: miter"/>
      </defs>
      <g>
-      <use xlink:href="#m36412e941d" x="32.16" y="138.096064" style="stroke: #000000; stroke-linejoin: miter"/>
+      <use xlink:href="#mb354f0e19d" x="17.16" y="70.125182" style="stroke: #000000; stroke-linejoin: miter"/>
      </g>
     </g>
     <g id="text_4">
      <!-- Card castle -->
-     <g transform="translate(86.16 148.596064) scale(0.3 -0.3)">
+     <g transform="translate(44.16 75.375182) scale(0.15 -0.15)">
       <defs>
        <path id="SFRM1728-e" d="M 3603 3849 
 C 3302 4236 2899 4480 2406 4480 
