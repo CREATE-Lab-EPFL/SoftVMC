@@ -672,7 +672,7 @@ Each notebook writes its figures as PDF **and** SVG next to the runs
 
 | notebook | writes |
 |---|---|
-| `plot_button.ipynb` | `shear_<level>_{full,zoom}` (×4 levels), `backbone` (all four overlaid), `backbone_<level>` (×4), `force_vs_time`, `force_vs_strength` |
+| `plot_button.ipynb` | `backbone` (all four overlaid), `backbone_<level>` (×4), `force_vs_time` (time axis to 65 s, `FORCE_TIME_MAX_S`), `force_vs_strength`; and, **only with `PLOT_SHEAR = True`** (off by default), `shear_<level>_{full,zoom}` (×4 levels) |
 | `plot_person.ipynb` | `backbone` (X–Y above X–Z, sharing X) |
 | `plot_card_castle.ipynb` | `backbone` (X–Y above X–Z, sharing X) |
 
@@ -680,13 +680,14 @@ To know before you rely on them:
 
 - **Requirements.** LaTeX (the shared style sets `text.usetex`) and a matplotlib
   that is **not 3.11.0**: that release drops the minus sign from usetex PDFs
-  (see the [top-level README](../README.md#plotting-style)). Six PDFs here were
-  made with it and print their negative ticks without the sign — the five
-  `backbone*.pdf` in `button_pressing/` (X reads 20, 40 where it is −20, −40) and
-  `person_avoiding/backbone.pdf` (X reads 80 … 20 where it is −80 … −20). Their
-  SVGs are right, and so are the PDFs with no negative ticks
-  (`card_castle/backbone.pdf`, `shear_*`, `force_vs_*`). Re-run the notebooks
-  after upgrading matplotlib to replace them.
+  (see the [top-level README](../README.md#plotting-style)). One PDF here was made
+  with it and prints its negative ticks without the sign:
+  `person_avoiding/backbone.pdf` (X reads 80 … 20 where it is −80 … −20); its SVG
+  is right. The five `button_pressing/backbone*.pdf` had the same defect and were
+  regenerated on 3.11.2 with the X–Z change below. The PDFs with no negative
+  ticks (`card_castle/backbone.pdf`, `shear_*`, `force_vs_*`) were never
+  affected. Re-run `plot_person.ipynb` after upgrading matplotlib to fix the
+  last one.
 - **Palette.** These notebooks pin their own colours instead of the repo's pastel
   default: NPG in `plot_button`, Dark2 (`#1B9E77`, `#D95F02`) in `plot_person` and
   `plot_card_castle`. So `no_gauss` is cyan in the button figures and green in
@@ -694,8 +695,11 @@ To know before you rely on them:
 - **Legends.** The Gaussian strength in the button legends reads "A: 600 N"; the
   quantity is a stiffness-like field strength in **N/m** (the `force_vs_strength`
   axis has it right).
-- **Views.** The geometry figures are X–Z (button) and X–Y over X–Z (person,
-  castle). See [Gravity and axes](#gravity-and-axes) for what those are, and for
+- **Views.** The geometry figures are X–Z (button, at **equal scale**: 1 cm in Z
+  is the same length as 1 cm in X, so the σ circle is a circle and the panel
+  takes the shape of its data — the combined figure is tall because the target
+  sits at X = −50 cm) and X–Y over X–Z (person, castle; those are not at equal
+  scale between panels). See [Gravity and axes](#gravity-and-axes) for what those are, and for
   why the obstacle and target markers in the X–Z panels of `_person` and
   `_card_castle` sit at meaningless z.
 - **Helper code** (`hold_window`, `load_run`, `backbone`, …, about 130 lines) is

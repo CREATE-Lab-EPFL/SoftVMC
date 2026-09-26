@@ -162,9 +162,9 @@ Deliberate exceptions:
 
 **Requirements.** A LaTeX install (MiKTeX or TeX Live), plus numpy, matplotlib, scipy and sympy (the notebooks that draw the arm import `Kinematics/FK_Multi`, which builds its Jacobians with sympy). There is no requirements file; the committed figures were made with four different matplotlib versions (3.10.0, 3.10.8, 3.11.0, 3.11.2), and layouts shift slightly between them (the `body_shaping` legends do), so pin one before regenerating a whole set.
 
-> ⚠ **Known issue — matplotlib 3.11.0 drops minus signs from LaTeX PDFs.** Its Type-1 font subsetter overwrites glyph code 0, which in CMSY10 is the minus, so a tick labelled −20 prints as 20. The SVG twin is unaffected. Use 3.10.x or ≥ 3.11.2 (checked: 3.11.2 needs no workaround). Eleven committed PDFs were made with 3.11.0 and carry the defect — regenerate them by re-running their notebooks on a fixed matplotlib:
+> ⚠ **Known issue — matplotlib 3.11.0 drops minus signs from LaTeX PDFs.** Its Type-1 font subsetter overwrites glyph code 0, which in CMSY10 is the minus, so a tick labelled −20 prints as 20. The SVG twin is unaffected. Use 3.10.x or ≥ 3.11.2 (checked: 3.11.2 needs no workaround). Six committed PDFs were made with 3.11.0 and still carry the defect — regenerate them by re-running their notebooks on a fixed matplotlib (the five `ButtonPressing/outputs/button_pressing/backbone*.pdf` were regenerated on 3.11.2 and are fine):
 >
-> - `ButtonPressing/outputs/button_pressing/backbone{,_no_gauss,_weak,_medium,_strong}.pdf` and `ButtonPressing/outputs/person_avoiding/backbone.pdf`
+> - `ButtonPressing/outputs/person_avoiding/backbone.pdf`
 > - `LinearSpring/outputs/k_saturation/{force_vs_pos_by_k,stiffness_vs_pos_by_k,force_and_stiffness_by_k}.pdf` and `LinearSpring/outputs/disturbance_rejection/disturbance_response_by_k.pdf`
 > - `GaussianElement/outputs/fixed_gauss/fixed_gauss5_xz.pdf`
 >
