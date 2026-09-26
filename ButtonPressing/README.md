@@ -673,21 +673,20 @@ Each notebook writes its figures as PDF **and** SVG next to the runs
 | notebook | writes |
 |---|---|
 | `plot_button.ipynb` | `backbone` (all four overlaid), `backbone_<level>` (×4), `force_vs_time` (time axis to 65 s, `FORCE_TIME_MAX_S`), `force_vs_strength`; and, **only with `PLOT_SHEAR = True`** (off by default), `shear_<level>_{full,zoom}` (×4 levels) |
-| `plot_person.ipynb` | `backbone` (X–Y above X–Z, sharing X) |
-| `plot_card_castle.ipynb` | `backbone` (X–Y above X–Z, sharing X) |
+| `plot_person.ipynb` | `backbone` (X–Y above X–Z, sharing X), `tip_trajectory` (X–Y); each with its legend as a figure of its own, `backbone_legend` / `tip_trajectory_legend` |
+| `plot_card_castle.ipynb` | the same four figures |
 
 To know before you rely on them:
 
 - **Requirements.** LaTeX (the shared style sets `text.usetex`) and a matplotlib
   that is **not 3.11.0**: that release drops the minus sign from usetex PDFs
-  (see the [top-level README](../README.md#plotting-style)). One PDF here was made
-  with it and prints its negative ticks without the sign:
-  `person_avoiding/backbone.pdf` (X reads 80 … 20 where it is −80 … −20); its SVG
-  is right. The five `button_pressing/backbone*.pdf` had the same defect and were
-  regenerated on 3.11.2 with the X–Z change below. The PDFs with no negative
-  ticks (`card_castle/backbone.pdf`, `shear_*`, `force_vs_*`) were never
-  affected. Re-run `plot_person.ipynb` after upgrading matplotlib to fix the
-  last one.
+  (see the [top-level README](../README.md#plotting-style)). The five
+  `button_pressing/backbone*.pdf` and `person_avoiding/backbone.pdf` were made
+  with it and printed their negative ticks without the sign (X read 80 … 20 where
+  it is −80 … −20; the SVGs were right); all six were regenerated on 3.11.2. The
+  PDFs with no negative ticks (`card_castle/backbone.pdf`, `shear_*`,
+  `force_vs_*`) were never affected. Re-running a notebook on 3.11.0 breaks its
+  PDFs again.
 - **Palette.** These notebooks pin their own colours instead of the repo's pastel
   default: NPG in `plot_button`, Dark2 (`#1B9E77`, `#D95F02`) in `plot_person` and
   `plot_card_castle`. So `no_gauss` is cyan in the button figures and green in
@@ -698,8 +697,13 @@ To know before you rely on them:
 - **Views.** The geometry figures are X–Z (button, at **equal scale**: 1 cm in Z
   is the same length as 1 cm in X, so the σ circle is a circle and the panel
   takes the shape of its data — the combined figure is tall because the target
-  sits at X = −50 cm) and X–Y over X–Z (person, castle; those are not at equal
-  scale between panels). See [Gravity and axes](#gravity-and-axes) for what those are, and for
+  sits at X = −50 cm) and X–Y over X–Z (person, castle; equal scale on every
+  axis of both panels too). In all of them only the **width** is set (in the
+  notebook cell, saved at exactly that width) and the height follows from the
+  data, so a tall scene gives a tall figure — the castle's X–Y over X–Z is about
+  2.8 times taller than wide (X capped at 25 cm), because the target sits 50 cm up. The person and
+  castle figures carry no legend: it is a separate `*_legend` figure, sized to
+  the legend itself. See [Gravity and axes](#gravity-and-axes) for what those are, and for
   why the obstacle and target markers in the X–Z panels of `_person` and
   `_card_castle` sit at meaningless z.
 - **Helper code** (`hold_window`, `load_run`, `backbone`, …, about 130 lines) is

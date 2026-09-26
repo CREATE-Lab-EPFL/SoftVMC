@@ -191,34 +191,66 @@ def fit_equal_scale(fig, axes, width, pad=0.06, gap=0.18):
     """
     axes = list(axes)
     fig.set_size_inches(width, 4.0)   # provisional: only the text extents are read from it
-    fig.canvas.draw()
-    r, inv = fig.canvas.get_renderer(), fig.dpi_scale_trans.inverted()
+    total = None
 
-    # Text/tick clearance outside each axes box [in]: left, right, below, above.
-    dec = []
-    for ax in axes:
-        box = ax.get_window_extent(r).transformed(inv)
-        tb  = ax.get_tightbbox(r).transformed(inv)
-        dec.append((box.x0 - tb.x0, tb.x1 - box.x1, box.y0 - tb.y0, tb.y1 - box.y1))
+    # The text clearance depends on the panels' final size (matplotlib picks fewer or more
+    # ticks, and wider or narrower labels, as an axes grows), so measure again after each
+    # placement until the layout stops changing -- a single pass can leave a label touching
+    # the page edge.
+    for _ in range(8):
+        fig.canvas.draw()
+        r, inv = fig.canvas.get_renderer(), fig.dpi_scale_trans.inverted()
 
-    left   = max(d[0] for d in dec) + pad
-    right  = max(d[1] for d in dec) + pad
-    top    = dec[0][3] + pad
-    bottom = dec[-1][2] + pad
-    gaps   = [dec[i][2] + dec[i + 1][3] + gap for i in range(len(axes) - 1)]
+        # Text/tick clearance outside each axes box [in]: left, right, below, above.
+        dec = []
+        for ax in axes:
+            box = ax.get_window_extent(r).transformed(inv)
+            tb  = ax.get_tightbbox(r).transformed(inv)
+            dec.append((box.x0 - tb.x0, tb.x1 - box.x1, box.y0 - tb.y0, tb.y1 - box.y1))
 
-    axes_w = width - left - right
-    scale  = axes_w / abs(np.subtract(*axes[0].get_xlim()))   # in/cm, shared by every axis below
-    heights = [scale * abs(np.subtract(*ax.get_ylim())) for ax in axes]
-    total   = top + sum(heights) + sum(gaps) + bottom
+        left   = max(d[0] for d in dec) + pad
+        right  = max(d[1] for d in dec) + pad
+        top    = dec[0][3] + pad
+        bottom = dec[-1][2] + pad
+        gaps   = [dec[i][2] + dec[i + 1][3] + gap for i in range(len(axes) - 1)]
 
-    fig.set_size_inches(width, total)
-    y_top = total - top
-    for k, (ax, h) in enumerate(zip(axes, heights)):
-        ax.set_position([left / width, (y_top - h) / total, axes_w / width, h / total])
-        ax.set_aspect('equal', adjustable='box')
-        y_top -= h + (gaps[k] if k < len(gaps) else 0)
+        axes_w = width - left - right
+        scale  = axes_w / abs(np.subtract(*axes[0].get_xlim()))   # in/cm, shared by every axis below
+        heights = [scale * abs(np.subtract(*ax.get_ylim())) for ax in axes]
+        new_total = top + sum(heights) + sum(gaps) + bottom
+
+        fig.set_size_inches(width, new_total)
+        y_top = new_total - top
+        for k, (ax, h) in enumerate(zip(axes, heights)):
+            ax.set_position([left / width, (y_top - h) / new_total, axes_w / width, h / new_total])
+            ax.set_aspect('equal', adjustable='box')
+            y_top -= h + (gaps[k] if k < len(gaps) else 0)
+
+        settled = total is not None and abs(new_total - total) < 1e-4
+        total = new_total
+        if settled:
+            break
     return total
+
+
+def legend_figure(handles, labels, fontsize=None, ncol=1, pad=0.03):
+    """A figure that holds nothing but a legend, sized to fit it -- for a plot that carries none.
+
+    Pass `ax.get_legend_handles_labels()` of the plot it belongs to, so the two cannot disagree.
+    The figure's size is the legend's own (set by `fontsize` and `ncol`) plus `pad` [in] on every
+    side, so it is the same size on the page however it is saved, and can be placed at will.
+    """
+    fig = plt.figure(figsize=(2.0, 1.0))
+    # Hosted in an invisible full-figure axes, not fig.legend(): IPython's inline backend
+    # draws nothing for a figure without axes, and the legend would not show in the notebook.
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.axis('off')
+    leg = ax.legend(handles, labels, loc='center', ncol=ncol, fontsize=fontsize,
+                    frameon=False, borderpad=0, borderaxespad=0)
+    fig.canvas.draw()
+    box = leg.get_window_extent(fig.canvas.get_renderer()).transformed(fig.dpi_scale_trans.inverted())
+    fig.set_size_inches(box.width + 2 * pad, box.height + 2 * pad)   # the legend re-centres on draw
+    return fig
 
 
 def set_font_size(size, legend_size=None):
