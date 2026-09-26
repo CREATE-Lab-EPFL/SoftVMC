@@ -701,9 +701,9 @@ To know before you rely on them:
   axis of both panels too). In all of them only the **width** is set (in the
   notebook cell, saved at exactly that width) and the height follows from the
   data, so a tall scene gives a tall figure — the castle's X–Y over X–Z is about
-  2.8 times taller than wide (X capped at 25 cm, 31 pt text), because the target sits 50 cm up. The person and
+  2.8 times taller than wide (X capped at 25 cm, 28 pt text), because the target sits 50 cm up. The person and
   castle figures carry no legend: it is a separate `*_legend` figure, sized to
-  the legend itself. See [Gravity and axes](#gravity-and-axes) for what those are, and for
+  the legend itself (the castle's draws its coloured lines vertical). See [Gravity and axes](#gravity-and-axes) for what those are, and for
   why the obstacle and target markers in the X–Z panels of `_person` and
   `_card_castle` sit at meaningless z.
 - **Helper code** (`hold_window`, `load_run`, `backbone`, …, about 130 lines) is

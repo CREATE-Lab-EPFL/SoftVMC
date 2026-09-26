@@ -233,20 +233,23 @@ def fit_equal_scale(fig, axes, width, pad=0.06, gap=0.18):
     return total
 
 
-def legend_figure(handles, labels, fontsize=None, ncol=1, pad=0.03):
+def legend_figure(handles, labels, fontsize=None, ncol=1, pad=0.03, **legend_kwargs):
     """A figure that holds nothing but a legend, sized to fit it -- for a plot that carries none.
 
     Pass `ax.get_legend_handles_labels()` of the plot it belongs to, so the two cannot disagree.
     The figure's size is the legend's own (set by `fontsize` and `ncol`) plus `pad` [in] on every
     side, so it is the same size on the page however it is saved, and can be placed at will.
+    Extra keyword arguments (e.g. `handler_map`, `handleheight`) go to `Axes.legend` unchanged.
     """
     fig = plt.figure(figsize=(2.0, 1.0))
     # Hosted in an invisible full-figure axes, not fig.legend(): IPython's inline backend
     # draws nothing for a figure without axes, and the legend would not show in the notebook.
     ax = fig.add_axes([0, 0, 1, 1])
     ax.axis('off')
-    leg = ax.legend(handles, labels, loc='center', ncol=ncol, fontsize=fontsize,
-                    frameon=False, borderpad=0, borderaxespad=0)
+    kwargs = dict(loc='center', ncol=ncol, fontsize=fontsize,
+                  frameon=False, borderpad=0, borderaxespad=0)
+    kwargs.update(legend_kwargs)
+    leg = ax.legend(handles, labels, **kwargs)
     fig.canvas.draw()
     box = leg.get_window_extent(fig.canvas.get_renderer()).transformed(fig.dpi_scale_trans.inverted())
     fig.set_size_inches(box.width + 2 * pad, box.height + 2 * pad)   # the legend re-centres on draw
