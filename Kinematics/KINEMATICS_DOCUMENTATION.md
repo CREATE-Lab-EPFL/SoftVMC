@@ -79,12 +79,12 @@ R(s) = I  +  (cos θ − 1)/D² · [Dx²   DxDy   0 ] + sin θ / D · [0    0   
                                  [DxDy  Dy²   0 ]               [0    0    Dy]
                                  [0     0     D²]               [-Dx  -Dy  0 ]
 
-t(s) = (s · d · (L₀+Dl) / D²) · [Dx(1 − cos θ), Dy(1 − cos θ), D sin θ]ᵀ
+t(s) = (d · (L₀+Dl) / D²) · [Dx(1 − cos θ), Dy(1 − cos θ), D sin θ]ᵀ
 ```
 
 The `D²` in the bottom-right of the first matrix is what makes `R₃₃ = cos θ` and `R` a proper rotation (`RᵀR = I`); with a `0` there — as an earlier version of this document had it — `R₃₃` would stay 1 and `R` would not be orthonormal. This is the `R_MATRIX` of `FK_Multi.py` (checked numerically) and, written out identically in sympy, of `JacobiansMulti.py`.
 
-This gives the homogeneous transform `T(s) = [R(s) | t(s)]` of any point along the segment arc.
+This gives the homogeneous transform `T(s) = [R(s) | t(s)]` of any point along the segment arc: `t(s)` is the point at arc length `s·(L₀+Dl)` on a circle of radius `d·(L₀+Dl)/D`, so only `θ` depends on `s`.
 
 ---
 

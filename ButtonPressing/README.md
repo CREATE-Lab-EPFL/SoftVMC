@@ -17,7 +17,7 @@ Three variants, two protocols:
 | load cell | yes | no | no |
 | files | `outputs/button_pressing/`, 4 × 5 repeats | `outputs/person_avoiding/`, 2 | `outputs/card_castle/`, 2 |
 | status | **recorded, locked** (`COLLECTED_DATA = True`) | **recorded, locked** (`COLLECTED_DATA = True`) | recorded once, **not final** (`COLLECTED_DATA = False` — re-running a case overwrites it) |
-| recorded result | clearance **2.2 → 6.2 → 10.3 → 11.9 cm** as strength goes 0 → 200 → 600 → 1000 N/m; reach error 23.1 → 35.8 cm | clearance **8.8 → 13.4 cm** (3-D; 7.2 → 12.3 cm lateral) at 0 → 500 N/m | `no_gauss` goes through the cards; `gauss` **slides round them** and ends 15.0 cm from the centre, beside it and past it |
+| recorded result | clearance **1.7 → 6.1 → 10.5 → 12.1 cm** as strength goes 0 → 200 → 600 → 1000 N/m; reach error 23.1 → 35.8 cm | clearance **8.8 → 13.5 cm** (3-D; 7.3 → 12.3 cm lateral) at 0 → 500 N/m | `no_gauss` goes through the cards; `gauss` **slides round them** and ends 15.0 cm from the centre, beside it and past it |
 
 Numbers are from the run logs, see [Recorded results](#recorded-results).
 
@@ -538,10 +538,10 @@ population SD (ddof = 0), which is 0.894× the value listed here.
 
 | level | k [N/m] | clearance [cm] | reach error [cm] | tip x [cm] | shear force [N] | tip-spring pull [N] |
 |---|---|---|---|---|---|---|
-| `no_gauss` | 0 | 2.20 ± 0.07 | 23.1 ± 0.06 | −27.6 | 0.62 ± 0.04 | 6.92 |
-| `weak` | 200 | 6.18 ± 0.04 | 27.6 ± 0.04 | −22.5 | 0.22 ± 0.02 | 8.29 |
-| `medium` | 600 | 10.3 ± 0.02 | 33.5 ± 0.02 | −16.6 | 0.077 ± 0.025 | 10.0 |
-| `strong` | 1000 | 11.9 ± 0.01 | 35.8 ± 0.05 | −14.3 | 0.004 ± 0.007 | 10.7 |
+| `no_gauss` | 0 | 1.75 ± 0.10 | 23.1 ± 0.06 | −27.6 | 0.62 ± 0.04 | 6.92 |
+| `weak` | 200 | 6.09 ± 0.04 | 27.6 ± 0.04 | −22.5 | 0.22 ± 0.02 | 8.29 |
+| `medium` | 600 | 10.5 ± 0.02 | 33.5 ± 0.02 | −16.6 | 0.077 ± 0.025 | 10.0 |
+| `strong` | 1000 | 12.1 ± 0.01 | 35.8 ± 0.05 | −14.3 | 0.004 ± 0.007 | 10.7 |
 
 Goal `(-0.50, 0, 0.38)`, obstacle `(-0.15, 0, 0.2175)`. Mark at 55.2 s, hold
 56.2–75.2 s, never clipped. Clearance rises monotonically with strength and so
@@ -554,7 +554,7 @@ the tip is held off the button — that is the trade-off, in numbers.
 |---|---|---|
 | k [N/m] | 0 | 500 |
 | obstacle, tip goal (xy) [cm] | (−25.0, 0.0), (−77.3, +24.8) — 81 cm from the base | same |
-| clearance, 3-D / lateral x–y / x–z [cm] | 8.8 / 7.2 / 5.3 | **13.4 / 12.3 / 6.3** |
+| clearance, 3-D / lateral x–y / x–z [cm] | 8.8 / 7.3 / 5.3 | **13.5 / 12.3 / 6.4** |
 | tip at the hold (x, y, z) [cm] | (−34.7, 10.9, 18.9) | (−31.9, 16.4, 19.9) |
 | body lift, max \|y\| [cm] | 10.9 | 16.4 |
 | pull on the tip, \|F\| [N] | 15.7 | 16.2 |
@@ -603,9 +603,9 @@ neither plot here.
 ⚠ No single projection is the geometry, and the arm leaves the y = 0 plane by
 different amounts in different variants. `_person`'s `gauss` run is **lifted
 16.4 cm** by the +y component of the Gaussians — invisible from above: in x–z the
-backbone is 6.3 cm from the obstacle, in 3-D 13.4 cm (12.3 cm laterally). The
+backbone is 6.4 cm from the obstacle, in 3-D 13.5 cm (12.3 cm laterally). The
 `_button` sweep, whose goal z is locked, stays within 1.8 cm of y = 0, so there
-x–z and 3-D agree to 0.1 cm (2.1 vs 2.2 cm with the field off). Read clearance
+x–z and 3-D agree to 0.15 cm (1.60 vs 1.75 cm with the field off). Read clearance
 and reach error in 3-D — or, for `_person` and `_card_castle`, laterally, as the
 next point explains.
 
