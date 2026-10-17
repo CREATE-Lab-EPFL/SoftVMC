@@ -40,6 +40,30 @@ run:
 [INFO] gravity compensation: gravity pulls along -y in the robot frame
 ```
 
+## Recorded data and gravity
+
+- **`COLLECTED_DATA`**: every experiment config sets it. `True` means that
+  config's data is already recorded, so a rerun (demo, sanity check) never
+  writes anything. It is `True` everywhere except three variants that ship
+  `False`, where re-using a run name overwrites the file (`ls outputs/<folder>/`
+  first): `ButtonPressing/`'s `_card_castle`, `ContactAndShaping/`'s
+  `_bending` (a new name per case) and `GaussianElement/`'s `_moving`.
+  `ConnectivityTest/` never saves anything.
+- **`GRAVITY_DIR`**: the direction gravity pulls in the robot frame, read from
+  each config (`"-z"`, upright, if a config omits it). `ButtonPressing/`,
+  `ConnectivityTest/` and `ContactAndShaping`'s `_bending` set `"-y"` (arm
+  mounted on its side); every other config was recorded upright. If the
+  mounting does not match the config, pass `--gravity-dir`. Otherwise gravity
+  compensation pushes along an axis gravity no longer acts on.
+
+## Hardware notes
+
+- `start_arm.sh` homes the motors, sets the USB latency timer to 1 ms, and
+  starts `dynamixel_node` in torque mode with the current motor calibration
+  (`use_kt:=true`, `kt:=0.000354`).
+- `python3 VMC/MultiGoHome.py --read` prints the absolute encoder position of
+  the 9 motors and exits. It talks to the Dynamixel bus directly, without ROS.
+
 ## Running
 
 ```bash

@@ -1,14 +1,15 @@
-# ConstrainedSpring Experiments
+# ConstrainedSpring — The cart element
 
-Experiments with the constrained ("cart") linear spring — a virtual spring that acts only along a specified direction (normal to a virtual surface), leaving the orthogonal directions free.
-
-This element implements **sliding contact**: the arm can move freely parallel to the surface while being controlled in the normal direction.
+The constrained ("cart") linear spring, `ConstrainedLinearSpring`, acts only
+along a chosen direction `n` (`f = K n nᵀ e`) and leaves the orthogonal
+directions free. The tip is guided along `n` and slides freely across it, like
+a cart on a rail.
 
 ## Experiments
 
 | Subfolder | Description |
 |---|---|
-| `outputs/constrained_spring/` | End-effector constrained to slide along a virtual plane |
+| `outputs/constrained_spring/` | The same goal sequence under the cart spring and under a linear spring (both K = 10 N/m) |
 
 ## Scripts
 
@@ -19,7 +20,7 @@ This element implements **sliding contact**: the arm can move freely parallel to
 
 ## Notebook
 
-`plot_constrained_spring.ipynb` — the end-effector's X–Y trajectory under the constrained spring against the same reference under a plain linear spring (both k = 10 N/m), time colour-coded, saved as `outputs/constrained_spring/xy_trajectory_markers.{pdf,svg}`. The reference goes 0 → x = 0.2 m → back to 0; the constrained run stays on its line (y range ≈ 0.4 cm) while the linear run moves in both x and y (y range ≈ 21 cm). There is **no force decomposition** — the notebook plots positions only.
+`plot_constrained_spring.ipynb`: the end-effector's X–Y trajectory under the cart spring against the same goals under a plain linear spring (both K = 10 N/m), saved as `outputs/constrained_spring/xy_trajectory_markers.{pdf,svg}`. The goal is stepped along the 45° diagonal in X–Y, to (20, 20), (40, 40) and (60, 60) cm (`publish_pos.sh`; "Attachment 1–3" in the figure, marked 1 s after each step). The linear spring follows the diagonal, reaching (22.8, 21.0) cm. The cart spring responds only along its direction `n` (x + z, see below), so in X–Y it stays on the 0° line, reaching x = 27.1 cm with |y| ≤ 0.4 cm. The notebook plots positions only, not forces.
 
 The shipped config uses `ConstrainedLinearSpring(10.0, n=[1, 0, 1])` (normalised): force acts only along the x + z direction. (`ConnectivityTest/` uses `n = [1, 0, 0]`.)
 
@@ -43,18 +44,16 @@ are discarded runs.
 
 ## Gravity direction
 
-This folder's config does not set `GRAVITY_DIR`, so the torque node compensates
-for an **upright** arm (`-z`) — which is how these runs were recorded. The arm
-is currently mounted **on its side** for `ButtonPressing/`. To reproduce this
-folder's data, remount it upright. If you run it on the side anyway, pass
-`--gravity-dir -y` or the compensation pushes along an axis gravity no longer
-acts on — and expect the numbers to differ from the recorded runs either way,
+These runs were recorded with the arm **upright**. The config does not set
+`GRAVITY_DIR`, so the torque node compensates for an upright arm (`-z`). To
+reproduce the data, mount the arm upright. On an arm mounted on its side, pass
+`--gravity-dir -y`. Otherwise the compensation pushes along an axis gravity no
+longer acts on. Expect the numbers to differ from the recorded runs either way,
 since the arm's own weight loads it differently.
 
 ## Running
 
 ```bash
-conda activate finger
 cd ConstrainedSpring
 python3 ../VMC/GUI_MultiVMC_Torque.py &
 python3 ../VMC/GUI_MultiVMC.py

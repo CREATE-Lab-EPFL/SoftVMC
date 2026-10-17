@@ -1,8 +1,9 @@
 # LoadCell — Force Sensor Interface
 
-Interface to the Arduino-based load cell used as ground truth for force
-measurement in finger experiments (proprioceptive sensing validation,
-efficiency identification). `Real_res1_twoLoadCells_HW/Real_res1_twoLoadCells_HW.ino`
+Interface to the Arduino-based load cell that measures the arm's interaction
+force: the shear force on a tendon tied to the tip (`LinearSpring/`,
+`TanhSpring/`) and on the button the arm presses (`ButtonPressing/`'s
+`_button` sweep). `Real_res1_twoLoadCells_HW/Real_res1_twoLoadCells_HW.ino`
 is the Arduino sketch (two HX711 load cells; it prints `Force1(g),Force2(g)`,
 which `arduino_force.py` reads as `shear,normal`); `arduino_force.py` is the
 ROS 2 side.
@@ -31,7 +32,6 @@ elsewhere.
 ## Running
 
 ```bash
-conda activate finger
 python3 arduino_force.py
 ```
 

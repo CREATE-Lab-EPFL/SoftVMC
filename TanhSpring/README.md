@@ -1,8 +1,9 @@
-# TanhSpring Experiments
+# TanhSpring — Force-bounded interaction
 
-Experiments with tanh (force-limited) spring and damper virtual elements.
-
-The tanh spring provides **bounded interaction forces** while preserving the restoring behavior of a linear spring for small displacements.  Force saturation occurs at `f_max`.
+The tanh spring, `f = F_max tanh(K e / F_max)`, behaves like a linear spring of
+stiffness `K` for small displacements and **bounds the interaction force** at
+`F_max` for large ones. Here it is compared on the hardware against a linear
+spring of the same `K`.
 
 ## Experiments
 
@@ -22,10 +23,10 @@ The tanh spring provides **bounded interaction forces** while preserving the res
 
 `plot_tanh_spring.ipynb` — the tanh spring's force law and the measured evidence that it saturates. It writes, in `outputs/tanh_spring/` (each `.pdf` + `.svg`, and `.png`):
 
-- `virtual_vs_real_tanh_fmax133` — the controller's virtual force against the load cell's measured shear force for the tanh run (separate y-axes: they live on very different scales; the point is the shape);
+- `virtual_vs_real_tanh_fmax133`: the controller's virtual force against the load cell's measured shear force for the tanh run, on one axis. The measured force is also drawn divided by η = 0.55, a fixed factor set in the notebook, so the two shapes can be compared;
 - `measured_force_vs_displacement` — measured shear force vs. commanded displacement, tanh against linear on one axis. At −50 cm the tanh spring's force has plateaued at ≈ 0.71 N while the linear spring's is still rising (≈ 0.94 N).
 
-The notebook uses **mathtext with `cmr10`** (`usetex` off), unlike the rest of the repo's figures, and prints a matplotlib `cmr10` warning about tick labels and a `SyntaxWarning` for `"$\eta$"` (an invalid `\e` escape in a non-raw string, which a future Python will make an error).
+Unlike the rest of the repo's figures, the notebook uses **mathtext with `cmr10`** (`usetex` off), so it needs no LaTeX install.
 
 **Config vs. recorded runs.** The shipped `GUI_MultiVMC_Config.py` has `TanhSpring(15.0, 1.5)` (K = 15 N/m, F_max = 1.5 N); the notebook describes the recorded runs as K = 10 N/m, F_max = 1.33 N (hence `fmax133` in the file name). Set those in the config, not the shipped values, to reproduce them.
 
@@ -49,18 +50,16 @@ are discarded runs.
 
 ## Gravity direction
 
-This folder's config does not set `GRAVITY_DIR`, so the torque node compensates
-for an **upright** arm (`-z`) — which is how these runs were recorded. The arm
-is currently mounted **on its side** for `ButtonPressing/`. To reproduce this
-folder's data, remount it upright. If you run it on the side anyway, pass
-`--gravity-dir -y` or the compensation pushes along an axis gravity no longer
-acts on — and expect the numbers to differ from the recorded runs either way,
+These runs were recorded with the arm **upright**. The config does not set
+`GRAVITY_DIR`, so the torque node compensates for an upright arm (`-z`). To
+reproduce the data, mount the arm upright. On an arm mounted on its side, pass
+`--gravity-dir -y`. Otherwise the compensation pushes along an axis gravity no
+longer acts on. Expect the numbers to differ from the recorded runs either way,
 since the arm's own weight loads it differently.
 
 ## Running
 
 ```bash
-conda activate finger
 cd TanhSpring
 python3 ../VMC/GUI_MultiVMC_Torque.py &
 python3 ../VMC/GUI_MultiVMC.py

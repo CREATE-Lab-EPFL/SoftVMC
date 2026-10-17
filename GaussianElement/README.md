@@ -1,19 +1,20 @@
-# GaussianElement Experiments
+# GaussianElement — Trajectory regulation and obstacle avoidance
 
-Experiments with the Gaussian repulsive field virtual element.  The Gaussian field produces a spatially-concentrated force that pushes the attachment point away from a specified center:
+The Gaussian spring is a repulsive field. It produces a spatially concentrated
+force that pushes its attachment point away from a centre:
 
 ```
 f(x) = k · exp(−‖x − c‖² / 2σ²) · (x − c)
 ```
 
-`x − c` is **not** normalised, so `k` is a stiffness in N/m (the config and the GUI call it `strength`; older notebook text calls it a "force amplitude, N" — it is not a force). Key properties: zero force at the center, peak force `k·σ·e^(−1/2)` at distance σ from it, and none to speak of beyond about 3σ. With σ = 0.06 m, a 240 N/m field peaks at 8.7 N.
+`x − c` is **not** normalised, so `k` (`A` in the [top-level README](../README.md#virtual-elements)) is a stiffness in N/m. The config and the GUI call it `strength`; the class docstring calls it a "force amplitude (N)", but it is not a force. Key properties: zero force at the center, peak force `k·σ·e^(−1/2)` at distance σ from it, and none to speak of beyond about 3σ. With σ = 0.06 m, a 240 N/m field peaks at 8.7 N.
 
 ## Experiments
 
 | Subfolder | Description |
 |---|---|
 | `outputs/fixed_gauss/` | Gaussian center is fixed in space at x = −17 cm; the arm reaches past it and the field is switched off part-way through, so one run shows both the obstacle-avoiding and the free posture |
-| `outputs/moving_gauss/` | Gaussian center circles the tip spring's target (radius 10 cm) while the tip spring holds its reference at the origin; three tip stiffnesses compared |
+| `outputs/moving_gauss/` | Trajectory regulation: the Gaussian centre circles the tip spring's goal (radius 10 cm) while the tip spring holds its goal at the origin, so the field moves the tip by an amount set by the tip stiffness. Three tip stiffnesses compared |
 
 Each `outputs/<folder>/readme.md` holds that experiment's recording procedure.
 
@@ -42,8 +43,8 @@ has **no plain `GUI_MultiVMC_Config.py`**, so every command needs `--config`:
 | `outputs/fixed_gauss/` (`--config _fixed`) | `fixed_gauss1_no_q` · `fixed_gauss2_no_q` · `fixed_gauss3` · `fixed_gauss4` · `fixed_gauss5` (the notebook uses `fixed_gauss5`) |
 | `outputs/moving_gauss/` (`--config _moving`) | `k2_moving_gauss` · `k4_moving_gauss` · `k20_moving_gauss` (all three are in the notebook) |
 
-**What was logged** (`k_params`) differs from the names and from the procedures
-in each `readme.md` — trust the log:
+**What was logged** (`k_params`) differs in places from the run names and from
+the procedures in each `readme.md`:
 
 | run | logged tip stiffness [N/m] | logged Gaussian strength [N/m] |
 |---|---|---|
@@ -73,12 +74,11 @@ Names starting `old_` are discarded runs.
 
 ## Gravity direction
 
-This folder's config does not set `GRAVITY_DIR`, so the torque node compensates
-for an **upright** arm (`-z`) — which is how these runs were recorded. The arm
-is currently mounted **on its side** for `ButtonPressing/`. To reproduce this
-folder's data, remount it upright. If you run it on the side anyway, pass
-`--gravity-dir -y` or the compensation pushes along an axis gravity no longer
-acts on — and expect the numbers to differ from the recorded runs either way,
+These runs were recorded with the arm **upright**. The config does not set
+`GRAVITY_DIR`, so the torque node compensates for an upright arm (`-z`). To
+reproduce the data, mount the arm upright. On an arm mounted on its side, pass
+`--gravity-dir -y`. Otherwise the compensation pushes along an axis gravity no
+longer acts on. Expect the numbers to differ from the recorded runs either way,
 since the arm's own weight loads it differently.
 
 ## Running
@@ -89,7 +89,6 @@ no plain default, so pass `--config` to pick one — nothing is copied. Name the
 **same** variant in every command of a run:
 
 ```bash
-conda activate finger
 cd GaussianElement
 
 # Fixed obstacle -- every command names the same variant:

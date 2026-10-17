@@ -20,7 +20,6 @@ Single-segment VMC implementation — kept for reference and simulation testing.
 ## Running simulation
 
 ```bash
-conda activate finger
 cd SingleVMC
 python3 SingleVMCSimulation.py
 ```
@@ -28,7 +27,6 @@ python3 SingleVMCSimulation.py
 ## Running on hardware
 
 ```bash
-conda activate finger
 cd SingleVMC
 export PYTHONPATH="${PYTHONPATH}:$(pwd)"
 python3 SingleVMC.py

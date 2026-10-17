@@ -68,7 +68,7 @@ elsewhere in the codebase):
 
 ## Running an Experiment
 
-**Prerequisites:** ROS 2 Humble, conda env `finger`, `ros2_dynamixel` built.
+**Prerequisites:** ROS 2 Humble, with `ros2_dynamixel` built (see the [top-level README](../README.md#getting-started)).
 
 `GUI_MultiVMC.py` and `GUI_MultiVMC_Torque.py` both do
 `from GUI_MultiVMC_Config import (...)`, which Python resolves against the

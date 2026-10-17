@@ -40,7 +40,6 @@ sags or drifts consistently to one side, this is the first thing to check.
 Primary path — interactive GUI:
 
 ```bash
-conda activate finger
 cd ConnectivityTest
 
 # Terminal 1 -- hardware

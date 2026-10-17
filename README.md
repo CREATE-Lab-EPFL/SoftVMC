@@ -1,184 +1,153 @@
 # SoftVMC
 
-Virtual Model Control (VMC) of a 3-segment soft continuum manipulator (Helyx).  Kinematics are modelled with **Piecewise Constant Curvature (PCC)**; control is achieved by attaching virtual mechanical elements (springs, dampers) to points along the arm body and computing the resulting motor torques via the Jacobian transpose.
+*Virtual Model Control (VMC) for full-body regulation and compliance shaping
+of a tendon-driven soft continuum arm.*
 
-> **Philosophy:** the robot receives *suggestions* rather than rigid commands, exploiting its inherent compliance to interact safely with the environment and adapt its posture through contact.
+<p align="center">
+  <img src="assets/Figure_1.jpg" width="100%" alt="Overview of VMC on the soft arm: full-body shaping, exploiting, regulating and avoiding contact, and the library of virtual elements">
+</p>
 
-## ROS 2 environment
+<sub>**Figure 1.** Virtual springs, dampers and Gaussian fields are attached at points along the soft arm's body and mapped to motor torques through a Piecewise Constant Curvature model. One mechanism shapes the whole body and can exploit, regulate or avoid contact.</sub>
 
-Uses the external ROS 2 workspace that contains the Dynamixel package. Clone it once, alongside this repo:
+## What it does
 
-```bash
-cd "$HOME/github"
-git clone git@github.com:CREATE-Lab-EPFL/ros2_dynamixel.git
-```
+VMC attaches virtual mechanical elements, such as springs, dampers and potential
+fields, to points along the arm and maps their forces to motor torques through
+the kinematic Jacobians, `τ = Σᵢ Jᵢ(q)ᵀ fᵢ`. The arm behaves as if those
+elements were physically present. It needs no inverse kinematics and no
+replanning: reaching a goal and responding to the environment both come from
+one virtual model, and passive elements keep the interaction stable. This gives:
 
-Then, for every session:
+- **Full-body shaping**: elements attached anywhere along the body set the configuration of the whole arm, not just the tip. A moving element extends this to trajectory regulation.
+- **Stiffness and force rendering**: the virtual stiffness sets the compliance the environment feels at the tip, and a saturating (tanh) spring bounds the force the arm applies.
+- **Exploiting contact**: a compliant tip spring lets the arm slide along a surface on its way to a goal instead of fighting it.
+- **Regulating contact**: Gaussian elements on intermediate body points set how hard the body presses on an object while the tip keeps reaching.
+- **Avoiding contact**: the same Gaussian elements keep the body clear of obstacles, for a card castle and for a teleoperated handover that is replayed around an obstacle.
 
-```bash
-source /opt/ros/humble/setup.bash
-source "$HOME/github/ros2_dynamixel/install/setup.bash"
-```
+<p align="center">
+  <img src="assets/Figure_2.jpg" width="100%" alt="The three-section tendon-driven arm and its tendon routing">
+</p>
 
-If the external package changed and needs rebuilding, do it there, not inside this repo:
+<sub>**Figure 2.** The three-section tendon-driven arm. Nine motors at the base drive three tendons per section, 120° apart, routed through Bowden cables to Sections II and III. S₀ to S_III are the section frames of the PCC model.</sub>
 
-```bash
-cd "$HOME/github/ros2_dynamixel"
-colcon build --packages-select dynamixel_interface
-source install/setup.bash
-```
+## Platform
 
----
+| | |
+|---|---|
+| **Soft continuum arm** | Three-section trimmed-helicoid arm, 43.5 cm long when straight, driven by nine Dynamixel motors (IDs 11–19, three per section) and modelled with Piecewise Constant Curvature (PCC) |
+| **Load cell** | Arduino with HX711 load cells, measuring the shear force on a tendon tied to the tip or on a button pressed by the arm |
 
-## Repository Structure
+## Virtual elements
 
-```
-SoftVMC/
-├── Kinematics/          FK and analytical Jacobians (PCC, 3 segments, 9 motors)
-├── VMC/                 Core VMC controller + ROS 2 nodes (GUI, torque, go-home)
-├── VMC_utils/           Shared building blocks (virtual models, gravity comp)
-├── ConnectivityTest/    Run this first: connect + move sanity check, nothing saved
-│
-├── LinearSpring/        Experiments: k-saturation, disturbance rejection
-├── TanhSpring/          Experiments: force-limited spring (sequential jump tests)
-├── ConstrainedSpring/   Experiments: surface-sliding (constrained/cart spring)
-├── GaussianElement/     Experiments: obstacle avoidance (fixed & moving Gaussian)
-├── ContactAndShaping/   Experiments: contact, whole-body shaping, surface tracking
-├── ButtonPressing/      Experiments: tip reaching spring vs. body Gaussians (button + person locked; card castle recorded once, not final)
-│
-├── SingleVMC/           1-segment VMC (reference / simulation only)
-├── LoadCell/            Load cell interface utilities (Arduino sketch + ROS 2 publisher)
-│
-├── plot_config.mplstyle  Matplotlib style (LaTeX, pastel palette, 18 pt)
-├── plot_config.py        Plotting helpers (COLORS, PASTEL_CMAP*, FIG_W_*, set_font_size, pick_spread, make_square_panel_row)
-├── start_arm.sh          Full startup script (home → latency → dynamixel_node)
-└── README.md            Project overview and setup
-```
+The five elements used in the experiments (Fig. 1c), from `VMC_utils/VirtualModels.py`:
 
-Each experiment directory follows the same internal layout: `GUI_MultiVMC_Config*.py` (VMC config, one per sub-experiment variant), `outputs/<name>/` (recorded `.npz` runs + generated plots), `plot_*.ipynb` (the analysis notebook(s) that turn `outputs/` into figures), and — only in `ButtonPressing/` and `ContactAndShaping/` — `media/` (setup photos and screenshots only, **never** generated graphs, which belong in `outputs/`). The smaller experiments keep a `setup*.png` inside their `outputs/` folder instead. See each experiment's own `README.md` for which notebook produces which output, and which config file is active by default.
+| Element | Class | Force law |
+|---|---|---|
+| Linear spring | `LinearSpring` | `f = K e` |
+| TanH spring | `TanhSpring` | `f = F_max tanh(K e / F_max)` |
+| Gaussian spring | `GaussianSpring` | `f = A exp(−‖Δ‖² / 2σ²) Δ` |
+| Cart | `ConstrainedLinearSpring` | `f = K n nᵀ e`, acting only along `n` |
+| Damper | `LinearDamper` | `f = −c ẋ` |
 
-The ROS 2 Dynamixel driver is maintained in the sibling workspace:
-
-```bash
-$HOME/github/ros2_dynamixel
-```
+In these laws, `e` is the goal minus the attachment point, and `Δ` is the
+attachment point minus the Gaussian's centre. `Δ` is not normalised, so the
+Gaussian strength `A` is in N/m, like `K`. Its force is zero at the centre,
+peaks at `‖Δ‖ = σ` with magnitude `A σ e^(−1/2)`, and vanishes beyond about 3σ.
+The same file also has sigmoid, polynomial and deadzone springs, tanh dampers
+and the constrained variants of each element.
 
 ---
 
-## Setup
+## Repository contents
 
-**Conda environment:** `finger` (Python 3.10, ROS 2 Humble)
+**Experiments**: one self-contained folder per study. Each holds a VMC config
+per variant (`GUI_MultiVMC_Config*.py`), the recorded runs and generated figures
+(`outputs/<study>/`), and the `plot_*.ipynb` notebooks that turn the runs into
+the figures.
 
-```bash
-conda activate finger
-```
+| Folder | Study |
+|---|---|
+| `ContactAndShaping/` | Full-body shaping with a tip spring and a body Gaussian; surface following with a soft vs. a stiff tip spring; one tip spring vs. three distributed springs |
+| `GaussianElement/` | Trajectory regulation: a Gaussian circling the tip's goal moves the tip by an amount set by the tip stiffness. Also a fixed Gaussian pushing the body off an obstacle |
+| `ConstrainedSpring/` | Cart vs. linear spring: with the goal stepped along a diagonal, the cart moves the tip only along its constrained direction |
+| `LinearSpring/` | Stiffness rendering: shear force and apparent stiffness at the tip across a stiffness sweep, and disturbance rejection across stiffness |
+| `TanhSpring/` | Force bounding: measured shear force under a tanh spring vs. a linear spring of the same stiffness |
+| `ButtonPressing/` | Contact regulation and avoidance with body Gaussians: button pressing across Gaussian strengths, a card castle, and a teleoperated handover with a person |
 
-**ROS 2 driver** (clone once — see "ROS 2 environment" above — then build once in the external workspace):
+**Core framework**
 
-```bash
-cd "$HOME/github/ros2_dynamixel"
-colcon build --packages-select dynamixel_interface
-source install/setup.bash
-```
-
-The startup script launches the node with the current motor calibration:
-
-```bash
--p use_kt:=true
--p kt:=0.000354
-```
+| Folder | Contents |
+|---|---|
+| `Kinematics/` | PCC forward kinematics and analytical Jacobians (3 sections, 9 motors) |
+| `VMC/` | VMC controller and ROS 2 nodes: torque computation, GUI, homing, scripted goal publishers |
+| `VMC_utils/` | Virtual spring, damper and Gaussian primitives, gravity compensation, config loader |
+| `LoadCell/` | Arduino load-cell sketch and its ROS 2 force publisher |
+| `ConnectivityTest/` | Hardware sanity check that connects to the arm and moves it, saving nothing |
+| `SingleVMC/` | Single-section VMC, kept for reference and offline simulation |
 
 ---
 
-## Quick Start
+## Getting started
+
+Home the arm and start the motor driver:
 
 ```bash
-# 1. Start the arm (homes motors + starts ROS 2 driver)
-bash start_arm.sh
+bash start_arm.sh   # home the 9 motors + USB latency timer + dynamixel node (torque mode)
+```
 
-# 2. First time in a session, or after any change to the hardware/software
-#    chain: verify it actually works before trusting it with an experiment.
-#    Nothing is saved here.
-cd ConnectivityTest
-python3 ../VMC/GUI_MultiVMC_Torque.py &
-python3 ../VMC/MultiVMC_MovingGoal_Pub.py
+On first use, or after any hardware change, run `ConnectivityTest/` to check
+the whole chain before an experiment. Then launch from an experiment folder,
+whose config is picked up from the working directory:
 
-# 3. From an experiment directory — pick up its VMC config automatically
+```bash
 cd LinearSpring
-python3 ../VMC/GUI_MultiVMC_Torque.py &   # torque computation node
-python3 ../VMC/GUI_MultiVMC.py            # visualization + control GUI
+python3 ../VMC/GUI_MultiVMC_Torque.py &   # VMC torque node
+python3 ../VMC/GUI_MultiVMC.py            # GUI: drag goals, set stiffness
+```
 
-# 3b. A folder holding several config variants: name the one you want, and
-#     name the SAME one in every command of the run. Nothing is copied.
-cd ../GaussianElement
+For a folder with several config variants, name the variant with `--config`,
+and use the same variant in every command of a run:
+
+```bash
+cd GaussianElement
 python3 ../VMC/GUI_MultiVMC_Torque.py --config _moving &
 python3 ../VMC/GUI_MultiVMC.py --config _moving
 ```
 
----
+`--run NAME` writes the run straight to `outputs/<study>/NAME.npz`. See
+[VMC/README.md](VMC/README.md) for every flag, and each experiment folder's
+README for its protocol.
 
-## Kinematics
+**Requirements**: ROS 2 Humble with the `dynamixel_interface` package. Download it
+with `git clone git@github.com:CREATE-Lab-EPFL/ros2_dynamixel.git` and build it
+next to this repository: `start_arm.sh` looks for it in
+`$HOME/github/ros2_dynamixel`, or in `$ROS2_DYNAMIXEL_WS` if that is set. You also need:
 
-Each segment is parametrized by `(Dx, Dy, Dl)` — lateral curvatures and elongation.  Nine Dynamixel motors (IDs 11–19, three per segment) control tendon lengths.  The mapping `q_motor ↔ PCC ↔ Cartesian pose` is implemented in `Kinematics/`.
-
-See [Kinematics/KINEMATICS_DOCUMENTATION.md](Kinematics/KINEMATICS_DOCUMENTATION.md) for the full derivation.
-
----
-
-## Virtual Element Library
-
-| Element | Force law | Use case |
-|---|---|---|
-| `LinearSpring` | f = k Δx | Position control, stiffness characterization |
-| `LinearDamper` | f = c ẋ | Velocity damping |
-| `TanhSpring` | f = f_max tanh(k Δx / f_max) | Bounded interaction force |
-| `ConstrainedSpring` | linear spring on normal direction | Sliding contact |
-| `GaussianSpring` | f = k · exp(−‖Δx‖²/2σ²) · Δx | Obstacle avoidance |
-| `DeadzoneLimitSpring` | zero inside deadzone | Soft limits |
-
-For `GaussianSpring`, `Δx` = attachment point − centre, **not** a unit vector, so `k` is a stiffness in **N/m**. (The constructor argument is called `strength`, and its docstring in `VirtualModels.py`, some notebook text and a few plot legends still say "force amplitude, N" — it is not a force.) The force is zero at the centre, peaks at `‖Δx‖ = σ` with magnitude `k·σ·e^(−1/2)` ≈ 0.607·k·σ newtons, and dies off beyond about 3σ. With `σ = 0.06 m`, 500 N/m peaks at 18 N.
-
-All elements are in `VMC_utils/VirtualModels.py` — that file also has `SigmoidSpring`, `PolynomialSpring`, the tanh and constrained variants of the dampers, and the constrained Gaussian; see [VMC/VMC_DOCUMENTATION.md](VMC/VMC_DOCUMENTATION.md) for the full table and the node architecture.
-
----
-
-## Plotting Style
-
-Every notebook imports `plot_config.py`, which applies `plot_config.mplstyle`: LaTeX text (`text.usetex`, Computer Modern), a **pastel** palette (`COLORS`, plus `PASTEL_CMAP*` for swept parameters), no grid lines, 18 pt text. Saving a figure as PDF through `Figure.savefig` also writes an SVG next to it (patched in by `plot_config.py`; PNG saves get no twin, and an SVG that fails to write is skipped silently). Axes for magnitude-vs-parameter curves (force, energy, displacement — anywhere zero is a meaningful reference) are anchored at 0 rather than left to matplotlib's auto-padding, except where a marker or error-bar cap sits at 0 and would be clipped, so the axis is padded slightly below it (`ButtonPressing` `force_vs_strength`, `TanhSpring` measured force); spatial/XY-trajectory and signed plots are not forced through zero. Import at the top of each notebook:
-
-```python
-import sys; sys.path.insert(0, '..')
-from plot_config import COLORS, FIG_W_SINGLE, FIG_W_DOUBLE, set_font_size
-GRID = False
-FONT_SIZE = 18
-set_font_size(FONT_SIZE)
+```bash
+pip install numpy scipy sympy matplotlib pyserial dynamixel-sdk jupyter
 ```
 
-Deliberate exceptions:
+The GUI also needs Tk (`python3-tk`).
 
-- `TanhSpring/plot_tanh_spring.ipynb` turns `usetex` off (mathtext with `cmr10`), so it needs no TeX and is not affected by the issue below.
-- The `ButtonPressing/` notebooks pin their own colours (NPG in `plot_button`, Dark2 in `plot_person` and `plot_card_castle`); see that folder's README.
-- `FONT_SIZE` is 18 unless a notebook says otherwise: 24 in `plot_gauss_fixed_gauss`, 28 in the LinearSpring figures that stack into one panel (`ALIGNED_*` in `plot_config.py`).
+## Reproducing the figures
 
-**Requirements.** A LaTeX install (MiKTeX or TeX Live), plus numpy, matplotlib, scipy and sympy (the notebooks that draw the arm import `Kinematics/FK_Multi`, which builds its Jacobians with sympy). There is no requirements file; the committed figures were made with four different matplotlib versions (3.10.0, 3.10.8, 3.11.0, 3.11.2), and layouts shift slightly between them (the `body_shaping` legends do), so pin one before regenerating a whole set.
+Every `plot_*.ipynb` reads the recorded runs in its folder's `outputs/` and
+writes its figures there. It needs no hardware and no ROS. The notebooks share
+`plot_config.py` and `plot_config.mplstyle` (LaTeX text in Computer Modern,
+pastel palette), and saving a figure as PDF also writes an SVG next to it.
 
-> ⚠ **Known issue — matplotlib 3.11.0 drops minus signs from LaTeX PDFs.** Its Type-1 font subsetter overwrites glyph code 0, which in CMSY10 is the minus, so a tick labelled −20 prints as 20. The SVG twin is unaffected. Use 3.10.x or ≥ 3.11.2 (checked: 3.11.2 needs no workaround). Six committed PDFs were made with 3.11.0 and still carry the defect — regenerate them by re-running their notebooks on a fixed matplotlib (the five `ButtonPressing/outputs/button_pressing/backbone*.pdf` were regenerated on 3.11.2 and are fine):
->
-> - `ButtonPressing/outputs/person_avoiding/backbone.pdf`
-> - `LinearSpring/outputs/k_saturation/{force_vs_pos_by_k,stiffness_vs_pos_by_k,force_and_stiffness_by_k}.pdf` and `LinearSpring/outputs/disturbance_rejection/disturbance_response_by_k.pdf`
-> - `GaussianElement/outputs/fixed_gauss/fixed_gauss5_xz.pdf`
->
-> To check a PDF: `fitz.open(path).metadata['producer']` names the matplotlib that wrote it, and rendering it (not extracting its text, which still reports the minus) shows whether the sign is drawn. Delete this note once they are regenerated.
+The notebooks need a LaTeX install, except `TanhSpring/`, which uses mathtext.
+The committed figures were made with matplotlib 3.11.2. Avoid 3.11.0: it drops
+minus signs from LaTeX PDFs.
 
----
+## Documentation
 
-## Notes
+- [VMC/README.md](VMC/README.md): nodes, run flags (`--config`, `--run`, `--gravity-dir`) and hardware notes
+- [VMC/VMC_DOCUMENTATION.md](VMC/VMC_DOCUMENTATION.md): the VMC formulation, node and topic architecture, virtual element API, and the recorded `.npz` format
+- [VMC_utils/README.md](VMC_utils/README.md): virtual element classes and gravity compensation
+- [Kinematics/KINEMATICS_DOCUMENTATION.md](Kinematics/KINEMATICS_DOCUMENTATION.md): PCC derivation and Jacobians
+- Each experiment folder's `README.md`: protocol, recorded runs, and which notebook makes which figure
 
-- **ROS 2 version:** ROS 2 Humble (check `ros2_dynamixel` build if switching to Jazzy).
-- **Motor kT:** the node launches with `use_kt:=true` and `kt:=0.000354` by default. This is the current motor calibration used by the external Dynamixel package.
-- **Latency timer:** set to 1 ms for real-time performance (`start_arm.sh` does this automatically).
-- **Reading the 9 motors:** `python3 VMC/MultiGoHome.py --read` prints the current absolute position (encoder ticks) of all 9 motors and exits — no ROS needed, talks to the Dynamixel bus directly. Use it to check raw motor state on demand, or to capture a new `HOME_POSITION`.
-- **`--config`:** every script that reads an experiment config — `GUI_MultiVMC_Torque.py`, `GUI_MultiVMC.py`, `MultiVMC_MovingGoal_Pub.py`, `MultiVMC_publish_0.py` — accepts `--config NAME`, loading `GUI_MultiVMC_Config_NAME.py` from the launch directory instead of the plain `GUI_MultiVMC_Config.py`. `_moving` and `moving` are equivalent. This replaces copying a variant over `GUI_MultiVMC_Config.py`; the copy still works, but every command in a run must name the same variant, and a wrong name lists what is available. The folder runners (`GaussianElement/moving_gauss_test.py`, `LinearSpring/VMC_test_k.py`, `TanhSpring/Sequential_jump_tests.py`) take the variant as their first argument instead: `python3 moving_gauss_test.py _moving`.
-- **`--run NAME`:** name a run and `GUI_MultiVMC_Torque.py` writes it straight to `outputs/<OUTPUT_FOLDER>/NAME.{npz,png}` on exit, **overwriting** a previous run of that name — so repeating a run replaces it instead of piling up files. Without it, output goes to a timestamped `experiments/z_<stamp>` pair as before, to be moved later with the folder's `collect_run.py`. The `.npz` is written before the plot, so an interrupt during the save costs the figure, never the data.
-- **`GRAVITY_DIR`:** direction gravity pulls **in the robot frame**, read from each experiment's config by `GUI_MultiVMC_Torque.py` (`"-z"` if a config omits it). `"-z"` is the arm standing straight up; `"-y"` is the arm rotated onto its side, which is how `ButtonPressing/`, `ConnectivityTest/` and `ContactAndShaping`'s `_bending` variant are set up. Override per run without editing the config: `python3 ../VMC/GUI_MultiVMC_Torque.py --gravity-dir -z`. Get it wrong and gravity compensation pushes along an axis gravity no longer acts on. **The arm is currently mounted on its side**, so every other config — which assumes upright — needs either a remount or `--gravity-dir -y` to run at all, and only a remount to reproduce its recorded data.
-- **`COLLECTED_DATA`:** every experiment config sets this flag (see `GUI_MultiVMC_Torque.py`). `True` means real data is already collected for that config — reruns (demos, sanity checks) will never overwrite it. Currently `True` everywhere **except three variants that ship `False`**, where re-using a run name overwrites the file (`ls outputs/<folder>/` first): `ButtonPressing/`'s `_card_castle` (recorded once, not final; its `_button` and `_person` variants are finished and locked), `ContactAndShaping/`'s `_bending` (a new name per case, see its README), and `GaussianElement/`'s `_moving` (which already holds three recorded runs). `ConnectivityTest/` has no such flag since it never saves anything regardless.
+## License
+
+MIT. See [LICENSE](LICENSE).

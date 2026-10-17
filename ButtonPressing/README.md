@@ -1,28 +1,30 @@
-# ButtonPressing
+# ButtonPressing — Regulating and avoiding contact
 
-A linear spring reaches the tip for a button; two repulsive Gaussians push the
-arm's *body* off an obstacle. `tau = sum_i J_i^T F_i`. Turning the Gaussians up
-buys clearance and costs reach — that trade-off is the experiment.
+A linear spring pulls the tip towards a target, and repulsive Gaussians push
+the arm off an obstacle. Turning the Gaussians up buys clearance and costs
+reach. On the button, that trade-off sets how hard the body presses (contact
+regulation). Next to a card castle, or an obstacle on the way to a person, it
+keeps the arm clear (contact avoidance).
 
-Three variants, two protocols:
+Three variants:
 
 | | `_button` | `_person` | `_card_castle` |
 |---|---|---|---|
-| what it shows | reach traded for clearance, swept | whole-body shaping past a person | *intended:* the tip held short of the cards by the field — the recorded run does not do this, see [the standoff demo](#_card_castle--the-standoff-demo-no-gui) |
+| what it shows | reach traded for clearance, swept | a teleoperated reach to a person (handover), replayed with body Gaussians so the arm clears an obstacle | the tip deflected round a card castle on its way to a target beyond it (designed as a standoff, see [the standoff demo](#_card_castle--the-standoff-demo-no-gui)) |
 | elements | 3: tip + 2 body Gaussians | 4: tip + 3 body Gaussians | **2, both on the tip** |
-| obstacle | a fixture at x = −0.15 | a person's arm at x = −0.25 | the cards at (0, +0.25), target beyond at (0, +0.50) |
-| driven by | `run_sweep.py`, no GUI | the GUI, by hand | `castle_demo.py`, **no GUI** |
+| obstacle | a fixture at x = −0.15 | an obstacle at x = −0.25 | the cards at (0, +0.25), target beyond at (0, +0.50) |
+| driven by | `run_sweep.py`, no GUI | the GUI by hand (`no_gauss`), then replayed into `gauss` by `replay_goal.py` | `castle_demo.py`, **no GUI** |
 | Gaussian strength | swept 0 / 200 / 600 / 1000 | 2 cases: 0 and 500 | 2 cases: 0 and 1500 |
 | `TAU_LIMIT` | 0.25 N·m | **0.35 N·m** | **0.35 N·m** |
 | load cell | yes | no | no |
 | files | `outputs/button_pressing/`, 4 × 5 repeats | `outputs/person_avoiding/`, 2 | `outputs/card_castle/`, 2 |
-| status | **recorded, locked** (`COLLECTED_DATA = True`) | **recorded, locked** (`COLLECTED_DATA = True`) | recorded once, **not final** (`COLLECTED_DATA = False` — re-running a case overwrites it) |
+| status | **recorded, locked** (`COLLECTED_DATA = True`) | **recorded, locked** (`COLLECTED_DATA = True`) | recorded (`COLLECTED_DATA = False`: re-running a case overwrites it) |
 | recorded result | clearance **1.7 → 6.1 → 10.5 → 12.1 cm** as strength goes 0 → 200 → 600 → 1000 N/m; reach error 23.1 → 35.8 cm | clearance **8.8 → 13.5 cm** (3-D; 7.3 → 12.3 cm lateral) at 0 → 500 N/m | `no_gauss` goes through the cards; `gauss` **slides round them** and ends 15.0 cm from the centre, beside it and past it |
 
 Numbers are from the run logs, see [Recorded results](#recorded-results).
 
-`_person` keeps the body-shaping model — Gaussians spread along the arm, goals
-placed by hand. `_card_castle` is a different demo: both elements sit on the
+`_person` keeps the body-shaping model: Gaussians spread along the arm, goals
+placed by hand and then replayed. `_card_castle` is a different demo: both elements sit on the
 tip but pull and push towards *different* points, and the whole run is scripted.
 
 ---
@@ -32,7 +34,6 @@ tip but pull and push towards *different* points, and the whole run is scripted.
 Every terminal starts from:
 
 ```bash
-conda activate finger
 cd ButtonPressing
 ```
 
@@ -130,7 +131,9 @@ python3 ../VMC/GUI_MultiVMC.py --config _person --run no_gauss
 Hand-driving both cases makes them differ in the field **and** in wherever the
 mouse went — and the second difference is usually the bigger one. `replay_goal.py`
 removes it: record `no_gauss` from the GUI, then publish that same goal
-trajectory back into `gauss`, sample for sample.
+trajectory back into `gauss`, sample for sample. The recorded pair was made
+this way: `gauss`'s goals match `no_gauss`'s, shifted by the 8 s settle, to
+within 0.7 mm on average.
 
 **It replays only the reference** — the goals on `/VC_ref_pos`. Torque is still
 computed live by the torque node from the arm's actual state and this run's
@@ -249,8 +252,8 @@ Gaussians moving, ramping 0 → k over 5 s. **Let it settle.**
 `HOME_POSITION`. Check nothing fragile is under where it comes to rest.
 
 The run is saved **first**, before anything is stopped — it is the only step
-that cannot be redone. Once a run is ending, **Ctrl+C is ignored**: pressing it
-again used to land inside the save and cost the run. Closing the window with
+that cannot be redone. Once a run is ending, **Ctrl+C is ignored**, so a second
+press cannot interrupt the save. Closing the window with
 its X saves too, but leaves the arm and driver alone.
 
 If a motor misses home, or lands a whole turn out, the GUI says so and stays
@@ -464,11 +467,8 @@ be so: there the Gaussian centre IS the target, and the standoff is the result.
 ⚠ **`tau_raw` records what was asked, and the limiter never bit in any recorded
 run** — the run figure shades where it would. Peaks of `|tau_raw|` over the
 whole run: 0.049 N·m for `_button` (limit 0.25), 0.095 N·m for `_person` and
-0.061 N·m for `_card_castle` (limit 0.35). An earlier version of this README
-quoted a formula for where the tip spring alone reaches `TAU_LIMIT`
-(x = −0.597); it does not reproduce from the recorded runs, so if you move a
-target or raise a strength, check `tau_raw` rather than trusting an
-extrapolation. The limiter warns once every 2 s (`CLIP_WARN_S`), not once per
+0.061 N·m for `_card_castle` (limit 0.35). If you move a target or raise a
+strength, check `tau_raw` rather than trusting an extrapolation. The limiter warns once every 2 s (`CLIP_WARN_S`), not once per
 tick.
 
 ## `_button` only
@@ -585,8 +585,8 @@ lands on the same spot.
 
 # Gravity and axes
 
-The arm is mounted **on its side** — all three configs set `GRAVITY_DIR = "-y"`
-(override per run with `--gravity-dir`):
+All three variants were recorded with the arm mounted **on its side**, and all
+three configs set `GRAVITY_DIR = "-y"` (override per run with `--gravity-dir`):
 
 | axis | physically | set by |
 |---|---|---|
@@ -596,9 +596,7 @@ The arm is mounted **on its side** — all three configs set `GRAVITY_DIR = "-y"
 
 So an **x–z plot is a plan view from above**, and an **x–y plot looks along the
 arm's axis** (a front view). The *side* view — where the arm's droop under
-gravity shows — is **y–z**, which the notebooks do not plot. Their captions
-("side view (X–Z)", "top view (X–Y)") were written for an upright arm and fit
-neither plot here.
+gravity shows — is **y–z**, which the notebooks do not plot.
 
 ⚠ No single projection is the geometry, and the arm leaves the y = 0 plane by
 different amounts in different variants. `_person`'s `gauss` run is **lifted
@@ -679,21 +677,13 @@ Each notebook writes its figures as PDF **and** SVG next to the runs
 To know before you rely on them:
 
 - **Requirements.** LaTeX (the shared style sets `text.usetex`) and a matplotlib
-  that is **not 3.11.0**: that release drops the minus sign from usetex PDFs
-  (see the [top-level README](../README.md#plotting-style)). The five
-  `button_pressing/backbone*.pdf` and `person_avoiding/backbone.pdf` were made
-  with it and printed their negative ticks without the sign (X read 80 … 20 where
-  it is −80 … −20; the SVGs were right); all six were regenerated on 3.11.2. The
-  PDFs with no negative ticks (`card_castle/backbone.pdf`, `shear_*`,
-  `force_vs_*`) were never affected. Re-running a notebook on 3.11.0 breaks its
-  PDFs again.
+  that is **not 3.11.0**, which drops the minus sign from usetex PDFs (see the
+  [top-level README](../README.md#reproducing-the-figures)). The committed
+  figures were made with 3.11.2.
 - **Palette.** These notebooks pin their own colours instead of the repo's pastel
   default: NPG in `plot_button`, Dark2 (`#1B9E77`, `#D95F02`) in `plot_person` and
   `plot_card_castle`. So `no_gauss` is cyan in the button figures and green in
   the other two.
-- **Legends.** The Gaussian strength in the button legends reads "A: 600 N"; the
-  quantity is a stiffness-like field strength in **N/m** (the `force_vs_strength`
-  axis has it right).
 - **Views.** The geometry figures are X–Z (button, at **equal scale**: 1 cm in Z
   is the same length as 1 cm in X, so the σ circle is a circle and the panel
   takes the shape of its data — the combined figure is tall because the target

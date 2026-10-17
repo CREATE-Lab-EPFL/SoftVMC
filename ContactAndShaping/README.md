@@ -1,13 +1,16 @@
-# ContactAndShaping Experiments
+# ContactAndShaping — Full-body shaping and surface following
 
-Experiments involving physical contact and body shaping — multiple virtual elements acting simultaneously on different points along the arm.
+Several virtual elements acting at once on different points along the arm: a
+tip spring and a body Gaussian that shape the whole arm's configuration, a
+compliant tip spring that lets the arm slide along a surface, and distributed
+springs compared with a single tip spring.
 
 ## Experiments
 
 | Subfolder | Description |
 |---|---|
-| `outputs/sponge/` | End-effector pressed against a sponge; sweep contact stiffness k. Only raw `.npz` + auto-generated `GUI_MultiVMC_Torque.py` per-run snapshot PNGs exist here — **no analysis notebook in the repo processes this data into a comparison figure**. |
-| `outputs/surface_tracking/` | Arm slides along a rigid surface with a constrained spring, one run per stiffness (`k5` … `k130`). `k8.xlsx`, `k70.xlsx` and `k_compare.xlsx` are tip-marker trajectories from video tracking, hand-corrected; `plot_surface_tracking.ipynb` reads `k_compare.xlsx` |
+| `outputs/sponge/` | End-effector pressed against a sponge; sweep contact stiffness k. Only the raw `.npz` and the torque node's per-run snapshot PNGs are here; no notebook in the repo turns this data into a figure. |
+| `outputs/surface_tracking/` | Surface following: a linear tip spring pulls the arm towards a goal with a slanted rigid surface in the way, and the arm slides along the surface until it clears its edge. One run per stiffness (`k5` … `k130`). `k8.xlsx`, `k70.xlsx` and `k_compare.xlsx` are tip-marker trajectories from video tracking, hand-corrected; `plot_surface_tracking.ipynb` reads `k_compare.xlsx` |
 | `outputs/body_shaping/` | Whole-body shaping / bending: a Gaussian on segment 1 (`gauss_seg1`) and a linear spring on the tip (`lin_seg3`), goals and strengths tuned live from the GUI. **One config for every case** (`GUI_MultiVMC_Config_bending.py`); a case is just the name you give `--run`. Only each run's settled final pose is analyzed (`plot_full_body_shaping.ipynb`), not a time series. See [Whole-body shaping](#whole-body-shaping-recording-a-case). `old/whole_body_shaping_bad.*` is an earlier discarded run from before this config existed. |
 | `outputs/three_spring_vs_one/` | Comparison: 1 end-effector spring vs. 3 distributed springs for posture |
 
@@ -23,9 +26,9 @@ Experiments involving physical contact and body shaping — multiple virtual ele
 
 | Notebook | Generates |
 |---|---|
-| `plot_three_spring_vs_one.ipynb` | Posture error comparison: 1 vs. 3 springs |
-| `plot_surface_tracking.ipynb` | XY/X-position trajectory comparisons, soft-vs-stiff energy comparison, and per-k Y-position tracking across the `outputs/surface_tracking/` k-sweep |
-| `plot_full_body_shaping.ipynb` | X–Z backbone of **every** run in `outputs/body_shaping/` (the notebook calls it the "side view"; with `GRAVITY_DIR = "-y"` in `_bending` the X–Z plane is the plan view from above): `all_backbones.{pdf,svg}` with all runs overlaid, plus one `<run>_backbone.{pdf,svg}` per run, all on the same axes. Drawn from the motor encoders (FK on `q_motor`), not the virtual model's internal reference; each run's K and A are read from the run itself |
+| `plot_three_spring_vs_one.ipynb` | `filtered.{pdf,svg}`: backbone posture (X–Z) 5 s before and after the two body springs are switched on next to the tip spring |
+| `plot_surface_tracking.ipynb` | `energy_comparison` (actuator work, K = 8 vs. 70 N/m, from the run logs), and `tracking_x`, `tracking_y` and `k_compare_xy` (tip position from video tracking, `k_compare.xlsx`) in `outputs/surface_tracking/` |
+| `plot_full_body_shaping.ipynb` | X–Z backbone of **every** run in `outputs/body_shaping/` (with `GRAVITY_DIR = "-y"` in `_bending`, the X–Z plane is the plan view from above): `all_backbones.{pdf,svg}` with all runs overlaid, plus one `<run>_backbone.{pdf,svg}` per run, all on the same axes. Drawn from the motor encoders (FK on `q_motor`), not the virtual model's internal reference; each run's K and A are read from the run itself |
 
 ## Whole-body shaping: recording a case
 
@@ -35,22 +38,21 @@ name after `--run`.
 **Terminal 1** — the arm (blocks; leave it running):
 
 ```bash
-cd ~/github/SoftVMC
-bash start_arm.sh
+bash start_arm.sh        # from the repository root
 ```
 
 **Terminal 2** — the torque node; `<name>` is the case, and is also the name
 of the saved file (`outputs/body_shaping/<name>.npz`):
 
 ```bash
-cd ~/github/SoftVMC/ContactAndShaping
+cd ContactAndShaping
 python3 ../VMC/GUI_MultiVMC_Torque.py --config _bending --run <name>
 ```
 
 **Terminal 3** — the GUI, once Terminal 2 is up:
 
 ```bash
-cd ~/github/SoftVMC/ContactAndShaping
+cd ContactAndShaping
 python3 ../VMC/GUI_MultiVMC.py --config _bending
 ```
 
@@ -71,7 +73,7 @@ To finish: press **Ctrl+C once** in Terminal 2 and wait for it to write
 the file exists:
 
 ```bash
-ls ~/github/SoftVMC/ContactAndShaping/outputs/body_shaping/
+ls outputs/body_shaping/
 ```
 
 To plot: open `plot_full_body_shaping.ipynb` and run all cells. It finds every
@@ -93,8 +95,8 @@ Read from each run's last 3 s (goals, `k_params`), which is what the notebook
 uses; `bending_1..6` all have a photo, `media/full_body_shaping/bending_<n>.jpg`.
 `bending_1` and `_2` left the tip goal fully extended (Z = 43.5 cm); `_3` and
 `_4` put it at Z = 0, and `_5` and `_6` aim it almost straight ahead (x ≈ 3–5 cm). **A is a stiffness in
-N/m**, not a force (see [the Gaussian's force law](../GaussianElement/README.md));
-older notebook legends print it as "N". Use the same name for a case's data
+N/m**, not a force (see [the Gaussian's force law](../GaussianElement/README.md)).
+Use the same name for a case's data
 (`outputs/body_shaping/<name>.npz`), its photo
 (`media/full_body_shaping/<name>.jpg`) and its plots (`<name>_backbone.*`).
 
@@ -105,8 +107,8 @@ Watch out for:
   every case is a new name), so nothing protects an existing file — `ls` first.
 - **Forgetting `--run`** sends the run to `experiments/z_<stamp>/` instead, and
   the notebook will not see it.
-- The arm is mounted on its side, so this config sets `GRAVITY_DIR = "-y"`
-  itself; no `--gravity-dir` flag is needed.
+- This config sets `GRAVITY_DIR = "-y"` itself (the arm mounted on its side), so
+  no `--gravity-dir` flag is needed.
 
 ## Run names
 
@@ -135,17 +137,15 @@ safe. `_bending` ships `COLLECTED_DATA = False`, see above. Names starting `old_
 
 ## Gravity direction
 
-`_surface` and `_three_springs` don't set `GRAVITY_DIR`, so the torque node
-compensates for an **upright** arm (`-z`) — which is how those runs were
-recorded. The arm is currently mounted **on its side** for `ButtonPressing/`.
-To reproduce that data, remount it upright; if you run it on the side anyway,
-pass `--gravity-dir -y` or the compensation pushes along an axis gravity no
-longer acts on, and expect the numbers to differ from the recorded runs
-either way, since the arm's own weight loads it differently.
+`_surface` and `_three_springs` were recorded with the arm **upright**. They
+don't set `GRAVITY_DIR`, so the torque node compensates for an upright arm
+(`-z`). To reproduce that data, mount the arm upright. On an arm mounted on
+its side, pass `--gravity-dir -y`. Otherwise the compensation pushes along an
+axis gravity no longer acts on. Expect the numbers to differ from the recorded
+runs either way, since the arm's own weight loads it differently.
 
-`_bending` is the exception: it sets `GRAVITY_DIR = "-y"` directly,
-since it was written for the arm's current side-mounted state — no
-`--gravity-dir` flag needed for it.
+`_bending` is the exception: it was recorded with the arm on its side and sets
+`GRAVITY_DIR = "-y"` directly, so no `--gravity-dir` flag is needed.
 
 ## Running the other experiments
 
@@ -156,7 +156,6 @@ rather than copying it into place. Body shaping (`_bending`) is in
 [its own section](#whole-body-shaping-recording-a-case); the other two:
 
 ```bash
-conda activate finger
 cd ContactAndShaping
 
 # Surface tracking -- every command names the same variant:

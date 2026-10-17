@@ -1,12 +1,14 @@
-# LinearSpring Experiments
+# LinearSpring — Stiffness rendering and disturbance rejection
 
-Experiments with linear spring and linear damper virtual elements.
+A single linear spring (with a linear damper) on the arm's tip. Its stiffness
+`K` sets the compliance the environment feels at the tip, which is
+characterized here with a load cell and with an impulse disturbance.
 
 ## Experiments
 
 | Subfolder | Description |
 |---|---|
-| `outputs/k_saturation/` | Sweep spring stiffness k; records position and torque saturation |
+| `outputs/k_saturation/` | Stiffness sweep: for each k the tip's reference steps out along x while a load cell measures the shear force on a tendon tied to the tip (`LoadCell/arduino_force.py`) |
 | `outputs/disturbance_rejection/` | Impulse disturbance applied to the end-effector for each k; the notebook reports each response's peak displacement and its time (settling time and ringing are not computed) |
 
 `outputs/k_saturation/` was built up across several runs of `VMC_test_k.py`
@@ -39,7 +41,7 @@ logged values (3.33, 76.67).
 
 | Notebook | Generates |
 |---|---|
-| `plot_k_saturation.ipynb` | `force_vs_pos_by_k`, `stiffness_vs_pos_by_k` and the two stacked as `force_and_stiffness_by_k` (each `.pdf` + `.svg`) in `outputs/k_saturation/`; a colorbar-by-k sequential palette |
+| `plot_k_saturation.ipynb` | `force_vs_pos_by_k` (shear force), `stiffness_vs_pos_by_k` (apparent stiffness) and the two stacked as `force_and_stiffness_by_k` (each `.pdf` + `.svg`) in `outputs/k_saturation/`, all against reference position and coloured by k |
 | `plot_disturbance.ipynb` | `disturbance_response_by_k.{pdf,svg}` in `outputs/disturbance_rejection/` — position response to the disturbance for a subset of k (10 of 30 in the current figure) |
 
 ## Run names
@@ -64,12 +66,11 @@ are discarded runs.
 
 ## Gravity direction
 
-This folder's config does not set `GRAVITY_DIR`, so the torque node compensates
-for an **upright** arm (`-z`) — which is how these runs were recorded. The arm
-is currently mounted **on its side** for `ButtonPressing/`. To reproduce this
-folder's data, remount it upright. If you run it on the side anyway, pass
-`--gravity-dir -y` or the compensation pushes along an axis gravity no longer
-acts on — and expect the numbers to differ from the recorded runs either way,
+These runs were recorded with the arm **upright**. The config does not set
+`GRAVITY_DIR`, so the torque node compensates for an upright arm (`-z`). To
+reproduce the data, mount the arm upright. On an arm mounted on its side, pass
+`--gravity-dir -y`. Otherwise the compensation pushes along an axis gravity no
+longer acts on. Expect the numbers to differ from the recorded runs either way,
 since the arm's own weight loads it differently.
 
 ## Running
@@ -80,7 +81,6 @@ used as-is. For the disturbance experiment pass `--config _disturbance` (nothing
 is copied); name the same variant in every command of a run:
 
 ```bash
-conda activate finger
 cd LinearSpring
 
 # k-saturation sweep (uses GUI_MultiVMC_Config.py directly):
