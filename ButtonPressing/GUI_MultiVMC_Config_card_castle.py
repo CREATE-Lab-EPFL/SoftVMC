@@ -110,7 +110,7 @@ DEMO_WINDOW_S = 10.0   # [s] the measurement window, after the mark
 OUTPUT_FOLDER  = "card_castle"       # --run NAME lands in outputs/<folder>/NAME.*
 SAVE_PLOT      = True
 SAVE_DATA      = True
-COLLECTED_DATA = False   # True = never save, the recorded runs are final
+COLLECTED_DATA = True    # True = never save, the recorded runs are final
 AUTOSAVE_S     = 30.0    # [s] checkpoint to <run>.autosave.npz; 0 disables
 
 # One mark, put in by castle_demo.py when the tip has arrived and settled -- the

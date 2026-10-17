@@ -11,10 +11,10 @@ the arm reaches; recorded at three linear-spring stiffnesses for comparison.
 2. The same with k = 4 → `k4_moving_gauss`.
 3. The same with k = 20 → `k20_moving_gauss`.
 
-`plot_gauss_moving_gauss.ipynb` turns the three recordings into plots. Note that
-`_moving` ships `COLLECTED_DATA = False`, so re-using one of those names
-overwrites the recording, and that the logged tip stiffness is 1.67 / 4.0 /
-16.67 N/m for the three names (see the folder's README).
+`plot_gauss_moving_gauss.ipynb` turns the three recordings into plots. `_moving`
+ships `COLLECTED_DATA = True`, so to record again set it `False` first. Re-using
+one of those names then overwrites the recording. The logged tip stiffness is
+1.67 / 4.0 / 16.67 N/m for the three names (see the folder's README).
 
 A Gaussian spring's force peaks when its attachment point is exactly `sigma`
 from the centre, so it starts at strength 0 in the config — raising it before

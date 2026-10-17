@@ -65,12 +65,10 @@ python3 ../VMC/GUI_MultiVMC_Torque.py --config _moving --run <name>
 ```
 
 That writes `outputs/<folder>/<name>.{npz,png}` on Ctrl+C, overwriting the run
-of that name — the folder comes from `OUTPUT_FOLDER` in the config. **The two
-configs differ:** `_fixed` ships `COLLECTED_DATA = True`, so nothing is written at
-all until you set it `False`; `_moving` ships `COLLECTED_DATA = False`, so it
-**does** write, and re-using `k2_moving_gauss`, `k4_moving_gauss` or
-`k20_moving_gauss` overwrites a recorded run — `ls outputs/moving_gauss/` first.
-Names starting `old_` are discarded runs.
+of that name — the folder comes from `OUTPUT_FOLDER` in the config. Both
+configs ship `COLLECTED_DATA = True`, so nothing is written at all until you set
+it `False`; that flag is what keeps the recorded data safe. Names starting
+`old_` are discarded runs.
 
 ## Gravity direction
 

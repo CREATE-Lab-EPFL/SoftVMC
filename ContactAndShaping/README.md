@@ -33,7 +33,8 @@ springs compared with a single tip spring.
 ## Whole-body shaping: recording a case
 
 One config (`_bending`), so the only thing that changes between cases is the
-name after `--run`.
+name after `--run`. The config ships `COLLECTED_DATA = True`, which protects the
+recorded `bending_1`–`bending_6`. Set it `False` before recording a new case.
 
 **Terminal 1** — the arm (blocks; leave it running):
 
@@ -102,9 +103,8 @@ Use the same name for a case's data
 
 Watch out for:
 
-- **Re-using a name overwrites that run.** This config ships
-  `COLLECTED_DATA = False` on purpose (it is what lets a run save at all, and
-  every case is a new name), so nothing protects an existing file — `ls` first.
+- **Re-using a name overwrites that run** once `COLLECTED_DATA` is `False`, so
+  run `ls` first.
 - **Forgetting `--run`** sends the run to `experiments/z_<stamp>/` instead, and
   the notebook will not see it.
 - This config sets `GRAVITY_DIR = "-y"` itself (the arm mounted on its side), so
@@ -130,10 +130,10 @@ python3 ../VMC/GUI_MultiVMC_Torque.py --config <variant> --run <name>
 ```
 
 That writes `outputs/<folder>/<name>.{npz,png}` on Ctrl+C, overwriting the run
-of that name — the folder comes from `OUTPUT_FOLDER` in the config. `_surface`
-and `_three_springs` ship `COLLECTED_DATA = True`, so nothing is written at
-all until you set it `False`; that flag is what keeps their recorded data
-safe. `_bending` ships `COLLECTED_DATA = False`, see above. Names starting `old_` are discarded runs.
+of that name — the folder comes from `OUTPUT_FOLDER` in the config. All three
+variants ship `COLLECTED_DATA = True`, so nothing is written at all until you
+set it `False`; that flag is what keeps their recorded data safe. Names starting
+`old_` are discarded runs.
 
 ## Gravity direction
 

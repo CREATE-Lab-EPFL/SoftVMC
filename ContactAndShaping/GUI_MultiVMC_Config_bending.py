@@ -105,9 +105,7 @@ TAU_LIMIT  = 0.25  # [N·m] per motor
 OUTPUT_FOLDER       = "body_shaping"   # --run NAME lands in outputs/body_shaping/NAME.*
 SAVE_PLOT           = True
 SAVE_DATA           = True  # save raw arrays to .npz alongside the plot
-# False on purpose: every case is a new name you choose, so there is no fixed
-# recorded set to protect. The price: re-using a --run name OVERWRITES that run.
-COLLECTED_DATA      = False
+COLLECTED_DATA      = True  # real data already collected -- reruns will NOT overwrite it (see GUI_MultiVMC_Torque.py)
 PLOT_Z              = True   # include z-axis subplot in saved plot
 PLOT_FORCE          = False  # include /force_shear subplot in saved plot
 PLOT_VIRTUAL_FORCES = True  # if True, Cell 4 in the GUI shows virtual forces instead of motor torques

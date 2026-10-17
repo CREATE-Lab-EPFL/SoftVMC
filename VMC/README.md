@@ -42,12 +42,11 @@ run:
 
 ## Recorded data and gravity
 
-- **`COLLECTED_DATA`**: every experiment config sets it. `True` means that
-  config's data is already recorded, so a rerun (demo, sanity check) never
-  writes anything. It is `True` everywhere except three variants that ship
-  `False`, where re-using a run name overwrites the file (`ls outputs/<folder>/`
-  first): `ButtonPressing/`'s `_card_castle`, `ContactAndShaping/`'s
-  `_bending` (a new name per case) and `GaussianElement/`'s `_moving`.
+- **`COLLECTED_DATA`**: every experiment config ships it as `True`. The data
+  for that config is already recorded, so a rerun (demo, sanity check) never
+  writes anything. To record a new run, set it to `False` in the config.
+  Re-using a run name then overwrites that file, so run `ls outputs/<folder>/`
+  first.
   `ConnectivityTest/` never saves anything.
 - **`GRAVITY_DIR`**: the direction gravity pulls in the robot frame, read from
   each config (`"-z"`, upright, if a config omits it). `ButtonPressing/`,

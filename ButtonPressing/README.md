@@ -18,7 +18,7 @@ Three variants:
 | `TAU_LIMIT` | 0.25 N·m | **0.35 N·m** | **0.35 N·m** |
 | load cell | yes | no | no |
 | files | `outputs/button_pressing/`, 4 × 5 repeats | `outputs/person_avoiding/`, 2 | `outputs/card_castle/`, 2 |
-| status | **recorded, locked** (`COLLECTED_DATA = True`) | **recorded, locked** (`COLLECTED_DATA = True`) | recorded (`COLLECTED_DATA = False`: re-running a case overwrites it) |
+| status | **recorded, locked** (`COLLECTED_DATA = True`) | **recorded, locked** (`COLLECTED_DATA = True`) | **recorded, locked** (`COLLECTED_DATA = True`) |
 | recorded result | clearance **1.7 → 6.1 → 10.5 → 12.1 cm** as strength goes 0 → 200 → 600 → 1000 N/m; reach error 23.1 → 35.8 cm | clearance **8.8 → 13.5 cm** (3-D; 7.3 → 12.3 cm lateral) at 0 → 500 N/m | `no_gauss` goes through the cards; `gauss` **slides round them** and ends 15.0 cm from the centre, beside it and past it |
 
 Numbers are from the run logs, see [Recorded results](#recorded-results).
@@ -84,6 +84,10 @@ motors left holding, driver not restarted, runs already recorded named.
 
 `_card_castle` uses the same two case names (0 and 1500 N/m) but is scripted —
 see [the standoff demo](#_card_castle--the-standoff-demo-no-gui) below.
+
+Already recorded. To record again, first set `COLLECTED_DATA = False` in
+`GUI_MultiVMC_Config_person.py`, which is `True` so the two runs cannot be
+overwritten.
 
 Two runs, nothing in between: the comparison is the point, not a curve. Three
 terminals, **run the whole thing twice**, once per case. The tip is pulled
@@ -331,9 +335,10 @@ in the ratio: 10.1 cm at 500 N/m, 14.0 cm at 1500, 19.0 cm at 12000 — whereas 
 is proportional to `SIGMA` (6.2 / 14.0 / 22.0 cm at σ = 3 / 6 / 9 cm). `SIGMA`
 and `TARGET_XY` are the better handles if 14.0 cm is the wrong distance.
 
-Record `gauss` first, then rebuild the castle for `no_gauss`. This variant ships
-`COLLECTED_DATA = False`, so running a case again **overwrites**
-`outputs/card_castle/<case>.npz` — the current `gauss` run is the one above.
+Already recorded. To record again, first set `COLLECTED_DATA = False` in
+`GUI_MultiVMC_Config_card_castle.py`, which is `True` so the two runs cannot be
+overwritten. Running a case then **overwrites** `outputs/card_castle/<case>.npz`.
+Record `gauss` first, then rebuild the castle for `no_gauss`.
 
 ### Running it
 
