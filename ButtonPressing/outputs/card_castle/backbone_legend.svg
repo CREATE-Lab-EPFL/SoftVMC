@@ -6,7 +6,7 @@
   <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
    <cc:Work>
     <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
-    <dc:date>2026-09-26T16:12:30.337452</dc:date>
+    <dc:date>2026-10-17T13:31:42.930324</dc:date>
     <dc:format>image/svg+xml</dc:format>
     <dc:creator>
      <cc:Agent>
@@ -345,7 +345,7 @@ z
     </g>
     <g id="line2d_3">
      <defs>
-      <path id="m64a06c95a3" d="M 0 -6.5 
+      <path id="m0b67dc44c0" d="M 0 -6.5 
 L -1.459341 -2.00861 
 L -6.181867 -2.00861 
 L -2.361263 0.767221 
@@ -359,7 +359,7 @@ z
 " style="stroke: #000000; stroke-linejoin: bevel"/>
      </defs>
      <g>
-      <use xlink:href="#m64a06c95a3" x="9.66" y="54.845121" style="stroke: #000000; stroke-linejoin: bevel"/>
+      <use xlink:href="#m0b67dc44c0" x="9.66" y="54.845121" style="stroke: #000000; stroke-linejoin: bevel"/>
      </g>
     </g>
     <g id="text_3">
@@ -543,7 +543,7 @@ z
     </g>
     <g id="line2d_4">
      <defs>
-      <path id="m3f8491c3da" d="M -2.25 4.5 
+      <path id="m6213bdb2d1" d="M -2.25 4.5 
 L 0 2.25 
 L 2.25 4.5 
 L 4.5 2.25 
@@ -559,7 +559,7 @@ z
 " style="stroke: #000000; stroke-linejoin: miter"/>
      </defs>
      <g>
-      <use xlink:href="#m3f8491c3da" x="9.66" y="78.000182" style="stroke: #000000; stroke-linejoin: miter"/>
+      <use xlink:href="#m6213bdb2d1" x="9.66" y="78.000182" style="stroke: #000000; stroke-linejoin: miter"/>
      </g>
     </g>
     <g id="text_4">
