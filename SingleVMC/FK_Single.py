@@ -72,9 +72,9 @@ def FK_pcc2pose(pcc, s_param):
 
     # PCC tip translation
     t = np.array([
-        [(s_param*d*(L0+Dl)/D**2)*Dx*(1-np.cos(theta_s))],
-        [(s_param*d*(L0+Dl)/D**2)*Dy*(1-np.cos(theta_s))],
-        [(s_param*d*(L0+Dl)/D**2)*D*np.sin(theta_s)]
+        [(d*(L0+Dl)/D**2)*Dx*(1-np.cos(theta_s))],
+        [(d*(L0+Dl)/D**2)*Dy*(1-np.cos(theta_s))],
+        [(d*(L0+Dl)/D**2)*D*np.sin(theta_s)]
     ])
 
     # ZYX Euler angles from R

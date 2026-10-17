@@ -15,9 +15,9 @@ def t_vector(Dx, Dy, D, Dl, L0, s_param=1.0):
     d = SECTION_RADIUS
     theta_s = s_param*(D/d)
     return np.array([
-        [(s_param*d*(L0+Dl)/D**2)*Dx*(1-np.cos(theta_s))],
-        [(s_param*d*(L0+Dl)/D**2)*Dy*(1-np.cos(theta_s))],
-        [(s_param*d*(L0+Dl)/D**2)*D*np.sin(theta_s)]
+        [(d*(L0+Dl)/D**2)*Dx*(1-np.cos(theta_s))],
+        [(d*(L0+Dl)/D**2)*Dy*(1-np.cos(theta_s))],
+        [(d*(L0+Dl)/D**2)*D*np.sin(theta_s)]
     ])
 
 # def FK_tendon2q(DELTAL, delta=np.array([0, 2*np.pi/3, -2*np.pi/3])):

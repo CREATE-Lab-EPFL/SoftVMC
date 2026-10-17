@@ -36,9 +36,9 @@ def t_vector(Dx, Dy, D, Dl, L0, s_param=1.0):
     d = SECTION_RADIUS
     theta_s = s_param*(D/d)
     return Matrix([
-        [(s_param*d*(L0+Dl)/D**2)*Dx*(1-cos(theta_s))],
-        [(s_param*d*(L0+Dl)/D**2)*Dy*(1-cos(theta_s))],
-        [(s_param*d*(L0+Dl)/D**2)*D*sin(theta_s)]
+        [(d*(L0+Dl)/D**2)*Dx*(1-cos(theta_s))],
+        [(d*(L0+Dl)/D**2)*Dy*(1-cos(theta_s))],
+        [(d*(L0+Dl)/D**2)*D*sin(theta_s)]
     ])
 
 # def q2tendon(delta=None):

@@ -131,9 +131,9 @@ def pcc2pose(s_param):
 
     # PCC tip translation
     t = Matrix([
-        [(s_param*d*(L0+Dl)/D**2)*Dx*(1-cos(theta_s))],
-        [(s_param*d*(L0+Dl)/D**2)*Dy*(1-cos(theta_s))],
-        [(s_param*d*(L0+Dl)/D**2)*D*sin(theta_s)]
+        [(d*(L0+Dl)/D**2)*Dx*(1-cos(theta_s))],
+        [(d*(L0+Dl)/D**2)*Dy*(1-cos(theta_s))],
+        [(d*(L0+Dl)/D**2)*D*sin(theta_s)]
     ])
 
     # ZYX Euler angles from R
@@ -172,9 +172,9 @@ def q_motor2pose(s_param):
 
     # PCC tip translation
     t = Matrix([
-        [(s_param*d*(L0+Dl)/D**2)*Dx*(1-cos(theta_s))],
-        [(s_param*d*(L0+Dl)/D**2)*Dy*(1-cos(theta_s))],
-        [(s_param*d*(L0+Dl)/D**2)*D*sin(theta_s)]
+        [(d*(L0+Dl)/D**2)*Dx*(1-cos(theta_s))],
+        [(d*(L0+Dl)/D**2)*Dy*(1-cos(theta_s))],
+        [(d*(L0+Dl)/D**2)*D*sin(theta_s)]
     ])
 
     yaw   = atan2(R[1,0], R[0,0] + 1e-12)

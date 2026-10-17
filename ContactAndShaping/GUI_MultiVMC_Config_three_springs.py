@@ -49,7 +49,7 @@ COMPONENT_SPECS = [
         component=VirtualComponent(
             spring=LinearSpring(30.0),
             damper=LinearDamper(1.5),
-            s_param=1.0/2.0,
+            s_param=5.0/12.0,   # = 0.5 under the old t_vector: where the recorded runs pulled
             name="lin_seg_middle",
         ),
         goal=gauss_y,# GUI OVERRIDES THIS GOAL --- IGNORE ---
